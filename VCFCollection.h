@@ -21,7 +21,7 @@ public:
 	bool empty() const { return vcfs.empty(); }
 	std::size_t max_index() const;
 	
-	void impute(int min_positions, double MIN_CROSSOVER);
+	void impute(int min_positions, double MIN_CROSSOVER, int T);
 	void determine_haplotype();
 	VCFFamily *join() const;
 	
@@ -35,9 +35,10 @@ private:
 	
 public:
 	static VCFFamily *impute_one_parent(VCFHeteroHomo *vcf, const Map& gmap,
-												bool is_mat, int MIN_CROSSOVER);
+										bool is_mat, int MIN_CROSSOVER, int T);
 	static VCFFamily *impute_family_vcf(VCFHeteroHomo *mat_vcf,
 										VCFHeteroHomo *pat_vcf,
-										const Map& gmap, int MIN_CROSSOVER);
+										const Map& gmap,
+										int MIN_CROSSOVER, int T);
 };
 #endif

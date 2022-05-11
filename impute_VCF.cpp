@@ -1,21 +1,69 @@
 #include <iostream>
 #include <cassert>
+#include "impute_VCF.h"
 #include "VCFOriginal.h"
 #include "VCFHeteroHomo.h"
 #include "VCFCollection.h"
 #include "VCFFillable.h"
-#include "Pedigree.h"
-#include "Map.h"
 #include "BiasProbability.h"
 #include "option.h"
 #include "common.h"
 
 using namespace std;
 
+
+//////////////////// Materials ////////////////////
+
+Materials::~Materials() {
+	delete pedigree;
+	delete geno_map;
+}
+
+void Materials::select_families(set<pair<string,string>>& set_families) {
+	vector<pair<string,string>>	old_families = families;
+	families.clear();
+	for(auto p = old_families.begin(); p != old_families.end(); ++p) {
+		if(set_families.find(*p) != set_families.end())
+			families.push_back(*p);
+	}
+}
+
+Materials *Materials::create(const Option *option) {
+	auto	*vcf = VCFOriginal::read(option->path_vcf);
+	const auto	*pedigree = PedigreeTable::create(option->path_ped, vcf);
+	const auto	*geno_map = Map::read(option->path_map);
+	auto	families = pedigree->extract_families();
+	if(option->debug)
+		families.resize(3U);
+	delete vcf;
+	return new Materials(pedigree, geno_map, families);
+}
+
+
+//////////////////// process ////////////////////
+
+
 BiasProbability	*bias_probability = BiasProbability::getInstance(0.01);
 
-VCFFamily *impute_each(pair<string,string> parents, const Map& gmap,
-			const map<pair<pair<string,string>,bool>,VCFHeteroHomo *>& vcfs) {
+void select_families(Materials *materials, const HeteroParentVCFs& vcfs) {
+	set<Parents>	set_families;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
+		set_families.insert(p->first.first);
+	
+	materials->select_families(set_families);
+}
+
+HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option) {
+	auto	*vcf = VCFOriginal::read(option->path_vcf);
+	const auto	vcfs = VCFHeteroHomo::create_vcfs(vcf, mat->get_families(),
+												mat->get_ped(), mat->get_map(),
+												option->debug);
+	delete vcf;
+	return vcfs;
+}
+
+VCFFamily *impute_each(const Parents& parents, const Map& gmap,
+										const HeteroParentVCFs& vcfs, int T) {
 cout << parents.first << " " << parents.second << endl;
 	const int	MIN_CROSSOVER = 1;
 	auto	iter_mat_vcf = vcfs.find(make_pair(parents, true));
@@ -23,7 +71,18 @@ cout << parents.first << " " << parents.second << endl;
 	assert(iter_mat_vcf != vcfs.end() && iter_pat_vcf != vcfs.end());
 	return VCFCollection::impute_family_vcf(iter_mat_vcf->second,
 											iter_pat_vcf->second,
-											gmap, MIN_CROSSOVER);
+											gmap, MIN_CROSSOVER, T);
+}
+
+vector<VCFFamily *> impute(const HeteroParentVCFs& vcfs,
+									Materials *mat, const Option *option) {
+	// あとでマルチスレッド化したい
+	vector<VCFFamily *>	imputed_family_vcfs;
+	const auto	families = mat->get_families();
+	for(auto p = families.begin(); p != families.end(); ++p)
+		imputed_family_vcfs.push_back(
+			impute_each(*p, mat->get_map(), vcfs, option->num_threads));
+	return imputed_family_vcfs;
 }
 
 int main(int argc, char **argv) {
@@ -33,39 +92,22 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 	
-	auto	*vcf = VCFOriginal::read(option->path_vcf);
-	const auto	*pedigree = PedigreeTable::create(option->path_ped, vcf);
-	auto	families = pedigree->extract_families();
-	if(option->debug)
-		families.resize(3U);
-	const auto	*geno_map = Map::read(option->path_map);
-	const auto	vcfs = VCFHeteroHomo::create_vcfs(vcf, families,
-										*pedigree, *geno_map, option->debug);
-	delete vcf;
+	Materials	*materials = Materials::create(option);
+	const auto	vcfs = extract_VCFs(materials, option);
+	select_families(materials, vcfs);
 	
-	const auto	old_families = families;
-	families.clear();
-	for(auto p = old_families.begin(); p != old_families.end(); ++p) {
-		if(vcfs.find(pair<pair<string,string>,bool>(*p, true)) != vcfs.end())
-			families.push_back(*p);
-	}
+	auto	imputed_family_vcfs = impute(vcfs, materials, option);
 	
-	// あとでマルチスレッド化したい
-	vector<VCFFamily *>	imputed_family_vcfs;
-	for(auto p = families.begin(); p != families.end(); ++p)
-		imputed_family_vcfs.push_back(impute_each(*p, *geno_map, vcfs));
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
 		delete p->second;
 	
-	const auto	joined_vcf = VCFFillable::join_vcfs(imputed_family_vcfs,
+	const auto	*joined_vcf = VCFFillable::join_vcfs(imputed_family_vcfs,
 															option->path_vcf);
 	Common::delete_all(imputed_family_vcfs);
 	ofstream	ofs(option->path_out);
 	joined_vcf->write(ofs);
 	delete joined_vcf;
 	
-	
-	delete geno_map;
-	delete pedigree;
+	delete materials;
 	delete option;
 }

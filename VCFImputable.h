@@ -64,6 +64,19 @@ class VCFImputable : public VCFHeteroHomo {
 	typedef std::map<std::pair<char,char>,double>	Matrix;
 	typedef std::vector<std::map<char,double>>	Table;
 	
+	struct ConfigThread {
+		const VCFImputable	*vcf;
+		const std::vector<Matrix>&	Ts;
+		const std::size_t	first;
+		const double	MIN;
+		const int	num_thread;
+		std::vector<std::string>& hs;
+		
+		ConfigThread(const VCFImputable* v, const std::vector<Matrix>& mat,
+						int f, double m, int n, std::vector<std::string>& h) :
+					vcf(v), Ts(mat), first(f), MIN(m), num_thread(n), hs(h) { }
+	};
+	
 	std::vector<VCFImputableRecord *>	records;
 	const bool	mat_hetero;
 	
@@ -78,7 +91,7 @@ public:
 //	int haplo(int i, std::size_t j) { return VCFFamily::records[j]->haplo[i]; }
 	
 	void set_group_id(int id);
-	void impute(double MIN_CROSSOVER);
+	void impute(double MIN_CROSSOVER, int T);
 	void update_genotypes();
 	void inverse_haplotype();
 	VCFCollection *divide(const OptionImpute *option, bool is_mat) const;
@@ -116,6 +129,7 @@ public:
 	static bool determine_which_parents_is_hetero(VCFFamily *vcf);
 	static std::vector<std::vector<int>> make_parent_haplotypes(std::size_t L,
 												const Graph::InvGraph& graph);
+	static void impute_by_thread(void *config);
 };
 
 #endif

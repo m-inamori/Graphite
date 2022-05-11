@@ -30,10 +30,10 @@ size_t VCFCollection::max_index() const {
 	return index;
 }
 
-void VCFCollection::impute(int min_positions, double MIN_CROSSOVER) {
+void VCFCollection::impute(int min_positions, double MIN_CROSSOVER, int T) {
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		if((int)(*p)->size() >= min_positions)
-			(*p)->impute(MIN_CROSSOVER);
+			(*p)->impute(MIN_CROSSOVER, T);
 	}
 }
 
@@ -164,7 +164,7 @@ VCFFamily *VCFCollection::join() const {
 }
 
 VCFFamily *VCFCollection::impute_one_parent(VCFHeteroHomo *vcf, const Map& gmap,
-											bool is_mat, int MIN_CROSSOVER) {
+										bool is_mat, int MIN_CROSSOVER, int T) {
 	OptionImpute	op(4, 20, 5);
 	vector<VCFFamily *>	vcfs;
 	vector<VCFHeteroHomo *>	chr_vcfs = vcf->divide_into_chromosomes();
@@ -173,7 +173,7 @@ VCFFamily *VCFCollection::impute_one_parent(VCFHeteroHomo *vcf, const Map& gmap,
 		auto	*collection = VCFImputable::determine_haplotype(subvcf1,
 																&op, is_mat);
 		delete subvcf1;
-		collection->impute(op.min_positions, MIN_CROSSOVER);
+		collection->impute(op.min_positions, MIN_CROSSOVER, T);
 		if(collection->empty())
 			continue;
 		auto	*subvcf2 = collection->join();
@@ -190,10 +190,10 @@ VCFFamily *VCFCollection::impute_one_parent(VCFHeteroHomo *vcf, const Map& gmap,
 VCFFamily *VCFCollection::impute_family_vcf(VCFHeteroHomo *mat_vcf,
 											VCFHeteroHomo *pat_vcf,
 											const Map& gmap,
-											int MIN_CROSSOVER) {
+											int MIN_CROSSOVER, int T) {
 	VCFFamily	*impute_mat_vcf = impute_one_parent(mat_vcf, gmap,
-														true, MIN_CROSSOVER);
+													true, MIN_CROSSOVER, T);
 	VCFFamily	*impute_pat_vcf = impute_one_parent(pat_vcf, gmap,
-														false, MIN_CROSSOVER);
+													false, MIN_CROSSOVER, T);
 	return VCFFamily::merge(impute_mat_vcf, impute_pat_vcf);
 }

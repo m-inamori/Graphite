@@ -2,6 +2,7 @@
 #include <set>
 #include <algorithm>
 #include <cassert>
+#include <pthread.h>
 #include "VCFImputable.h"
 #include "Map.h"
 #include "VCFCollection.h"
@@ -275,14 +276,30 @@ string VCFImputable::make_seq(size_t i) const {
 	return seq;
 }
 
-void VCFImputable::impute(double MIN_CROSSOVER) {
-	vector<string>	hidden_seqs;
+void VCFImputable::impute(double MIN_CROSSOVER, int T) {
+	vector<string>	hidden_seqs(samples.size() - 2);
 	const auto	Ts = create_transition_probability_matrix();
-	for(size_t i = 0U; i < VCFFamily::samples.size() - 2; ++i) {
-		const string	seq = make_seq(i);
-		const string	hidden_seq = impute_each_seq(seq, Ts, MIN_CROSSOVER);
-		hidden_seqs.push_back(hidden_seq);
-	}
+	
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(this, Ts, i,
+										MIN_CROSSOVER, T, hidden_seqs);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&impute_by_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		thread_function(configs[i]);
+#endif
+	
+	for(int i = 0; i < T; ++i)
+		delete configs[i];
 	
 	for(size_t i = 0U; i < records.size(); ++i) {
 		auto	*record = records[i];
@@ -524,3 +541,13 @@ vector<vector<int>> VCFImputable::make_parent_haplotypes(size_t L,
 	return haplo2;
 }
 
+void VCFImputable::impute_by_thread(void *config) {
+	const auto	*c = (ConfigThread *)config;
+	auto	vcf = c->vcf;
+	const size_t	num = vcf->get_samples().size() - 2;
+	for(size_t i = c->first; i < num; i += c->num_thread) {
+		const string	seq = vcf->make_seq(i);
+		const string	hidden_seq = vcf->impute_each_seq(seq, c->Ts, c->MIN);
+		c->hs[i] = hidden_seq;
+	}
+}
