@@ -42,6 +42,21 @@ public:
 typedef std::pair<std::string,std::string>	Parents;
 typedef std::map<std::pair<Parents,bool>, VCFHeteroHomo *>	HeteroParentVCFs;
 
+struct ConfigThread {
+	const std::vector<Parents>&	families;
+	const HeteroParentVCFs&	vcfs;
+	const Map&	gmap;
+	const std::size_t	first;
+	const int	num_threads;
+	std::vector<VCFFamily *>& imputed_vcfs;
+	
+	ConfigThread(const std::vector<Parents>& fams,
+					const HeteroParentVCFs& v, const Map& m,
+					int f, int n, std::vector<VCFFamily *>& results) :
+								families(fams), vcfs(v), gmap(m), first(f),
+								num_threads(n), imputed_vcfs(results) { }
+};
+
 void select_families(Materials *materials, const HeteroParentVCFs& vcfs);
 HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option);
 VCFFamily *impute_each(const Parents& parents, const Map& gmap,

@@ -74,14 +74,42 @@ cout << parents.first << " " << parents.second << endl;
 											gmap, MIN_CROSSOVER, T);
 }
 
+void impute_by_thread(void *config) {
+	const auto	*c = (ConfigThread *)config;
+	auto&	families = c->families;
+	const size_t	num = families.size();
+	for(size_t i = c->first; i < num; i += c->num_threads) {
+		auto	*vcf = impute_each(families[i], c->gmap,
+										c->vcfs, c->num_threads);
+		c->imputed_vcfs[i] = vcf;
+	}
+}
+
 vector<VCFFamily *> impute(const HeteroParentVCFs& vcfs,
 									Materials *mat, const Option *option) {
-	// あとでマルチスレッド化したい
-	vector<VCFFamily *>	imputed_family_vcfs;
 	const auto	families = mat->get_families();
-	for(auto p = families.begin(); p != families.end(); ++p)
-		imputed_family_vcfs.push_back(
-			impute_each(*p, mat->get_map(), vcfs, option->num_threads));
+	vector<VCFFamily *>	imputed_family_vcfs(families.size());
+	
+	const int	T = option->num_threads;
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(families, vcfs, mat->get_map(), i, T,
+														imputed_family_vcfs);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&impute_by_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		thread_function(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
 	return imputed_family_vcfs;
 }
 

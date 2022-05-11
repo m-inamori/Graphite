@@ -285,7 +285,7 @@ void VCFImputable::impute(double MIN_CROSSOVER, int T) {
 		configs[i] = new ConfigThread(this, Ts, i,
 										MIN_CROSSOVER, T, hidden_seqs);
 	
-#ifndef DEBUG
+#if 0
 	vector<pthread_t>	threads_t(T);
 	for(int i = 0; i < T; ++i)
 		pthread_create(&threads_t[i], NULL,
@@ -295,7 +295,7 @@ void VCFImputable::impute(double MIN_CROSSOVER, int T) {
 		pthread_join(threads_t[i], NULL);
 #else
 	for(int i = 0; i < T; ++i)
-		thread_function(configs[i]);
+		impute_by_thread(configs[i]);
 #endif
 	
 	for(int i = 0; i < T; ++i)
