@@ -17,12 +17,14 @@ VCFHeteroHomoRecord *VCFHeteroHomoRecord::copy() const {
 	return new VCFHeteroHomoRecord(this->v, this->samples);
 }
 
+/*
 vector<int> VCFHeteroHomoRecord::get_int_gts() const {
 	vector<int>	gts(samples.size());
 	for(size_t i = 0U; i < samples.size(); ++i)
 		gts[i] = get_int_gt(i);
 	return gts;
 }
+*/
 
 vector<vector<double>> VCFHeteroHomoRecord::make_probability_table() const {
 	vector<vector<double>>	pss_(3, vector<double>(3));
@@ -211,6 +213,9 @@ vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes() const {
 		rs.push_back((*p)->copy());
 	}
 	vcfs.push_back(new VCFHeteroHomo(header, samples, rs, **iter_map));
+	// 使わないMapを消す
+	for(++iter_map; iter_map != chr_maps.end(); ++iter_map)
+		delete *iter_map;
 	return vcfs;
 }
 
@@ -238,8 +243,10 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 		// 短縮のため、1染色体のみにする
 		if(debug) {
 			const auto	pos = orig_vcf->record_position(*record);
-			if(pos.first == 2)
+			if(pos.first == 2) {
+				delete record;
 				break;
+			}
 		}
 		for(auto p = family_columns.begin(); p != family_columns.end(); ++p) {
 			const auto	columns = *p;
@@ -258,13 +265,16 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 			
 			Parents	parents(samples[0], samples[1]);
 			auto	*new_record = new VCFHeteroHomoRecord(v, samples);
-			if(new_record->is_hetero_and_homo(true)) {		// mat is hetero
+			if(new_record->is_hetero_and_homo(true)) {			// mat is hetero
 				const auto	key = pair<Parents,bool>(parents, true);
 				selected_records[key].push_back(new_record);
 			}
-			if(new_record->is_hetero_and_homo(false)) {		// pat is hetero
+			else if(new_record->is_hetero_and_homo(false)) {	// pat is hetero
 				const auto	key = pair<Parents,bool>(parents, false);
 				selected_records[key].push_back(new_record);
+			}
+			else {
+				delete new_record;
 			}
 		}
 		delete record;

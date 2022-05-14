@@ -818,7 +818,8 @@ void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
 	for(size_t i = 0U; i < vcf->size(); ++i) {
 		const POSITION	pos = vcf->record_position(*(vcf->get_record(i)));
 		if(pos > orig_pos) {
-			// orig_posは最初は(0, 0)なので、orig_recordが不定なことはない
+			if(orig_record != NULL)
+				delete orig_record;
 			orig_record = orig_vcf->proceed(pos);
 			orig_pos = pos;
 		}
@@ -830,6 +831,8 @@ void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
 			}
 		}
 	}
+	if(orig_record != NULL)
+		delete orig_record;
 }
 
 vector<VCFFillable::PosWithChr> VCFFillable::merge_positions(
@@ -918,8 +921,43 @@ VCFSmall *VCFFillable::merge_vcfs(const vector<VCFFillable *>& vcfs) {
 	return new VCFSmall(header, samples, new_records);
 }
 
+void VCFFillable::impute_in_thread(void *config) {
+	const auto	*c = (ConfigThread *)config;
+	const auto&	vcfs = c->vcfs;
+	for(size_t i = c->first; i < vcfs.size(); i += c->num_thread) {
+cout << vcfs[i]->get_samples().front() << endl;
+		vcfs[i]->impute();
+	}
+}
+
+void VCFFillable::impute_all_in_multithreads(
+							const vector<VCFFillable *>& vcfs, int T) {
+	vector<ConfigThread *>	configs(T);
+cout << T << endl;
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(vcfs, i, T);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i) {
+cout << i << endl;
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
+	}
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_by_thread(configs[i]);
+#endif
+	
+	for(int i = 0; i < T; ++i)
+		delete configs[i];
+}
+
 VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
-											const string& path_VCF) {
+											const string& path_VCF, int T) {
 	vector<VCFFillable *>	vcfs;
 	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
 		vcfs.push_back(VCFFillable::convert(*p));
@@ -935,9 +973,17 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	
 	VCFHuge	*orig_vcf = VCFHuge::read(path_VCF);
 	VCFFillable::replace_filled_records(filled_vcfs, orig_vcf);
+#if 0
+	VCFFillable::impute_all_in_multithreads(filled_vcfs, T);
+#else
 	for(auto p = filled_vcfs.begin(); p != filled_vcfs.end(); ++p) {
+cout << (*p)->get_samples().front() << endl;
 		(*p)->impute();
 	}
+#endif
 	
-	return merge_vcfs(filled_vcfs);
+	VCFSmall	*merged_vcf = merge_vcfs(filled_vcfs);
+	Common::delete_all(filled_vcfs);
+	delete orig_vcf;
+	return merged_vcf;
 }

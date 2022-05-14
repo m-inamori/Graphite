@@ -126,6 +126,15 @@ class VCFFillable : public VCFSmall {
 								std::size_t i, bool selected=true) const;
 	};
 	
+	struct ConfigThread {
+		const std::vector<VCFFillable *>&	vcfs;
+		const std::size_t	first;
+		const int	num_thread;
+		
+		ConfigThread(const std::vector<VCFFillable *>& v, int f, int n) :
+								vcfs(v), first(f), num_thread(n) { }
+	};
+	
 	using Position = std::tuple<int,ll,std::string>;
 	using Group = std::pair<VCFFillableRecord::RecordType,
 										std::vector<VCFFillableRecord *>>;
@@ -203,7 +212,10 @@ public:
 									const std::vector<VCFFillable *>& vcfs,
 									const STRVEC& samples);
 	static VCFSmall *merge_vcfs(const std::vector<VCFFillable *>& vcfs);
+	static void impute_in_thread(void *config);
+	static void impute_all_in_multithreads(
+							const std::vector<VCFFillable *>& vcfs, int T);
 	static VCFSmall *join_vcfs(const std::vector<VCFFamily *>& vcfs,
-											const std::string& path_VCF);
+										const std::string& path_VCF, int T);
 };
 #endif

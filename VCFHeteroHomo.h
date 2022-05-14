@@ -20,7 +20,7 @@ public:
 	VCFHeteroHomoRecord *copy() const;
 	int mat_int_gt() const { return get_int_gt(0); }
 	int pat_int_gt() const { return get_int_gt(1); }
-	std::vector<int> get_int_gts() const;
+//	std::vector<int> get_int_gts() const;
 	
 	SEGTYPE segregation_type() const;
 	bool is_hetero_and_homo(bool is_mat) const;

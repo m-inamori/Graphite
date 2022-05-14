@@ -96,7 +96,8 @@ vector<VCFFamily *> impute(const HeteroParentVCFs& vcfs,
 		configs[i] = new ConfigThread(families, vcfs, mat->get_map(), i, T,
 														imputed_family_vcfs);
 	
-#ifndef DEBUG
+//#ifndef DEBUG
+#if 0
 	vector<pthread_t>	threads_t(T);
 	for(int i = 0; i < T; ++i)
 		pthread_create(&threads_t[i], NULL,
@@ -106,7 +107,7 @@ vector<VCFFamily *> impute(const HeteroParentVCFs& vcfs,
 		pthread_join(threads_t[i], NULL);
 #else
 	for(int i = 0; i < T; ++i)
-		thread_function(configs[i]);
+		impute_by_thread(configs[i]);
 #endif
 	
 	Common::delete_all(configs);
@@ -130,7 +131,8 @@ int main(int argc, char **argv) {
 		delete p->second;
 	
 	const auto	*joined_vcf = VCFFillable::join_vcfs(imputed_family_vcfs,
-															option->path_vcf);
+														option->path_vcf,
+														option->num_threads);
 	Common::delete_all(imputed_family_vcfs);
 	ofstream	ofs(option->path_out);
 	joined_vcf->write(ofs);

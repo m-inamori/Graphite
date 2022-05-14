@@ -17,6 +17,7 @@ VCFCollection::VCFCollection(const vector<VCFImputable *>& vcfs_) :
 
 VCFCollection::~VCFCollection() {
 	// VCFHeteroHomo::divide_into_chromosomesで作ったMapはvcfsで共用
+	// 一つ消せばよい
 	delete &(vcfs.front()->get_map());
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
 		delete *p;
@@ -195,5 +196,8 @@ VCFFamily *VCFCollection::impute_family_vcf(VCFHeteroHomo *mat_vcf,
 													true, MIN_CROSSOVER, T);
 	VCFFamily	*impute_pat_vcf = impute_one_parent(pat_vcf, gmap,
 													false, MIN_CROSSOVER, T);
-	return VCFFamily::merge(impute_mat_vcf, impute_pat_vcf);
+	VCFFamily	*vcf =  VCFFamily::merge(impute_mat_vcf, impute_pat_vcf);
+	delete impute_mat_vcf;
+	delete impute_pat_vcf;
+	return vcf;
 }

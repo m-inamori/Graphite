@@ -27,6 +27,7 @@ public:
 	
 	const STRVEC& get_v() const { return v; }
 	const STRVEC& get_samples() const { return samples; }
+	size_t num_samples() const { return samples.size(); }
 	const std::string& chrom() const { return this->v[0]; }
 	std::pair<std::string,ll>	position() const;
 	ll	pos() const { return stoll(this->v[1]); }

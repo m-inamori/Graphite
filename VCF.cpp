@@ -37,10 +37,12 @@ int VCFRecord::get_int_gt(size_t i) const {
 	}
 }
 
+#include <cassert>
 vector<int> VCFRecord::get_int_gts() const {
+cout << samples.size() << endl;
 	vector<int>	w(samples.size());
-	for(auto p = v.begin(); p != v.end(); ++p) {
-		const size_t	i = p - v.begin();
+	for(size_t i = 0; i < samples.size(); ++i) {
+		assert(i < w.size());
 		w[i] = get_int_gt(i);
 	}
 	return w;

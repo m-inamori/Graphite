@@ -470,6 +470,7 @@ VCFCollection *VCFImputable::determine_haplotype(VCFHeteroHomo *vcf,
 			vcfs.push_back(new_vcf);
 	}
 	
+	// vcfsのMapは共通
 	renumber_indices(vcfs);
 	return new VCFCollection(vcfs);
 }

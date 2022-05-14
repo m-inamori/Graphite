@@ -19,7 +19,7 @@ vector<int> VCFFamilyRecord::progeny_gts() const {
 }
 
 bool VCFFamilyRecord::is_homo(size_t i) const {
-	const string&	s = this->v[i+9U];
+	const string&	s = this->v[i+9];
 	return s.c_str()[0] == s.c_str()[2];
 }
 
@@ -147,9 +147,9 @@ VCFFamily *VCFFamily::merge(VCFFamily *vcf1, VCFFamily *vcf2) {
 	}
 	
 	for( ; k < vcf1->size(); ++k)
-		records.push_back(vcf1->get_record(k));
+		records.push_back(vcf1->get_record(k)->copy());
 	for( ; l < vcf2->size(); ++l)
-		records.push_back(vcf2->get_record(l));
+		records.push_back(vcf2->get_record(l)->copy());
 	
 	return new VCFFamily(vcf1->get_header(), vcf1->get_samples(), records);
 }

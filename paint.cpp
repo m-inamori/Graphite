@@ -177,8 +177,10 @@ string Paint::State::str() const {
 string Paint::paint(const string& seq, const vector<double>& cMs,
 												double MIN_CROSSOVER) {
 	const auto	regions = Region::create(seq, cMs);
-	if(regions.size() <= 2U)
+	if(regions.size() <= 2U) {
+		Common::delete_all(regions);
 		return seq;
+	}
 	
 	auto	states = vector<ptrState>(1U, ptrState(new State(regions)));
 	for(auto p = regions.begin() + 1; p != regions.end(); ++p)
