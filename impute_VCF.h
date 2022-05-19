@@ -16,16 +16,19 @@ class VCFHeteroHomo;
 class Materials {
 	const PedigreeTable	*pedigree;
 	const Map	*geno_map;
+	const std::vector<const Map *>	chr_maps;
 	std::vector<std::pair<std::string,std::string>>	families;
 	
 public:
 	Materials(const PedigreeTable *p, const Map *m,
 				const std::vector<std::pair<std::string,std::string>>& f) :
-									pedigree(p), geno_map(m), families(f) { }
+						pedigree(p), geno_map(m),
+						chr_maps(m->divide_into_chromosomes()), families(f) { }
 	~Materials();
 	
 	const PedigreeTable& get_ped() const { return *pedigree; }
 	const Map& get_map() const { return *geno_map; }
+	const std::vector<const Map *>& get_chr_maps() const { return chr_maps; }
 	const std::vector<std::pair<std::string,std::string>>&
 	get_families() const { return families; }
 	
@@ -45,15 +48,16 @@ typedef std::map<std::pair<Parents,bool>, VCFHeteroHomo *>	HeteroParentVCFs;
 struct ConfigThread {
 	const std::vector<Parents>&	families;
 	const HeteroParentVCFs&	vcfs;
-	const Map&	gmap;
+	const std::vector<const Map *>&	chr_maps;
 	const std::size_t	first;
 	const int	num_threads;
 	std::vector<VCFFamily *>& imputed_vcfs;
 	
 	ConfigThread(const std::vector<Parents>& fams,
-					const HeteroParentVCFs& v, const Map& m,
+					const HeteroParentVCFs& v,
+					const std::vector<const Map *>& m,
 					int f, int n, std::vector<VCFFamily *>& results) :
-								families(fams), vcfs(v), gmap(m), first(f),
+								families(fams), vcfs(v), chr_maps(m), first(f),
 								num_threads(n), imputed_vcfs(results) { }
 };
 

@@ -31,12 +31,13 @@ public:
 //////////////////// VCFFamily ////////////////////
 
 class VCFFamily : public VCFSmall {
+protected:
 	std::vector<VCFFamilyRecord *>	family_records;
 	
 public:
 	VCFFamily(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFamilyRecord *> rs);
-	~VCFFamily();
+	~VCFFamily() { }
 	
 	const std::string& mat() const { return samples[0]; }
 	const std::string& pat() const { return samples[1]; }
@@ -49,13 +50,9 @@ public:
 	
 	void update_genotypes(const std::vector<STRVEC>& GTs);
 	
-private:
-	std::vector<VCFRecord *> to_VCFRecord(std::vector<VCFFamilyRecord *>& rs);
-	
 public:
 	static VCFFamily *merge(const VCFFamily *vcf1, const VCFFamily *vcf2);
 	// join the VCFs divided into chrmosome
 	static VCFFamily *join(const std::vector<VCFFamily *>& vcfs);
-	static VCFFamily *merge(VCFFamily *vcf1, VCFFamily *vcf2);
 };
 #endif

@@ -91,17 +91,6 @@ double BiasProbability::log_C(int n, int k) {
 	return res;
 }
 
-BiasProbability *BiasProbability::getInstance(double p) {
-	if(bias_probability == NULL)
-		bias_probability = new BiasProbability(p);
-	return bias_probability;
-}
-
-BiasProbability *BiasProbability::getInstance() {
-	assert(bias_probability != NULL);
-	return bias_probability;
-}
-
 int BiasProbability::bias(int i, int N) {
 	return std::min(i, N-i);
 }

@@ -7,6 +7,7 @@
 #include "Baum_Welch_with_fixed_Ts.h"
 
 class Map;
+class BiasProbability;
 class PedigreeTable;
 class VCFOriginal;
 class VCFCollection;
@@ -77,18 +78,17 @@ class VCFImputable : public VCFHeteroHomo {
 					vcf(v), Ts(mat), first(f), MIN(m), num_thread(n), hs(h) { }
 	};
 	
-	std::vector<VCFImputableRecord *>	records;
+	std::vector<VCFImputableRecord *>	imp_records;
 	const bool	mat_hetero;
 	
 public:
 	VCFImputable(const std::vector<STRVEC>& h, const STRVEC& s,
 						std::vector<VCFImputableRecord *> rs, const Map& m);
+	~VCFImputable() { }
 	
-	VCFImputableRecord *get_record(size_t i) const { return records[i]; }
+	VCFImputableRecord *get_record(size_t i) const { return imp_records[i]; }
 	std::vector<STRVEC> get_GT_table() const;
 	std::size_t max_index() const;
-	// not used
-//	int haplo(int i, std::size_t j) { return VCFFamily::records[j]->haplo[i]; }
 	
 	void set_group_id(int id);
 	void impute(double MIN_CROSSOVER, int T);
@@ -116,10 +116,12 @@ public:
 										const Graph::InvGraph& tree_graph);
 	static Graph::InvGraph make_graph(VCFHeteroHomo *vcf, int max_dist);
 	static VCFImputable *make_subvcf(VCFHeteroHomo *vcf,
-									const Graph::InvGraph& graph, bool is_mat);
+									const Graph::InvGraph& graph, bool is_mat,
+									BiasProbability *bias_probability);
 	static void renumber_indices(std::vector<VCFImputable *>& vcfs);
 	static VCFCollection *determine_haplotype(VCFHeteroHomo *vcf,
-									const OptionImpute *option, bool is_mat);
+									const OptionImpute *option, bool is_mat,
+									BiasProbability *bias_probability);
 	static VCFImputable *create(const std::vector<STRVEC>& header,
 								const std::vector<VCFHeteroHomoRecord *>& rs,
 								bool hatero,

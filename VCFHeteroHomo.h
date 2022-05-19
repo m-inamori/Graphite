@@ -4,6 +4,7 @@
 #include "VCFFamily.h"
 
 class Map;
+class BiasProbability;
 class PedigreeTable;
 class VCFOriginal;
 
@@ -25,7 +26,8 @@ public:
 	SEGTYPE segregation_type() const;
 	bool is_hetero_and_homo(bool is_mat) const;
 	std::vector<int> genotypes_from_hetero_parent(bool is_mat_hetero) const;
-	bool is_valid_segregation(bool is_mat, double cM) const;
+	bool is_valid_segregation(bool is_mat, double cM,
+								BiasProbability *bias_probability) const;
 	
 private:
 	std::vector<std::vector<double>> make_probability_table() const;
@@ -52,26 +54,25 @@ public:
 	typedef std::pair<std::string,std::string>	Parents;
 	
 protected:
-	std::vector<VCFHeteroHomoRecord *>	records;
+	std::vector<VCFHeteroHomoRecord *>	hh_records;
 	const Map&	genetic_map;
 	
 public:
 	VCFHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
 						std::vector<VCFHeteroHomoRecord *> rs, const Map& m);
-	~VCFHeteroHomo();
+	~VCFHeteroHomo() { }
 	
-	VCFHeteroHomoRecord *get_record(std::size_t i) const { return records[i]; }
+	VCFHeteroHomoRecord *get_record(std::size_t i) const {
+		return hh_records[i];
+	}
 	const Map& get_map() const { return genetic_map; }
 	double cM(std::size_t i) const;
 	std::pair<int,bool> distance(const std::vector<int>& gts1,
 							const std::vector<int>& gts2, int max_dist) const;
-	std::vector<VCFHeteroHomo *> divide_into_chromosomes() const;
+	std::vector<VCFHeteroHomo *> divide_into_chromosomes(
+								const std::vector<const Map *>& chr_maps) const;
 	
 	void update_genotypes(const std::vector<STRVEC>& GT_table);
-	
-private:
-	std::vector<VCFFamilyRecord *> to_VCFFamilyRecord(
-										std::vector<VCFHeteroHomoRecord *>& rs);
 	
 public:
 	static std::vector<int> select_columns(const Parents& parents,

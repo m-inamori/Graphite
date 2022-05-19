@@ -17,6 +17,7 @@ using namespace std;
 Materials::~Materials() {
 	delete pedigree;
 	delete geno_map;
+	Common::delete_all(chr_maps);
 }
 
 void Materials::select_families(set<pair<string,string>>& set_families) {
@@ -34,16 +35,13 @@ Materials *Materials::create(const Option *option) {
 	const auto	*geno_map = Map::read(option->path_map);
 	auto	families = pedigree->extract_families();
 	if(option->debug)
-		families.resize(3U);
+		families.resize(10U);
 	delete vcf;
 	return new Materials(pedigree, geno_map, families);
 }
 
 
 //////////////////// process ////////////////////
-
-
-BiasProbability	*bias_probability = BiasProbability::getInstance(0.01);
 
 void select_families(Materials *materials, const HeteroParentVCFs& vcfs) {
 	set<Parents>	set_families;
@@ -62,8 +60,9 @@ HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option) {
 	return vcfs;
 }
 
-VCFFamily *impute_each(const Parents& parents, const Map& gmap,
-										const HeteroParentVCFs& vcfs, int T) {
+VCFFamily *impute_each(const Parents& parents,
+								const vector<const Map *>& chr_maps,
+								const HeteroParentVCFs& vcfs, int T) {
 cout << parents.first << " " << parents.second << endl;
 	const int	MIN_CROSSOVER = 1;
 	auto	iter_mat_vcf = vcfs.find(make_pair(parents, true));
@@ -71,15 +70,15 @@ cout << parents.first << " " << parents.second << endl;
 	assert(iter_mat_vcf != vcfs.end() && iter_pat_vcf != vcfs.end());
 	return VCFCollection::impute_family_vcf(iter_mat_vcf->second,
 											iter_pat_vcf->second,
-											gmap, MIN_CROSSOVER, T);
+											chr_maps, MIN_CROSSOVER, T);
 }
 
-void impute_by_thread(void *config) {
+void impute_in_thread(void *config) {
 	const auto	*c = (ConfigThread *)config;
 	auto&	families = c->families;
 	const size_t	num = families.size();
 	for(size_t i = c->first; i < num; i += c->num_threads) {
-		auto	*vcf = impute_each(families[i], c->gmap,
+		auto	*vcf = impute_each(families[i], c->chr_maps,
 										c->vcfs, c->num_threads);
 		c->imputed_vcfs[i] = vcf;
 	}
@@ -93,21 +92,20 @@ vector<VCFFamily *> impute(const HeteroParentVCFs& vcfs,
 	const int	T = option->num_threads;
 	vector<ConfigThread *>	configs(T);
 	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(families, vcfs, mat->get_map(), i, T,
-														imputed_family_vcfs);
+		configs[i] = new ConfigThread(families, vcfs, mat->get_chr_maps(),
+													i, T, imputed_family_vcfs);
 	
-//#ifndef DEBUG
-#if 0
+#ifndef DEBUG
 	vector<pthread_t>	threads_t(T);
 	for(int i = 0; i < T; ++i)
 		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&impute_by_thread, (void *)configs[i]);
+					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
 	
 	for(int i = 0; i < T; ++i)
 		pthread_join(threads_t[i], NULL);
 #else
 	for(int i = 0; i < T; ++i)
-		impute_by_thread(configs[i]);
+		impute_in_thread(configs[i]);
 #endif
 	
 	Common::delete_all(configs);
@@ -127,6 +125,7 @@ int main(int argc, char **argv) {
 	
 	auto	imputed_family_vcfs = impute(vcfs, materials, option);
 	
+cout << "imputed" << endl;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
 		delete p->second;
 	

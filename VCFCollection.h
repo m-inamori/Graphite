@@ -6,6 +6,7 @@
 using namespace std;
 
 class Map;
+class BiasProbability;
 
 
 //////////////////// VCFCollection ////////////////////
@@ -34,11 +35,13 @@ private:
 	int score_connection(const std::vector<bool>& bs) const;
 	
 public:
-	static VCFFamily *impute_one_parent(VCFHeteroHomo *vcf, const Map& gmap,
-										bool is_mat, int MIN_CROSSOVER, int T);
+	static VCFFamily *impute_one_parent(VCFHeteroHomo *vcf,
+									const std::vector<const Map *>& chr_maps,
+									bool is_mat, int MIN_CROSSOVER, int T,
+									BiasProbability *bias_probability);
 	static VCFFamily *impute_family_vcf(VCFHeteroHomo *mat_vcf,
 										VCFHeteroHomo *pat_vcf,
-										const Map& gmap,
+										const vector<const Map *>& chr_maps,
 										int MIN_CROSSOVER, int T);
 };
 #endif

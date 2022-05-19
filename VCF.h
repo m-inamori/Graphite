@@ -23,7 +23,7 @@ protected:
 	
 public:
 	VCFRecord(const STRVEC& v_, const STRVEC& s_) : v(v_), samples(s_) { }
-	~VCFRecord();
+	virtual ~VCFRecord() { }
 	
 	const STRVEC& get_v() const { return v; }
 	const STRVEC& get_samples() const { return samples; }
@@ -72,7 +72,7 @@ public:
 	int find_column(const std::string& sample) const;
 	void write_header(std::ostream& os) const;
 	
-	void copy_chrs(VCFBase *vcf) { vcf->chrs = chrs; }
+	void copy_chrs(VCFBase *vcf) const { vcf->chrs = chrs; }
 	
 private:
 	void determine_chromosome_id();

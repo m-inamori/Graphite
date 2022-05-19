@@ -139,9 +139,8 @@ void VCFImputableRecord::inverse_haplotype() {
 
 VCFImputable::VCFImputable(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFImputableRecord *> rs, const Map& m) :
-						VCFHeteroHomo(h, s, to_VCFHeteroHomoRecord(rs), m),
-						records(rs),
-						mat_hetero(determine_which_parents_is_hetero(this)) { }
+	VCFHeteroHomo(h, s, vector<VCFHeteroHomoRecord *>(rs.begin(), rs.end()), m),
+	imp_records(rs), mat_hetero(determine_which_parents_is_hetero(this)) { }
 
 vector<VCFHeteroHomoRecord *> VCFImputable::to_VCFHeteroHomoRecord(
 											vector<VCFImputableRecord *>& rs) {
@@ -152,13 +151,13 @@ vector<VCFHeteroHomoRecord *> VCFImputable::to_VCFHeteroHomoRecord(
 
 vector<STRVEC> VCFImputable::get_GT_table() const {
 	vector<STRVEC>	table;
-	for(auto p = records.begin(); p != records.end(); ++p)
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p)
 		table.push_back((*p)->get_GTs());
 	return table;
 }
 
 void VCFImputable::set_group_id(int id) {
-	for(auto p = records.begin(); p != records.end(); ++p)
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p)
 		(*p)->set_group_id(id);
 }
 
@@ -232,7 +231,7 @@ string VCFImputable::impute_each_seq(const string& seq,
 	const string	hidden_seq = BaumWelch::impute(seq,
 												hidden_states, states, Ts);
 	
-	const auto&	rs = VCFFamily::records;
+	const auto&	rs = family_records;
 	const size_t	L = rs.size();
 	vector<double>	cMs(L);
 	for(size_t k = 0U; k < L; ++k)
@@ -263,7 +262,7 @@ VCFImputable::create_transition_probability_matrix() const {
 
 string VCFImputable::make_seq(size_t i) const {
 	string	seq;
-	for(auto p = records.begin(); p != records.end(); ++p) {
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p) {
 		const auto	*record = *p;
 		const int	gt = record->get_which_comes_from(i);
 		if(gt == 0)
@@ -301,8 +300,8 @@ void VCFImputable::impute(double MIN_CROSSOVER, int T) {
 	for(int i = 0; i < T; ++i)
 		delete configs[i];
 	
-	for(size_t i = 0U; i < records.size(); ++i) {
-		auto	*record = records[i];
+	for(size_t i = 0U; i < imp_records.size(); ++i) {
+		auto	*record = imp_records[i];
 		vector<int>	hs;
 		for(size_t j = 0U; j < VCFFamily::samples.size() - 2; ++j) {
 			const int	h = hidden_seqs[j].c_str()[i] - '0';
@@ -314,7 +313,7 @@ void VCFImputable::impute(double MIN_CROSSOVER, int T) {
 }
 
 void VCFImputable::update_genotypes() {
-	for(auto p = records.begin(); p != records.end(); ++p)
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p)
 		(*p)->update_genotypes();
 	
 	const auto	GT_table = get_GT_table();
@@ -322,15 +321,15 @@ void VCFImputable::update_genotypes() {
 }
 
 void VCFImputable::inverse_haplotype() {
-	for(auto p = records.begin(); p != records.end(); ++p) {
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p) {
 		auto	*record = *p;
 		record->inverse_haplotype();
 	}
 }
 
 size_t VCFImputable::max_index() const {
-	size_t	index = records.front()->get_index();
-	for(auto p = records.begin() + 1; p != records.end(); ++p) {
+	size_t	index = imp_records.front()->get_index();
+	for(auto p = imp_records.begin() + 1; p != imp_records.end(); ++p) {
 		if((*p)->get_index() > index)
 			index = (*p)->get_index();
 	}
@@ -338,7 +337,7 @@ size_t VCFImputable::max_index() const {
 }
 
 void VCFImputable::which_comes_from_hetero_parent_chromosomes() {
-	for(auto p = records.begin(); p != records.end(); ++p)
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p)
 		(*p)->which_comes_from_hetero_parent_chromosomes();
 }
 
@@ -397,8 +396,8 @@ Graph::InvGraph VCFImputable::make_graph(VCFHeteroHomo *vcf, int max_dist) {
 }
 
 VCFImputable *VCFImputable::make_subvcf(VCFHeteroHomo *vcf,
-										const Graph::InvGraph& graph,
-										bool is_mat) {
+									const Graph::InvGraph& graph, bool is_mat,
+									BiasProbability *bias_probability) {
 	const auto	haplo_ = make_parent_haplotypes(vcf->size(), graph);
 	auto	indices_ = Graph::keys(graph);
 	std::sort(indices_.begin(), indices_.end());
@@ -411,7 +410,7 @@ VCFImputable *VCFImputable::make_subvcf(VCFHeteroHomo *vcf,
 	vector<bool>	bs;
 	for(auto p = indices_.begin(); p != indices_.end(); ++p) {
 		auto	*record = vcf->get_record(*p);
-		if(record->is_valid_segregation(is_mat, total_cM)) {
+		if(record->is_valid_segregation(is_mat, total_cM, bias_probability)) {
 			// VCFImputable::createでVCFImputableRecordを作るから
 			// ここではcopyしない
 			new_records.push_back(record);
@@ -437,7 +436,7 @@ void VCFImputable::renumber_indices(vector<VCFImputable *>& vcfs) {
 	vector<size_t>	indices;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		const auto	*vcf = *p;
-		for(auto q = vcf->records.begin(); q != vcf->records.end(); ++q)
+		for(auto q = vcf->imp_records.begin(); q != vcf->imp_records.end(); ++q)
 			indices.push_back((*q)->get_index());
 	}
 	
@@ -447,7 +446,8 @@ void VCFImputable::renumber_indices(vector<VCFImputable *>& vcfs) {
 	
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		const auto	*vcf = *p;
-		for(auto q = vcf->records.begin(); q != vcf->records.end(); ++q) {
+		auto&	records = vcf->imp_records;
+		for(auto q = records.begin(); q != records.end(); ++q) {
 			auto	*record = *q;
 			record->set_index(dic_indices[record->get_index()]);
 		}
@@ -455,7 +455,8 @@ void VCFImputable::renumber_indices(vector<VCFImputable *>& vcfs) {
 }
 
 VCFCollection *VCFImputable::determine_haplotype(VCFHeteroHomo *vcf,
-									const OptionImpute *option, bool is_mat) {
+									const OptionImpute *option, bool is_mat,
+									BiasProbability *bias_probability) {
 	Graph::InvGraph	graph = make_graph(vcf, option->max_dist);
 	const auto	subgraphs = Graph::divide_graph_into_connected(graph);
 	
@@ -465,7 +466,8 @@ VCFCollection *VCFImputable::determine_haplotype(VCFHeteroHomo *vcf,
 		const auto	subgraph = *p;
 		if((int)subgraph.size() < option->min_graph)
 			continue;
-		VCFImputable	*new_vcf = make_subvcf(vcf, subgraph, is_mat);
+		VCFImputable	*new_vcf = make_subvcf(vcf, subgraph, is_mat,
+															bias_probability);
 		if(new_vcf != NULL)
 			vcfs.push_back(new_vcf);
 	}

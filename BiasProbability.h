@@ -15,11 +15,10 @@ class BiasProbability {
 	// { num samples: [{ (bias, max bias): probability }] }
 	std::map<int,std::vector<LineProbs>>	ps;
 	
-private:
+public:
 	BiasProbability(double p) : probability(p) { }
 	~BiasProbability() { }
 	
-public:
 	int compute_max_bias(int N, double float_cM);
 	
 private:
@@ -31,9 +30,6 @@ private:
 	LineProbs step(const LineProbs& lps, int N);
 	
 public:
-	static BiasProbability *getInstance(double p);
-	static BiasProbability *getInstance();
-	
 	static int bias(int i, int N);
 	
 private:

@@ -127,7 +127,8 @@ vector<int> VCFHeteroHomoRecord::genotypes_from_hetero_parent(
 	return gts;
 }
 
-bool VCFHeteroHomoRecord::is_valid_segregation(bool is_mat, double cM) const {
+bool VCFHeteroHomoRecord::is_valid_segregation(bool is_mat, double cM,
+									BiasProbability *bias_probability) const {
 	const vector<int>	gts = genotypes_from_hetero_parent(is_mat);
 	int	N = 0;
 	int	n0 = 0;
@@ -138,7 +139,6 @@ bool VCFHeteroHomoRecord::is_valid_segregation(bool is_mat, double cM) const {
 			n0 += 1;
 	}
 	const int	bias = std::min(n0, N - n0);
-	BiasProbability	*bias_probability = BiasProbability::getInstance();
 	return bias >= bias_probability->compute_max_bias(N, cM);
 }
 
@@ -147,34 +147,11 @@ bool VCFHeteroHomoRecord::is_valid_segregation(bool is_mat, double cM) const {
 
 VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFHeteroHomoRecord *> rs, const Map& m) :
-										VCFFamily(h, s, to_VCFFamilyRecord(rs)),
-										records(rs), genetic_map(m) { }
-
-VCFHeteroHomo::~VCFHeteroHomo() {
-#if 1
-	for(auto p = records.begin(); p != records.end(); ++p)
-		delete *p;
-#else
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		cout << p - records.begin() << endl;
-		delete *p;
-	}
-#endif
-}
-
-vector<VCFFamilyRecord *> VCFHeteroHomo::to_VCFFamilyRecord(
-										vector<VCFHeteroHomoRecord *>& rs) {
-	vector<VCFFamilyRecord *>	records;
-	for(auto p = rs.begin(); p != rs.end(); ++p) {
-		VCFHeteroHomoRecord	*r = *p;
-		auto	*record = new VCFFamilyRecord(r->get_v(), r->get_samples());
-		records.push_back(record);
-	}
-	return records;
-}
+			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
+			hh_records(rs), genetic_map(m) { }
 
 double VCFHeteroHomo::cM(size_t i) const {
-	return genetic_map.bp_to_cM(records[i]->pos());
+	return genetic_map.bp_to_cM(hh_records[i]->pos());
 }
 
 // -> (distance, inversion)
@@ -193,13 +170,13 @@ pair<int,bool> VCFHeteroHomo::distance(const vector<int>& gts1,
 	return pair<int,bool>(std::min(counter1, counter2), counter1 > max_dist);
 }
 
-vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes() const {
+vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes(
+									const vector<const Map *>& chr_maps) const {
 	vector<VCFHeteroHomo *>	vcfs;
-	vector<const Map *>		chr_maps = genetic_map.divide_into_chromosomes();
 	auto	iter_map = chr_maps.begin();
 	string	prev_chr = "";
 	vector<VCFHeteroHomoRecord *>	rs;
-	for(auto p = records.begin(); p != records.end(); ++p) {
+	for(auto p = hh_records.begin(); p != hh_records.end(); ++p) {
 		const string&	chr = (*p)->chrom();
 		if(chr != prev_chr) {
 			if(!rs.empty()) {
@@ -213,15 +190,12 @@ vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes() const {
 		rs.push_back((*p)->copy());
 	}
 	vcfs.push_back(new VCFHeteroHomo(header, samples, rs, **iter_map));
-	// 使わないMapを消す
-	for(++iter_map; iter_map != chr_maps.end(); ++iter_map)
-		delete *iter_map;
 	return vcfs;
 }
 
 void VCFHeteroHomo::update_genotypes(const std::vector<STRVEC>& GT_table) {
-	for(size_t i = 0U; i < records.size(); ++i)
-		records[i]->set_GTs(GT_table[i]);
+	for(size_t i = 0U; i < hh_records.size(); ++i)
+		hh_records[i]->set_GTs(GT_table[i]);
 	VCFFamily::update_genotypes(GT_table);
 }
 
@@ -240,10 +214,10 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 		const VCFRecord	*record = orig_vcf->next();
 		if(record == NULL)
 			break;
-		// 短縮のため、1染色体のみにする
+		// 短縮のため、2染色体のみにする
 		if(debug) {
 			const auto	pos = orig_vcf->record_position(*record);
-			if(pos.first == 2) {
+			if(pos.first == 3) {
 				delete record;
 				break;
 			}

@@ -7,8 +7,6 @@ using namespace std;
 
 //////////////////// VCFRecord ////////////////////
 
-VCFRecord::~VCFRecord() { }
-
 pair<string,ll> VCFRecord::position() const {
 	return pair<string,ll>(v[0], stoll(v[1]));
 }
@@ -39,7 +37,6 @@ int VCFRecord::get_int_gt(size_t i) const {
 
 #include <cassert>
 vector<int> VCFRecord::get_int_gts() const {
-cout << samples.size() << endl;
 	vector<int>	w(samples.size());
 	for(size_t i = 0; i < samples.size(); ++i) {
 		assert(i < w.size());
@@ -208,6 +205,8 @@ VCFRecord *VCFHuge::proceed(POSITION pos) {
 		
 		if(this->record_position(*record) == pos)
 			return record;
+		else
+			delete record;
 	}
 	return NULL;
 }

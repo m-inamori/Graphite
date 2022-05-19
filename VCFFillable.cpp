@@ -1,6 +1,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <memory>
 #include <cassert>
 #include "VCFFillable.h"
 #include "common.h"
@@ -457,25 +458,26 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 
 //////////////////// VCFFillable ////////////////////
 
-vector<VCFRecord *> VCFFillable::to_VCFRecord(vector<VCFFillableRecord *>& rs) {
-	vector<VCFRecord *>	records(rs.size());
-	std::copy(rs.begin(), rs.end(), records.begin());
-	return records;
-}
+VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
+									std::vector<VCFFillableRecord *> rs) :
+					VCFSmall(h, s, vector<VCFRecord *>(rs.begin(), rs.end())),
+					fillable_records(rs) { }
 
 VCFFillable *VCFFillable::insert_positions(const vector<Position>& positions) {
 	// とりあえず、ポジションだけの空のレコードを作る
 	vector<VCFFillableRecord *>	new_records;
 	size_t	i = 0U;
-	auto	pos1 = record_position(*records[i]);
+	auto	pos1 = record_position(*fillable_records[i]);
 	for(auto p = positions.begin(); p != positions.end(); ++p) {
 		const auto&	pos2 = *p;
-		if(pos1.first == get<0>(pos2) && pos1.second == get<1>(pos2)) {
-			new_records.push_back(records[i]->copy());
+		if(pos1.first == get<0>(pos2) && pos1.second == get<1>(pos2)
+											&& i < fillable_records.size()) {
+			// 新しいVCFを作る時はRecordも新しく作る
+			new_records.push_back(fillable_records[i]->copy());
 			// proceed
 			i += 1;
-			if(i < records.size())
-				pos1 = record_position(*records[i]);
+			if(i < fillable_records.size())
+				pos1 = record_position(*fillable_records[i]);
 		}
 		else {
 			STRVEC	vec(9);
@@ -493,9 +495,10 @@ VCFFillable *VCFFillable::insert_positions(const vector<Position>& positions) {
 
 vector<VCFFillable::Group> VCFFillable::group_records() const {
 	vector<Group>	groups;
-	VCFFillableRecord::RecordType	current_type = records.front()->get_type();
-	vector<VCFFillableRecord *>	group(1U, records.front());
-	for(auto p = records.begin() + 1; p != records.end(); ++p) {
+	auto	current_type = fillable_records.front()->get_type();
+	vector<VCFFillableRecord *>	group(1U, fillable_records.front());
+	for(auto p = fillable_records.begin() + 1;
+							p != fillable_records.end(); ++p) {
 		auto	*record = *p;
 		if(record->get_type() != current_type) {
 			groups.push_back(Group(current_type, group));
@@ -659,14 +662,16 @@ void VCFFillable::phase(int i, const vector<Group>& groups) {
 	}
 }
 
+// find_next_same_type_recordと一緒にできる気がする
 VCFFillableRecord *VCFFillable::find_prev_same_type_record(size_t i,
 															size_t c) const {
 	if(i == 0U)
 		return NULL;
 	
-	const VCFFillableRecord::RecordType	type = records[i]->get_type();
-	const string&	chromosome = records[i]->chrom();
-	for(auto p = records.rend() - i + 1; p != records.rend(); ++p) {
+	const VCFFillableRecord::RecordType	type = fillable_records[i]->get_type();
+	const string&	chromosome = fillable_records[i]->chrom();
+	for(auto p = fillable_records.rend() - i + 1;
+							p != fillable_records.rend(); ++p) {
 		auto	*record = *p;
 		if(record->chrom() != chromosome)
 			return NULL;
@@ -678,12 +683,13 @@ VCFFillableRecord *VCFFillable::find_prev_same_type_record(size_t i,
 
 VCFFillableRecord *VCFFillable::find_next_same_type_record(size_t i,
 															size_t c) const {
-	if(i == records.size() - 1)
+	if(i == fillable_records.size() - 1)
 		return NULL;
 	
-	const VCFFillableRecord::RecordType	type = records[i]->get_type();
-	const string&	chromosome = records[i]->chrom();
-	for(auto p = records.begin() + i + 1; p != records.end(); ++p) {
+	const VCFFillableRecord::RecordType	type = fillable_records[i]->get_type();
+	const string&	chromosome = fillable_records[i]->chrom();
+	for(auto p = fillable_records.begin() + i + 1;
+									p != fillable_records.end(); ++p) {
 		auto	*record = *p;
 		if(record->chrom() != chromosome)
 			return NULL;
@@ -695,7 +701,7 @@ VCFFillableRecord *VCFFillable::find_next_same_type_record(size_t i,
 
 const VCFFillable::RecordSet *VCFFillable::create_recordset(
 										size_t i, size_t c, bool is_mat) const {
-	auto	*record = records[i];
+	auto	*record = fillable_records[i];
 	auto	*prev_record = find_prev_same_type_record(i, c);
 	auto	*next_record = find_next_same_type_record(i, c);
 	if(is_mat)
@@ -734,7 +740,7 @@ void VCFFillable::impute_NA_mat_each(size_t i, size_t c) {
 }
 
 void VCFFillable::impute_NA_mat(size_t i) {
-	auto	*record = records[i];
+	auto	*record = fillable_records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
 		if(record->get_GT(c-9) == "./.")
 			impute_NA_mat_each(i, c);
@@ -771,7 +777,7 @@ void VCFFillable::impute_NA_pat_each(size_t i, size_t c) {
 }
 
 void VCFFillable::impute_NA_pat(size_t i) {
-	auto	*record = records[i];
+	auto	*record = fillable_records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
 		if(record->get_GT(c-9) == "./.")
 			impute_NA_pat_each(i, c);
@@ -779,7 +785,8 @@ void VCFFillable::impute_NA_pat(size_t i) {
 }
 
 void VCFFillable::impute() {
-	for(auto p = records.begin(); p != records.end(); ++p)
+cout << get_samples()[0] << " " << get_samples()[1] << endl;
+	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
 		(*p)->modify();
 	
 	vector<Group>	groups = group_records();
@@ -788,15 +795,15 @@ void VCFFillable::impute() {
 			this->phase(i, groups);
 	}
 	
-	for(size_t i = 0U; i < records.size(); ++i) {
-		auto	*record = records[i];
+	for(size_t i = 0U; i < fillable_records.size(); ++i) {
+		auto	*record = fillable_records[i];
 		if(record->is_mat_type())
 			impute_NA_mat(i);
 		else if(record->is_pat_type())
 			impute_NA_pat(i);
 	}
 	
-	for(auto p = records.begin(); p != records.end(); ++p)
+	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
 		(*p)->fill_PGT();
 }
 
@@ -807,7 +814,10 @@ VCFFillable *VCFFillable::convert(const VCFFamily *vcf) {
 		auto	new_record = VCFFillableRecord::from_VCFFamilyRecord(record);
 		new_records.push_back(new_record);
 	}
-	return new VCFFillable(vcf->get_header(), vcf->get_samples(), new_records);
+	auto	*new_vcf = new VCFFillable(vcf->get_header(),
+									vcf->get_samples(), new_records);
+	vcf->copy_chrs(new_vcf);
+	return new_vcf;
 }
 
 void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
@@ -821,6 +831,8 @@ void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
 			if(orig_record != NULL)
 				delete orig_record;
 			orig_record = orig_vcf->proceed(pos);
+			if(orig_record == NULL)
+				break;
 			orig_pos = pos;
 		}
 		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
@@ -925,7 +937,7 @@ void VCFFillable::impute_in_thread(void *config) {
 	const auto	*c = (ConfigThread *)config;
 	const auto&	vcfs = c->vcfs;
 	for(size_t i = c->first; i < vcfs.size(); i += c->num_thread) {
-cout << vcfs[i]->get_samples().front() << endl;
+cout << vcfs[i]->samples[0] << " " << vcfs[i]->samples[1] << endl;
 		vcfs[i]->impute();
 	}
 }
@@ -933,14 +945,12 @@ cout << vcfs[i]->get_samples().front() << endl;
 void VCFFillable::impute_all_in_multithreads(
 							const vector<VCFFillable *>& vcfs, int T) {
 	vector<ConfigThread *>	configs(T);
-cout << T << endl;
 	for(int i = 0; i < T; ++i)
 		configs[i] = new ConfigThread(vcfs, i, T);
 	
 #ifndef DEBUG
 	vector<pthread_t>	threads_t(T);
 	for(int i = 0; i < T; ++i) {
-cout << i << endl;
 		pthread_create(&threads_t[i], NULL,
 					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
 	}
@@ -949,7 +959,7 @@ cout << i << endl;
 		pthread_join(threads_t[i], NULL);
 #else
 	for(int i = 0; i < T; ++i)
-		impute_by_thread(configs[i]);
+		impute_in_thread(configs[i]);
 #endif
 	
 	for(int i = 0; i < T; ++i)
@@ -962,7 +972,9 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
 		vcfs.push_back(VCFFillable::convert(*p));
 	
+cout << "merging..." << endl;
 	const vector<PosWithChr>	positions = merge_positions(vcfs);
+cout << "merged." << endl;
 	
 	vector<VCFFillable *>	filled_vcfs;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
@@ -973,11 +985,11 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	
 	VCFHuge	*orig_vcf = VCFHuge::read(path_VCF);
 	VCFFillable::replace_filled_records(filled_vcfs, orig_vcf);
-#if 0
+cout << "replaced" << endl;
+#ifndef DEBUG
 	VCFFillable::impute_all_in_multithreads(filled_vcfs, T);
 #else
 	for(auto p = filled_vcfs.begin(); p != filled_vcfs.end(); ++p) {
-cout << (*p)->get_samples().front() << endl;
 		(*p)->impute();
 	}
 #endif

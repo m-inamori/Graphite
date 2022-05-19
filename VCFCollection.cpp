@@ -3,6 +3,8 @@
 #include "VCFCollection.h"
 #include "option.h"
 #include "Map.h"
+#include "BiasProbability.h"
+#include "common.h"
 
 using namespace std;
 
@@ -18,7 +20,6 @@ VCFCollection::VCFCollection(const vector<VCFImputable *>& vcfs_) :
 VCFCollection::~VCFCollection() {
 	// VCFHeteroHomo::divide_into_chromosomesで作ったMapはvcfsで共用
 	// 一つ消せばよい
-	delete &(vcfs.front()->get_map());
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
 		delete *p;
 }
@@ -164,40 +165,47 @@ VCFFamily *VCFCollection::join() const {
 							vcfs.front()->get_samples(), records);
 }
 
-VCFFamily *VCFCollection::impute_one_parent(VCFHeteroHomo *vcf, const Map& gmap,
-										bool is_mat, int MIN_CROSSOVER, int T) {
+VCFFamily *VCFCollection::impute_one_parent(VCFHeteroHomo *vcf,
+										const vector<const Map *>& chr_maps,
+										bool is_mat, int MIN_CROSSOVER, int T,
+										BiasProbability *bias_probability) {
 	OptionImpute	op(4, 20, 5);
 	vector<VCFFamily *>	vcfs;
-	vector<VCFHeteroHomo *>	chr_vcfs = vcf->divide_into_chromosomes();
+	vector<VCFHeteroHomo *>	chr_vcfs = vcf->divide_into_chromosomes(chr_maps);
 	for(size_t i = 0U; i < chr_vcfs.size(); ++i) {
 		VCFHeteroHomo	*subvcf1 = chr_vcfs[i];
 		auto	*collection = VCFImputable::determine_haplotype(subvcf1,
-																&op, is_mat);
+												&op, is_mat, bias_probability);
 		delete subvcf1;
 		collection->impute(op.min_positions, MIN_CROSSOVER, T);
-		if(collection->empty())
+		if(collection->empty()) {
+			delete collection;
 			continue;
+		}
 		auto	*subvcf2 = collection->join();
 		delete collection;
 		vcfs.push_back(subvcf2);
 	}
 	auto	*new_vcf = VCFFamily::join(vcfs);
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
-		delete *p;
+	Common::delete_all(vcfs);
 	vcf->copy_chrs(new_vcf);
 	return new_vcf;
 }
 
 VCFFamily *VCFCollection::impute_family_vcf(VCFHeteroHomo *mat_vcf,
 											VCFHeteroHomo *pat_vcf,
-											const Map& gmap,
+											const vector<const Map *>& chr_maps,
 											int MIN_CROSSOVER, int T) {
-	VCFFamily	*impute_mat_vcf = impute_one_parent(mat_vcf, gmap,
-													true, MIN_CROSSOVER, T);
-	VCFFamily	*impute_pat_vcf = impute_one_parent(pat_vcf, gmap,
-													false, MIN_CROSSOVER, T);
+	auto	*bias_probability = new BiasProbability(0.01);
+	VCFFamily	*impute_mat_vcf = impute_one_parent(mat_vcf, chr_maps,
+													true, MIN_CROSSOVER, T,
+													bias_probability);
+	VCFFamily	*impute_pat_vcf = impute_one_parent(pat_vcf, chr_maps,
+													false, MIN_CROSSOVER, T,
+													bias_probability);
 	VCFFamily	*vcf =  VCFFamily::merge(impute_mat_vcf, impute_pat_vcf);
 	delete impute_mat_vcf;
 	delete impute_pat_vcf;
+	delete bias_probability;
 	return vcf;
 }

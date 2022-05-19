@@ -139,15 +139,17 @@ class VCFFillable : public VCFSmall {
 	using Group = std::pair<VCFFillableRecord::RecordType,
 										std::vector<VCFFillableRecord *>>;
 	
-	std::vector<VCFFillableRecord *>	records;
+	std::vector<VCFFillableRecord *>	fillable_records;
 	
 public:
 	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-									std::vector<VCFFillableRecord *> rs) :
-							VCFSmall(h, s, to_VCFRecord(rs)), records(rs) { }
+									std::vector<VCFFillableRecord *> rs);
+	~VCFFillable() { }
 	
 	std::vector<VCFRecord *> to_VCFRecord(std::vector<VCFFillableRecord *>& rs);
-	VCFFillableRecord *get_record(std::size_t i) const { return records[i]; }
+	VCFFillableRecord *get_record(std::size_t i) const {
+		return fillable_records[i];
+	}
 	
 	VCFFillable *insert_positions(const std::vector<Position>& positions);
 	void impute();

@@ -41,7 +41,6 @@ double Map::bp_to_cM(long long bp) const {
 	return r1->cM + (r2->cM - r1->cM) / (r2->Mbp - r1->Mbp) * (Mbp - r1->Mbp);
 }
 
-#include <iostream>
 const vector<const Map *> Map::divide_into_chromosomes() const {
 	vector<const Map *>	maps;
 	string	prev_chr = "";
