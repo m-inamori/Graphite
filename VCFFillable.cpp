@@ -326,9 +326,10 @@ int VCFFillableRecord::from_which_chrom(size_t i, bool is_mat) const {
 }
 
 VCFFillableRecord *VCFFillableRecord::from_VCFFamilyRecord(
-											const VCFFamilyRecord *record) {
+											const VCFFamilyRecord *record,
+											const STRVEC& samples) {
 	auto	type = record->is_homo(1) ? RecordType::MAT : RecordType::PAT;
-	return new VCFFillableRecord(record->get_v(), record->get_samples(), type);
+	return new VCFFillableRecord(record->get_v(), samples, type);
 }
 
 void VCFFillableRecord::set(const STRVEC& new_v, RecordType new_type) {
@@ -463,7 +464,28 @@ VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 					VCFSmall(h, s, vector<VCFRecord *>(rs.begin(), rs.end())),
 					fillable_records(rs) { }
 
+VCFFillable *VCFFillable::create_from_header() const {
+	vector<VCFFillableRecord *>	rs;
+	VCFFillable	*vcf = new VCFFillable(header, samples, rs);
+	copy_chrs(vcf);
+	return vcf;
+}
+
+void VCFFillable::set_records(const vector<VCFFillableRecord *>& rs) {
+	fillable_records = rs;
+	set_records_base(rs);
+}
+
+// 親に書くと子クラスのvectorを全て並べることになるので子に書く
+void VCFFillable::set_records_base(const vector<VCFFillableRecord *>& rs) {
+	records.insert(records.end(), rs.begin(), rs.end());
+}
+
 VCFFillable *VCFFillable::insert_positions(const vector<Position>& positions) {
+	// 空のVCFFillableを作って、samplesを参照させる
+	VCFFillable	*vcf = create_from_header();
+	const STRVEC&	samples_ = vcf->get_samples();
+	
 	// とりあえず、ポジションだけの空のレコードを作る
 	vector<VCFFillableRecord *>	new_records;
 	size_t	i = 0U;
@@ -485,12 +507,13 @@ VCFFillable *VCFFillable::insert_positions(const vector<Position>& positions) {
 			stringstream	ss2;
 			ss2 << get<1>(pos2);
 			vec[1] = ss2.str();
-			new_records.push_back(new VCFFillableRecord(vec, samples,
+			new_records.push_back(new VCFFillableRecord(vec, samples_,
 										VCFFillableRecord::RecordType::FILLED));
 		}
 	}
 	
-	return new VCFFillable(header, samples, new_records);
+	vcf->set_records(new_records);
+	return vcf;
 }
 
 vector<VCFFillable::Group> VCFFillable::group_records() const {
@@ -809,14 +832,17 @@ cout << get_samples()[0] << " " << get_samples()[1] << endl;
 
 VCFFillable *VCFFillable::convert(const VCFFamily *vcf) {
 	vector<VCFFillableRecord *>	new_records;
+	const STRVEC&	samples = vcf->get_samples();
+	VCFFillable	*new_vcf = new VCFFillable(vcf->get_header(),
+												samples, new_records);
+	vcf->copy_chrs(new_vcf);
 	for(size_t i = 0U; i < vcf->size(); ++i) {
 		const VCFFamilyRecord	*record = vcf->get_record(i);
-		auto	new_record = VCFFillableRecord::from_VCFFamilyRecord(record);
+		auto	new_record = VCFFillableRecord::from_VCFFamilyRecord(record,
+																	samples);
 		new_records.push_back(new_record);
 	}
-	auto	*new_vcf = new VCFFillable(vcf->get_header(),
-									vcf->get_samples(), new_records);
-	vcf->copy_chrs(new_vcf);
+	new_vcf->set_records(new_records);
 	return new_vcf;
 }
 
@@ -972,9 +998,7 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
 		vcfs.push_back(VCFFillable::convert(*p));
 	
-cout << "merging..." << endl;
 	const vector<PosWithChr>	positions = merge_positions(vcfs);
-cout << "merged." << endl;
 	
 	vector<VCFFillable *>	filled_vcfs;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
@@ -985,7 +1009,6 @@ cout << "merged." << endl;
 	
 	VCFHuge	*orig_vcf = VCFHuge::read(path_VCF);
 	VCFFillable::replace_filled_records(filled_vcfs, orig_vcf);
-cout << "replaced" << endl;
 #ifndef DEBUG
 	VCFFillable::impute_all_in_multithreads(filled_vcfs, T);
 #else

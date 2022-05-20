@@ -19,6 +19,7 @@ public:
 											VCFFamilyRecord(v, s) { }
 	
 	VCFHeteroHomoRecord *copy() const;
+	
 	int mat_int_gt() const { return get_int_gt(0); }
 	int pat_int_gt() const { return get_int_gt(1); }
 //	std::vector<int> get_int_gts() const;
@@ -61,6 +62,10 @@ public:
 	VCFHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
 						std::vector<VCFHeteroHomoRecord *> rs, const Map& m);
 	~VCFHeteroHomo() { }
+	
+	VCFHeteroHomo *create_from_header(const Map& m) const;
+	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs);
+	void set_records_base(const std::vector<VCFHeteroHomoRecord *>& rs);
 	
 	VCFHeteroHomoRecord *get_record(std::size_t i) const {
 		return hh_records[i];

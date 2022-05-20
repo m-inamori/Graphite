@@ -19,7 +19,7 @@ typedef std::pair<int, ll>			POSITION;
 class VCFRecord {
 protected:
 	STRVEC	v;
-	const STRVEC	samples;
+	const STRVEC&	samples;
 	
 public:
 	VCFRecord(const STRVEC& v_, const STRVEC& s_) : v(v_), samples(s_) { }

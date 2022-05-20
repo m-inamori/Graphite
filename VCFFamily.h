@@ -39,6 +39,9 @@ public:
 									std::vector<VCFFamilyRecord *> rs);
 	~VCFFamily() { }
 	
+	void set_records(const std::vector<VCFFamilyRecord *>& rs);
+	void set_records_base(const std::vector<VCFFamilyRecord *>& rs);
+	
 	const std::string& mat() const { return samples[0]; }
 	const std::string& pat() const { return samples[1]; }
 	VCFFamilyRecord *get_record(std::size_t i) const {

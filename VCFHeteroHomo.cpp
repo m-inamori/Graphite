@@ -150,6 +150,23 @@ VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
 			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
 			hh_records(rs), genetic_map(m) { }
 
+VCFHeteroHomo *VCFHeteroHomo::create_from_header(const Map& m) const {
+	vector<VCFHeteroHomoRecord *>	rs;
+	VCFHeteroHomo	*vcf = new VCFHeteroHomo(header, samples, rs, m);
+	copy_chrs(vcf);
+	return vcf;
+}
+
+void VCFHeteroHomo::set_records(const std::vector<VCFHeteroHomoRecord *>& rs) {
+	hh_records = rs;
+	set_records_base(rs);
+}
+
+void VCFHeteroHomo::set_records_base(const vector<VCFHeteroHomoRecord *>& rs) {
+	vector<VCFFamilyRecord *>	frs(rs.begin(), rs.end());
+	VCFFamily::set_records(frs);
+}
+
 double VCFHeteroHomo::cM(size_t i) const {
 	return genetic_map.bp_to_cM(hh_records[i]->pos());
 }
@@ -175,21 +192,24 @@ vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes(
 	vector<VCFHeteroHomo *>	vcfs;
 	auto	iter_map = chr_maps.begin();
 	string	prev_chr = "";
+	VCFHeteroHomo	*vcf = create_from_header(**iter_map);
 	vector<VCFHeteroHomoRecord *>	rs;
 	for(auto p = hh_records.begin(); p != hh_records.end(); ++p) {
 		const string&	chr = (*p)->chrom();
 		if(chr != prev_chr) {
 			if(!rs.empty()) {
-				vcfs.push_back(new VCFHeteroHomo(header, samples,
-														rs, **iter_map));
+				vcf->set_records(rs);
+				vcfs.push_back(vcf);
 				++iter_map;
 				rs.clear();
+				vcf = create_from_header(**iter_map);
 			}
 			prev_chr = chr;
 		}
 		rs.push_back((*p)->copy());
 	}
-	vcfs.push_back(new VCFHeteroHomo(header, samples, rs, **iter_map));
+	vcf->set_records(rs);
+	vcfs.push_back(vcf);
 	return vcfs;
 }
 
@@ -206,10 +226,36 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 							const PedigreeTable& pedigree,
 							const Map& geno_map,
 							bool debug) {
-	map<pair<Parents,bool>, vector<VCFHeteroHomoRecord *>>	selected_records;
 	const auto	family_columns = orig_vcf->collect_family_columns(
 														families, pedigree);
+	std::map<pair<Parents,bool>, VCFHeteroHomo *> vcfs;
 	const STRVEC&	orig_samples = orig_vcf->get_samples();
+	for(auto p = family_columns.begin(); p != family_columns.end(); ++p) {
+		const vector<int>&	columns = *p;
+		if(columns.size() < 10U)
+			continue;
+		STRVEC	samples(columns.size());
+		size_t	i = 0U;
+		for(auto p = columns.begin(); p != columns.end(); ++p) {
+			samples[i] = orig_samples[*p-9];
+			++i;
+		}
+		vector<STRVEC>	header = orig_vcf->get_header();
+		STRVEC&	b = header.back();
+		b.erase(b.begin() + 9, b.end());
+		b.insert(b.end(), samples.begin(), samples.end());
+		auto	*vcf_mat = new VCFHeteroHomo(header, samples,
+									vector<VCFHeteroHomoRecord *>(), geno_map);
+		auto	*vcf_pat = new VCFHeteroHomo(header, samples,
+									vector<VCFHeteroHomoRecord *>(), geno_map);
+		const Parents	parents(samples[0], samples[1]);
+		const auto	key_mat = pair<Parents,bool>(parents, true);
+		vcfs[key_mat] = vcf_mat;
+		const auto	key_pat = pair<Parents,bool>(parents, false);
+		vcfs[key_pat] = vcf_pat;
+	}
+	
+	map<pair<Parents,bool>, vector<VCFHeteroHomoRecord *>>	selected_records;
 	while(true) {
 		const VCFRecord	*record = orig_vcf->next();
 		if(record == NULL)
@@ -223,21 +269,22 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 			}
 		}
 		for(auto p = family_columns.begin(); p != family_columns.end(); ++p) {
-			const auto	columns = *p;
+			const vector<int>&	columns = *p;
+			Parents	parents(orig_samples[columns[0]-9],
+							orig_samples[columns[1]-9]);
 			if(columns.size() < 10U)
 				continue;
+			const auto	q = vcfs.find(pair<Parents,bool>(parents, true));
+			const STRVEC&	samples = q->second->get_samples();
+			// samplesはVCFから得るように改変しなければならない
 			STRVEC	v(columns.size() + 9);
-			STRVEC	samples(columns.size());
 			record->copy_properties(v.begin());
 			const STRVEC	w = record->gts();
 			size_t	i = 0U;
-			for(auto p = columns.begin(); p != columns.end(); ++p) {
+			for(auto p = columns.begin(); p != columns.end(); ++p, ++i) {
 				v[i+9] = w[*p-9];
-				samples[i] = orig_samples[*p-9];
-				++i;
 			}
 			
-			Parents	parents(samples[0], samples[1]);
 			auto	*new_record = new VCFHeteroHomoRecord(v, samples);
 			if(new_record->is_hetero_and_homo(true)) {			// mat is hetero
 				const auto	key = pair<Parents,bool>(parents, true);
@@ -254,15 +301,11 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 		delete record;
 	}
 	
-	std::map<pair<Parents,bool>, VCFHeteroHomo *> vcfs;
 	for(auto p = selected_records.begin(); p != selected_records.end(); ++p) {
-		auto	records = p->second;
+		auto&	records = p->second;
 		const vector<STRVEC>	header = orig_vcf->select_header(records[0]);
-		auto	vcf = new VCFHeteroHomo(header, records[0]->get_samples(),
-															records, geno_map);
-		// 作られたVCFが小さいと染色体ごとなくなってchrsが間違うことがあるので
-		orig_vcf->copy_chrs(vcf);
-		vcfs[p->first] = vcf;
+		vcfs[p->first]->set_records(records);
+		orig_vcf->copy_chrs(vcfs[p->first]);
 	}
 	return vcfs;
 }

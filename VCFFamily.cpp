@@ -37,6 +37,18 @@ VCFFamily::VCFFamily(const vector<STRVEC>& h, const STRVEC& s,
 					family_records(rs) {
 }
 
+void VCFFamily::set_records(const vector<VCFFamilyRecord *>& rs) {
+	family_records = rs;
+	// ここに実装を書くと、深い継承の場合、最上位まで全部書かなけらばならない
+	// 連鎖的にする
+	set_records_base(rs);
+}
+
+// 親に書くと子クラスのvectorを全て並べることになるので子に書く
+void VCFFamily::set_records_base(const vector<VCFFamilyRecord *>& rs) {
+	records.insert(records.end(), rs.begin(), rs.end());
+}
+
 bool VCFFamily::is_all_hetero(bool is_mat) const {
 	for(auto p = family_records.begin(); p != family_records.end(); ++p) {
 		if(is_mat) {
@@ -72,7 +84,13 @@ void VCFFamily::update_genotypes(const std::vector<STRVEC>& GTs) {
 }
 
 VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
+	// samplesをVFCとRecordで共通にするために
+	// 空のVCFを作って、そのsamplesを使うようにする
 	vector<VCFFamilyRecord *>	records;
+	VCFFamily	*vcf = new VCFFamily(vcf1->get_header(),
+											vcf1->get_samples(), records);
+	vcf1->copy_chrs(vcf);
+	
 	size_t	k = 0U;
 	size_t	l = 0U;
 	while(k < vcf1->size() && l < vcf2->size()) {
@@ -96,9 +114,7 @@ VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
 	for(size_t i = l; i < vcf2->size(); ++i)
 		records.push_back(vcf2->get_record(i)->copy());
 	
-	VCFFamily	*vcf = new VCFFamily(vcf1->get_header(),
-										vcf1->get_samples(), records);
-	vcf1->copy_chrs(vcf);
+	vcf->set_records(records);
 	return vcf;
 }
 

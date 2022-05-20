@@ -78,7 +78,8 @@ private:
 	
 public:
 	static VCFFillableRecord *from_VCFFamilyRecord(
-									const VCFFamilyRecord *record);
+									const VCFFamilyRecord *record,
+									const STRVEC& samples);
 	static VCFRecord *integrate_records(
 						const std::vector<VCFFillableRecord *>& records);
 };
@@ -146,7 +147,10 @@ public:
 									std::vector<VCFFillableRecord *> rs);
 	~VCFFillable() { }
 	
-	std::vector<VCFRecord *> to_VCFRecord(std::vector<VCFFillableRecord *>& rs);
+	VCFFillable *create_from_header() const;
+	void set_records(const std::vector<VCFFillableRecord *>& rs);
+	void set_records_base(const std::vector<VCFFillableRecord *>& rs);
+	
 	VCFFillableRecord *get_record(std::size_t i) const {
 		return fillable_records[i];
 	}
