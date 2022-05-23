@@ -189,6 +189,9 @@ private:
 	std::string modify_gt(RecordSet& rs, size_t i);
 	void impute_core(RecordSet& record_set);
 	
+	template<typename Iter>
+	VCFFillableRecord *find_neighbor_same_type_record(
+					std::size_t i, std::size_t c, Iter first, Iter last) const;
 	VCFFillableRecord *find_prev_same_type_record(std::size_t i,
 													std::size_t c) const;
 	VCFFillableRecord *find_next_same_type_record(std::size_t i,

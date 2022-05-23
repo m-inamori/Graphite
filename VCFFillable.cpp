@@ -685,16 +685,12 @@ void VCFFillable::phase(int i, const vector<Group>& groups) {
 	}
 }
 
-// find_next_same_type_recordと一緒にできる気がする
-VCFFillableRecord *VCFFillable::find_prev_same_type_record(size_t i,
-															size_t c) const {
-	if(i == 0U)
-		return NULL;
-	
+template<typename Iter>
+VCFFillableRecord *VCFFillable::find_neighbor_same_type_record(
+							size_t i, size_t c, Iter first, Iter last) const {
 	const VCFFillableRecord::RecordType	type = fillable_records[i]->get_type();
 	const string&	chromosome = fillable_records[i]->chrom();
-	for(auto p = fillable_records.rend() - i + 1;
-							p != fillable_records.rend(); ++p) {
+	for(auto p = first; p != last; ++p) {
 		auto	*record = *p;
 		if(record->chrom() != chromosome)
 			return NULL;
@@ -704,22 +700,23 @@ VCFFillableRecord *VCFFillable::find_prev_same_type_record(size_t i,
 	return NULL;
 }
 
-VCFFillableRecord *VCFFillable::find_next_same_type_record(size_t i,
-															size_t c) const {
+VCFFillableRecord *VCFFillable::find_prev_same_type_record(
+													size_t i, size_t c) const {
+	if(i == 0U)
+		return NULL;
+	
+	return find_neighbor_same_type_record(i, c, fillable_records.rend() - i + 1,
+													fillable_records.rend());
+}
+
+VCFFillableRecord *VCFFillable::find_next_same_type_record(
+													size_t i, size_t c) const {
 	if(i == fillable_records.size() - 1)
 		return NULL;
 	
-	const VCFFillableRecord::RecordType	type = fillable_records[i]->get_type();
-	const string&	chromosome = fillable_records[i]->chrom();
-	for(auto p = fillable_records.begin() + i + 1;
-									p != fillable_records.end(); ++p) {
-		auto	*record = *p;
-		if(record->chrom() != chromosome)
-			return NULL;
-		else if(record->get_type() == type && record->get_GT(c-9) != "./.")
-			return record;
-	}
-	return NULL;
+	return find_neighbor_same_type_record(i, c,
+											fillable_records.begin() + i + 1,
+											fillable_records.end());
 }
 
 const VCFFillable::RecordSet *VCFFillable::create_recordset(

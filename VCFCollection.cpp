@@ -88,12 +88,28 @@ vector<vector<bool>> VCFCollection::make_random_boolean_vectors(
 	return vectors;
 }
 
+// ヘテロ親のハプロタイプを逆にしたときとしていないときの繋がり具合
+// 各サンプルでヘテロ親のどちらから来たかが変わっていれば+1
+int VCFCollection::score_connection(const vector<bool>& bs,
+					const map<VCF_INDEX_PAIR,pair<int,int>>& scores) const {
+	int score = 0;
+	for(auto p = scores.begin(); p != scores.end(); ++p) {
+		const size_t	i1 = p->first.first;
+		const size_t	i2 = p->first.second;
+		const auto&		v = p->second;
+		score += bs[i1] == bs[i2] ? v.first : v.second;
+	}
+	return score;
+}
+
+// 元のrecordはどうVCFに分配されているのか
+// [(index of vcfs, index in vcf)]
 vector<pair<size_t,size_t>> VCFCollection::make_which_vcf_table() const {
 	const size_t	num_markers = max_index() + 1;
 	vector<pair<size_t,size_t>>	which_vcfs(num_markers);
 	for(size_t i = 0U; i < vcfs.size(); ++i) {
-		const auto	*vcf = vcfs[i];
-		for(size_t j = 0U; j < vcfs.size(); ++j) {
+		const auto&	vcf = vcfs[i];
+		for(size_t j = 0U; j < vcf->size(); ++j) {
 			const auto	*record = vcf->get_record(j);
 			which_vcfs[record->get_index()] = pair<size_t,size_t>(i, j);
 		}
@@ -101,30 +117,51 @@ vector<pair<size_t,size_t>> VCFCollection::make_which_vcf_table() const {
 	return which_vcfs;
 }
 
-// ヘテロ親のハプロタイプを逆にしたときとしていないときの繋がり具合
-// 各サンプルでヘテロ親のどちらから来たかが変わっていれば+1
-int VCFCollection::score_connection(const vector<bool>& bs) const {
+vector<VCFCollection::Joint> VCFCollection::extract_joints() const {
+	vector<Joint>	joints;
 	const auto	which_vcfs = make_which_vcf_table();
-	int score = 0;
 	for(auto p = which_vcfs.begin(); p != which_vcfs.end() - 1; ++p) {
-		const size_t	i1 = p->first;
-		const size_t	j1 = p->second;
-		const size_t	i2 = (p+1)->first;
-		const size_t	j2 = (p+2)->second;
-		if(i1 != i2) {
-			const auto	*record1 = vcfs[i1]->get_record(j1);
-			const auto	*record2 = vcfs[i2]->get_record(j2);
-			score += record1->difference(record2, bs[i1] ^ bs[i2]);
-		}
+		const auto&	pair1 = *p;
+		const auto&	pair2 = *(p + 1);
+		if(pair1.first != pair2.second)
+			joints.push_back(Joint(pair1, pair2));
 	}
-	return score;
+	return joints;
 }
 
-// あとでDPにする
-// そうすれば乱数を使わなくて済む
+// VCF同士で反転していない時と反転している時のスコア
+map<pair<size_t,size_t>,pair<int,int>> VCFCollection::compute_scores() const {
+	// VCFが変わる部分を抽出する
+	const vector<Joint>	joints = extract_joints();
+	
+	map<pair<size_t,size_t>,pair<int,int>>	dic_scores;
+	for(auto p = joints.begin(); p != joints.end(); ++p) {
+		const auto&	pair1 = p->first;
+		const auto&	pair2 = p->second;
+		const size_t&	i1 = pair1.first;
+		const size_t&	i2 = pair2.first;
+		pair<size_t,size_t>	key(i1, i2);
+		dic_scores[key].first  += score_joint(*p, true);
+		dic_scores[key].second += score_joint(*p, false);
+	}
+	return dic_scores;
+}
+
+// ヘテロ親のハプロタイプを逆にしないときまたは逆にしたときの繋がり具合
+// 各サンプルで繋がっていないと+1
+int VCFCollection::score_joint(const Joint& joint, bool b) const {
+	// b: trueが逆にしないとき
+	const auto&	pair1 = joint.first;
+	const auto&	pair2 = joint.second;
+	auto	*record1 = vcfs[pair1.first]->get_record(pair1.second);
+	auto	*record2 = vcfs[pair2.first]->get_record(pair2.second);
+	return record1->difference(record2, !b);
+}
+
 void VCFCollection::determine_haplotype() {
 	// vcfsが最も矛盾なくつながるように親を反転する
 	const size_t	bs_limit = 10;
+	const map<pair<size_t,size_t>,pair<int,int>>	scores = compute_scores();
 	vector<vector<bool>>	bss;
 	if(vcfs.size() <= bs_limit) {
 		bss = all_boolean_vectors(vcfs.size());
@@ -134,9 +171,9 @@ void VCFCollection::determine_haplotype() {
 	}
 	
 	vector<bool>	min_bs = bss.front();
-	int	min_score = score_connection(min_bs);
+	int	min_score = score_connection(min_bs, scores);
 	for(auto p = bss.begin() + 1; p != bss.end(); ++p) {
-		const int	score = score_connection(*p);
+		const int	score = score_connection(*p, scores);
 		if(score < min_score) {
 			min_bs = *p;
 			min_score = score;
