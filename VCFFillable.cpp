@@ -843,31 +843,56 @@ VCFFillable *VCFFillable::convert(const VCFFamily *vcf) {
 	return new_vcf;
 }
 
+void VCFFillable::replace_filled_records(
+					const vector<const VCFRecord *>& orig_records) {
+	for(size_t i = 0U; i < size(); ++i) {
+		const VCFRecord	*orig_record = orig_records[i];
+		VCFFillableRecord	*record = fillable_records[i];
+		if(record->get_v().size() == 9U) {
+			auto	v = orig_record->extract_v(record->get_samples());
+			record->set(v, record->get_type());
+		}
+	}
+}
+
+void VCFFillable::replace_in_thread(void *config) {
+	const auto	*c = (ConfigReplaceThread *)config;
+	const auto&	vcfs = c->vcfs;
+	for(size_t i = c->first; i < vcfs.size(); i += c->num_thread) {
+		vcfs[i]->replace_filled_records(c->orig_records);
+	}
+}
+
 void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
-															VCFHuge *orig_vcf) {
-	POSITION	orig_pos(0, 0LL);
-	VCFRecord	*orig_record = NULL;	// temporary
+													VCFHuge *orig_vcf, int T) {
+	vector<const VCFRecord *>	orig_records;
 	VCFFillable	*vcf = vcfs.front();
 	for(size_t i = 0U; i < vcf->size(); ++i) {
 		const POSITION	pos = vcf->record_position(*(vcf->get_record(i)));
-		if(pos > orig_pos) {
-			if(orig_record != NULL)
-				delete orig_record;
-			orig_record = orig_vcf->proceed(pos);
-			if(orig_record == NULL)
-				break;
-			orig_pos = pos;
-		}
-		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-			VCFFillableRecord	*record = (*p)->get_record(i);
-			if(record->get_v().size() == 9U) {
-				auto	v = orig_record->extract_v(record->get_samples());
-				record->set(v, record->get_type());
-			}
-		}
+		const VCFRecord	*record = orig_vcf->proceed(pos);
+		orig_records.push_back(record);
 	}
-	if(orig_record != NULL)
-		delete orig_record;
+	
+	vector<ConfigReplaceThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigReplaceThread(vcfs, orig_records, i, T);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i) {
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&replace_in_thread, (void *)configs[i]);
+	}
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+	Common::delete_all(orig_records);
 }
 
 vector<VCFFillable::PosWithChr> VCFFillable::merge_positions(
@@ -960,7 +985,6 @@ void VCFFillable::impute_in_thread(void *config) {
 	const auto	*c = (ConfigThread *)config;
 	const auto&	vcfs = c->vcfs;
 	for(size_t i = c->first; i < vcfs.size(); i += c->num_thread) {
-cout << vcfs[i]->samples[0] << " " << vcfs[i]->samples[1] << endl;
 		vcfs[i]->impute();
 	}
 }
@@ -994,7 +1018,6 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	vector<VCFFillable *>	vcfs;
 	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
 		vcfs.push_back(VCFFillable::convert(*p));
-	
 	const vector<PosWithChr>	positions = merge_positions(vcfs);
 	
 	vector<VCFFillable *>	filled_vcfs;
@@ -1005,7 +1028,7 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	Common::delete_all(vcfs);
 	
 	VCFHuge	*orig_vcf = VCFHuge::read(path_VCF);
-	VCFFillable::replace_filled_records(filled_vcfs, orig_vcf);
+	VCFFillable::replace_filled_records(filled_vcfs, orig_vcf, T);
 #ifndef DEBUG
 	VCFFillable::impute_all_in_multithreads(filled_vcfs, T);
 #else

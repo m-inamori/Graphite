@@ -88,20 +88,6 @@ vector<vector<bool>> VCFCollection::make_random_boolean_vectors(
 	return vectors;
 }
 
-// ヘテロ親のハプロタイプを逆にしたときとしていないときの繋がり具合
-// 各サンプルでヘテロ親のどちらから来たかが変わっていれば+1
-int VCFCollection::score_connection(const vector<bool>& bs,
-					const map<VCF_INDEX_PAIR,pair<int,int>>& scores) const {
-	int score = 0;
-	for(auto p = scores.begin(); p != scores.end(); ++p) {
-		const size_t	i1 = p->first.first;
-		const size_t	i2 = p->first.second;
-		const auto&		v = p->second;
-		score += bs[i1] == bs[i2] ? v.first : v.second;
-	}
-	return score;
-}
-
 // 元のrecordはどうVCFに分配されているのか
 // [(index of vcfs, index in vcf)]
 vector<pair<size_t,size_t>> VCFCollection::make_which_vcf_table() const {
@@ -129,6 +115,17 @@ vector<VCFCollection::Joint> VCFCollection::extract_joints() const {
 	return joints;
 }
 
+// ヘテロ親のハプロタイプを逆にしないときまたは逆にしたときの繋がり具合
+// 各サンプルで繋がっていないと+1
+int VCFCollection::score_joint(const Joint& joint, bool b) const {
+	// b: trueが逆にしないとき
+	const auto&	pair1 = joint.first;
+	const auto&	pair2 = joint.second;
+	auto	*record1 = vcfs[pair1.first]->get_record(pair1.second);
+	auto	*record2 = vcfs[pair2.first]->get_record(pair2.second);
+	return record1->difference(record2, !b);
+}
+
 // VCF同士で反転していない時と反転している時のスコア
 map<pair<size_t,size_t>,pair<int,int>> VCFCollection::compute_scores() const {
 	// VCFが変わる部分を抽出する
@@ -147,15 +144,18 @@ map<pair<size_t,size_t>,pair<int,int>> VCFCollection::compute_scores() const {
 	return dic_scores;
 }
 
-// ヘテロ親のハプロタイプを逆にしないときまたは逆にしたときの繋がり具合
-// 各サンプルで繋がっていないと+1
-int VCFCollection::score_joint(const Joint& joint, bool b) const {
-	// b: trueが逆にしないとき
-	const auto&	pair1 = joint.first;
-	const auto&	pair2 = joint.second;
-	auto	*record1 = vcfs[pair1.first]->get_record(pair1.second);
-	auto	*record2 = vcfs[pair2.first]->get_record(pair2.second);
-	return record1->difference(record2, !b);
+// ヘテロ親のハプロタイプを逆にしたときとしていないときの繋がり具合
+// 各サンプルでヘテロ親のどちらから来たかが変わっていれば+1
+int VCFCollection::score_connection(const vector<bool>& bs,
+					const map<VCF_INDEX_PAIR,pair<int,int>>& scores) const {
+	int score = 0;
+	for(auto p = scores.begin(); p != scores.end(); ++p) {
+		const size_t	i1 = p->first.first;
+		const size_t	i2 = p->first.second;
+		const auto&		v = p->second;
+		score += bs[i1] == bs[i2] ? v.first : v.second;
+	}
+	return score;
 }
 
 void VCFCollection::determine_haplotype() {

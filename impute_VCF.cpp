@@ -78,6 +78,8 @@ void impute_in_thread(void *config) {
 	auto&	families = c->families;
 	const size_t	num = families.size();
 	for(size_t i = c->first; i < num; i += c->num_threads) {
+if(i == 1)
+cout << i << endl;
 		auto	*vcf = impute_each(families[i], c->chr_maps,
 										c->vcfs, c->num_threads);
 		c->imputed_vcfs[i] = vcf;
@@ -96,6 +98,7 @@ vector<VCFFamily *> impute(const HeteroParentVCFs& vcfs,
 													i, T, imputed_family_vcfs);
 	
 #ifndef DEBUG
+//#if 1
 	vector<pthread_t>	threads_t(T);
 	for(int i = 0; i < T; ++i)
 		pthread_create(&threads_t[i], NULL,

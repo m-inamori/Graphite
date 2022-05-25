@@ -434,23 +434,26 @@ VCFImputable *VCFImputable::make_subvcf(VCFHeteroHomo *vcf,
 // markerを省いたのでindexを付け替える
 void VCFImputable::renumber_indices(vector<VCFImputable *>& vcfs) {
 	vector<size_t>	indices;
+	vector<VCFImputableRecord *>	records;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		const auto	*vcf = *p;
-		for(auto q = vcf->imp_records.begin(); q != vcf->imp_records.end(); ++q)
-			indices.push_back((*q)->get_index());
+		for(auto q = vcf->imp_records.begin();
+							q != vcf->imp_records.end(); ++q) {
+			auto	*record = *q;
+			records.push_back(record);
+			indices.push_back(record->get_index());
+		}
 	}
 	
 	map<size_t,size_t>	dic_indices;
 	for(size_t i = 0U; i < indices.size(); ++i)
 		dic_indices[indices[i]] = i;
 	
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		const auto	*vcf = *p;
-		auto&	records = vcf->imp_records;
-		for(auto q = records.begin(); q != records.end(); ++q) {
-			auto	*record = *q;
-			record->set_index(dic_indices[record->get_index()]);
-		}
+	size_t	new_index = 0;
+	for(auto p = dic_indices.begin(); p != dic_indices.end(); ++p) {
+		const size_t	old_index = p->second;
+		records[old_index]->set_index(new_index);
+		++new_index;
 	}
 }
 
