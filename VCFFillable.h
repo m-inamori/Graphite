@@ -118,13 +118,16 @@ class VCFFillable : public VCFSmall {
 		int prev_pat_from(std::size_t i) const;
 		int next_pat_from(std::size_t i) const;
 		
+		int near_mat_from(size_t i) const;
+		int near_pat_from(size_t i) const;
+		
 		bool is_mat_prev_near() const;
 		bool is_pat_prev_near() const;
 		
 		Pair select_nearest_froms(const std::vector<Pair>& pairs,
 													std::size_t i) const;
 		Pair select_pair(const std::vector<Pair>& pairs,
-								std::size_t i, bool selected=true) const;
+								std::size_t i, bool selected=false) const;
 	};
 	
 	struct ConfigReplaceThread {

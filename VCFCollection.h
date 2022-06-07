@@ -31,9 +31,6 @@ public:
 	VCFFamily *join() const;
 	
 private:
-	std::vector<std::vector<bool>> all_boolean_vectors(std::size_t n) const;
-	std::vector<std::vector<bool>> make_random_boolean_vectors(
-											size_t num_vec, size_t n) const;
 	std::vector<VCF_INDEX_PAIR> make_which_vcf_table() const;
 	std::vector<Joint> extract_joints() const;
 	int score_joint(const Joint& joint, bool b) const;
@@ -50,5 +47,11 @@ public:
 										VCFHeteroHomo *pat_vcf,
 										const vector<const Map *>& chr_maps,
 										int MIN_CROSSOVER, int T);
+	
+private:
+	std::vector<std::vector<bool>> all_boolean_vectors(std::size_t n, bool top);
+	std::vector<std::vector<bool>> make_random_boolean_vectors(
+											size_t num_vec, size_t n);
+	std::vector<std::vector<bool>> make_boolean_vectors(std::size_t n);
 };
 #endif

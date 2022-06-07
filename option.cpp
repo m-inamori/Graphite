@@ -1,39 +1,82 @@
 #include <iostream>
 #include "option.h"
+#include "common.h"
 
 using namespace std;
 
 
 //////////////////// Option ////////////////////
 
+string Option::flag_value(const string& s, int argc, char **argv) {
+	for(size_t i = 4U; i < (size_t)(argc - 1); ++i) {
+		if(argv[i] == s)
+			return argv[i+1];
+	}
+	return string();
+}
+
+vector<size_t> Option::parse_families(const string& f) {
+	vector<size_t>	family_indices;
+	const vector<string>	v = Common::split(f, ',');
+	for(auto p = v.begin(); p != v.end(); ++p) {
+		const vector<string>	w = Common::split(*p, ':');
+		if(w.size() == 1U) {
+			family_indices.push_back(stoi(w[0]));
+		}
+		else if(w.size() == 2U) {
+			for(size_t i = stoi(w[0]); i < (size_t)stoi(w[1]); ++i)
+				family_indices.push_back(i);
+		}
+		else {
+			throw std::invalid_argument("");
+		}
+	}
+	return family_indices;
+}
+
+vector<size_t> Option::get_families(int argc, char **argv) {
+	const string	s = flag_value("-f", argc, argv);
+	if(s.empty())
+		return vector<size_t>();
+	else
+		return parse_families(s);
+}
+
+int Option::get_chroms(int argc, char **argv) {
+	const string	s = flag_value("-c", argc, argv);
+	if(s.empty())
+		return 0;	// all
+	else
+		return stoi(s);
+}
+
+int Option::get_num_threads(int argc, char **argv) {
+	const string	s = flag_value("-t", argc, argv);
+	if(s.empty())
+		return 1;
+	else
+		return stoi(s);
+}
+
 Option *Option::create(int argc, char **argv) {
-	if(argc < 5 || 8 < argc)
+	if(argc < 5 || 11 < argc)
 		return NULL;
 	
-	const bool	debug = string(argv[argc-2]) == "-b";
-	int	num_threads;
-	if(argc <= 6) {
-		num_threads = 1;
-		if(argc - (debug ? 1 : 0) != 5)
-			return NULL;
+	try {
+		const vector<size_t>	families = get_families(argc, argv);
+		const int	chroms = get_chroms(argc, argv);
+		const int	num_threads = get_num_threads(argc, argv);
+		return new Option(argv[1], argv[2], argv[3],
+							families, chroms, num_threads, argv[argc-1]);
 	}
-	else {
-		if(string(argv[4]) != "-t")
-			return NULL;
-		if(argc - (debug ? 1 : 0) != 7)
-			return NULL;
-		try {
-			num_threads = atoi(argv[5]);
-		}
-		catch(std::invalid_argument& e) {
-			return NULL;
-		}
+	catch(std::invalid_argument& e) {
+		return NULL;
 	}
-	
-	return new Option(argv[1], argv[2], argv[3],
-						num_threads, argv[argc-1], debug);
 };
 
 void Option::usage(char **argv) {
-	cerr << argv[0] << " VCF ped map [-t num_threads] [-b] out." << endl;
+	cerr << argv[0] << " VCF ped map [-t num_threads] "
+					<< "[-f family indices] [-c chrom num] out." << endl;
+	cerr << "family indices: (index|first:last)[,(index|first:last),[..]]"
+																	<< endl;
 }

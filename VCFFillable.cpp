@@ -143,8 +143,8 @@ bool VCFFillableRecord::modify_parents() {
 	}
 	else if(c01 * 10 >= (c00 + c01 + c11) * 9) {
 		// 親は0/0と1/1のはず
-		if(this->get_GT(9) == "0/0") {
-			if(this->get_GT(10) == "0/0") {
+		if(this->get_GT(0) == "0/0") {
+			if(this->get_GT(1) == "0/0") {
 				return false;	// どちらを修正していいのか分からない
 			}
 			else {
@@ -152,8 +152,8 @@ bool VCFFillableRecord::modify_parents() {
 				return true;
 			}
 		}
-		else if(this->get_GT(9) == "1/1") {
-			if(this->get_GT(10) == "1/1") {
+		else if(this->get_GT(0) == "1/1") {
+			if(this->get_GT(1) == "1/1") {
 				return false;
 			}
 			else {
@@ -162,11 +162,11 @@ bool VCFFillableRecord::modify_parents() {
 			}
 		}
 		else {
-			if(this->get_GT(10) == "0/0") {
+			if(this->get_GT(1) == "0/0") {
 				this->set_mat_GT("1/1");
 				return true;
 			}
-			else if(this->get_GT(10) == "1/1") {
+			else if(this->get_GT(1) == "1/1") {
 				this->set_mat_GT("0/0");
 				return true;
 			}
@@ -297,9 +297,9 @@ bool VCFFillableRecord::is_near_prog_gts(const STRVEC& gts) const {
 	int	num = 0;
 	int	dist = 0;
 	for(size_t i = 0U; i < gts.size(); ++i) {
-		if(gts[i] != "0/1")
+		if(v[i+11] != "0/1")
 			num += 1;
-		if(!is_same_gts(v[i+11], gts[i]))
+		if(!is_same_gts(gts[i], v[i+11]))
 			dist += 1;
 	}
 	return dist < num / 2;
@@ -405,11 +405,18 @@ bool VCFFillable::RecordSet::is_pat_prev_near() const {
 	return record->pos() * 2 < prev_pat_record->pos() + next_pat_record->pos();
 }
 
+int VCFFillable::RecordSet::near_mat_from(size_t i) const {
+	return is_mat_prev_near() ? prev_mat_from(i) : next_mat_from(i);
+}
+
+int VCFFillable::RecordSet::near_pat_from(size_t i) const {
+	return is_pat_prev_near() ? prev_pat_from(i) : next_pat_from(i);
+}
+
 VCFFillable::Pair VCFFillable::RecordSet::select_nearest_froms(
 								const vector<Pair>& pairs, size_t i) const {
 	if(pairs.size() == 4U) {
-		return Pair(is_mat_prev_near() ? prev_mat_from(i) : next_mat_from(i),
-					is_pat_prev_near() ? prev_pat_from(i) : next_pat_from(i));
+		return Pair(near_mat_from(i), near_pat_from(i));
 	}
 	else if(pairs[0].first == pairs[1].first) {			// matが同じ
 		if(is_pat_prev_near())
@@ -423,12 +430,8 @@ VCFFillable::Pair VCFFillable::RecordSet::select_nearest_froms(
 		else
 			return Pair(next_mat_from(i), pairs[1].second);
 	}
-	else {	// ねじれている
-		if(next_pat_record->pos() - prev_mat_record->pos() <
-								next_mat_record->pos() - prev_pat_record->pos())
-			return Pair(prev_mat_from(i), next_pat_from(i));
-		else
-			return Pair(next_mat_from(i), prev_pat_from(i));
+	else {	// 両親とも乗り換えている（滅多にない）
+		return Pair(near_mat_from(i), near_pat_from(i));
 	}
 }
 
@@ -438,7 +441,7 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 		return Pair(0, 0);
 	else if(pairs.size() == 1U)
 		return pairs.front();
-	else if(Genotype::is_valid(record->get_gt(i)))
+	else if(!Genotype::is_valid(record->get_gt(i)))
 		return select_nearest_froms(pairs, i);
 	else if(selected)
 		return select_nearest_froms(pairs, i);
@@ -537,8 +540,11 @@ vector<VCFFillable::Group> VCFFillable::group_records() const {
 VCFFillableRecord *VCFFillable::find_prev_record(
 								VCFFillableRecord::RecordType type,
 								int i, const vector<Group>& groups) const {
+	const string&	chr = groups[i].second.front()->chrom();
 	for(int j = i - 1; j >= 0; --j) {
-		if(groups[j].first == type)
+		if(groups[j].second.front()->chrom() != chr)
+			return NULL;
+		else if(groups[j].first == type)
 			return groups[j].second.back();
 	}
 	return NULL;
@@ -547,8 +553,11 @@ VCFFillableRecord *VCFFillable::find_prev_record(
 VCFFillableRecord *VCFFillable::find_next_record(
 								VCFFillableRecord::RecordType type,
 								int i, const vector<Group>& groups) const {
+	const string&	chr = groups[i].second.front()->chrom();
 	for(int j = i + 1; j < (int)groups.size(); ++j) {
-		if(groups[j].first == type)
+		if(groups[j].second.front()->chrom() != chr)
+			return NULL;
+		else if(groups[j].first == type)
 			return groups[j].second.front();
 	}
 	return NULL;
@@ -745,11 +754,11 @@ void VCFFillable::impute_NA_mat_each(size_t i, size_t c) {
 	const int	prev_mat_from = from_which_chrom_mat(rs->prev_mat_record, c-9);
 	const int	next_mat_from = from_which_chrom_mat(rs->next_mat_record, c-9);
 	
-	// なぜpatは1なのか
-	vector<Pair>	pairs;
-	if(prev_mat_from != 0)
+	// patはホモだから1でも2でもよい
+	vector<Pair>	pairs;	// [(mat_from, pat_from)]
+	if(rs->prev_mat_record != NULL)
 		pairs.push_back(Pair(prev_mat_from, 1));
-	if(next_mat_from != 0 && next_mat_from != prev_mat_from)
+	if(rs->next_mat_record != NULL && next_mat_from != prev_mat_from)
 		pairs.push_back(Pair(next_mat_from, 1));
 	if(pairs.empty())
 		return;
@@ -782,11 +791,10 @@ void VCFFillable::impute_NA_pat_each(size_t i, size_t c) {
 	const int	prev_pat_from = from_which_chrom_pat(rs->prev_pat_record, c-9);
 	const int	next_pat_from = from_which_chrom_pat(rs->next_pat_record, c-9);
 	
-	// なぜpatは1なのか
 	vector<Pair>	pairs;
-	if(prev_pat_from != 0)
+	if(rs->prev_pat_record != NULL)
 		pairs.push_back(Pair(1, prev_pat_from));
-	if(next_pat_from != 0 && next_pat_from != prev_pat_from)
+	if(rs->next_pat_record != NULL && next_pat_from != prev_pat_from)
 		pairs.push_back(Pair(1, next_pat_from));
 	if(pairs.empty())
 		return;
@@ -888,7 +896,7 @@ void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
 		pthread_join(threads_t[i], NULL);
 #else
 	for(int i = 0; i < T; ++i)
-		impute_in_thread(configs[i]);
+		replace_in_thread(configs[i]);
 #endif
 	
 	Common::delete_all(configs);

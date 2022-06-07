@@ -88,6 +88,6 @@ public:
 										const std::vector<Parents>& families,
 										const PedigreeTable& pedigree,
 										const Map& geno_map,
-										bool debug);
+										int chroms);
 };
 #endif

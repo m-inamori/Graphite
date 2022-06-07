@@ -316,8 +316,8 @@ void VCFImputable::update_genotypes() {
 	for(auto p = imp_records.begin(); p != imp_records.end(); ++p)
 		(*p)->update_genotypes();
 	
-	const auto	GT_table = get_GT_table();
-	VCFHeteroHomo::update_genotypes(GT_table);	// 親も更新する必要がある
+//	const auto	GT_table = get_GT_table();
+//	VCFHeteroHomo::update_genotypes(GT_table);	// 親も更新する必要がある
 }
 
 void VCFImputable::inverse_haplotype() {

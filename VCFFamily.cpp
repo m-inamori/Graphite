@@ -80,7 +80,7 @@ bool VCFFamily::is_all_homo(bool is_mat) const {
 void VCFFamily::update_genotypes(const std::vector<STRVEC>& GTs) {
 	for(size_t i = 0U; i < records.size(); ++i)
 		records[i]->set_GTs(GTs[i]);
-	VCFSmall::update_genotypes(GTs);
+//	VCFSmall::update_genotypes(GTs);
 }
 
 VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {

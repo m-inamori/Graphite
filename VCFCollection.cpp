@@ -39,15 +39,22 @@ void VCFCollection::impute(int min_positions, double MIN_CROSSOVER, int T) {
 	}
 }
 
-vector<vector<bool>> VCFCollection::all_boolean_vectors(size_t n) const {
+// topだけはfalse
+vector<vector<bool>> VCFCollection::all_boolean_vectors(size_t n, bool top) {
 	// D&C
 	if(n == 1U) {
-		vector<vector<bool>>	bs = { vector<bool>(1, true),
-										vector<bool>(1, false) };
-		return bs;
+		if(top) {
+			vector<vector<bool>>	bs = { vector<bool>(1, false) };
+			return bs;
+		}
+		else {
+			vector<vector<bool>>	bs = { vector<bool>(1, true),
+											vector<bool>(1, false) };
+			return bs;
+		}
 	}
 	else if(n % 2 == 1U) {
-		const auto	part_vectors = all_boolean_vectors(n - 1);
+		const auto	part_vectors = all_boolean_vectors(n - 1, top);
 		vector<vector<bool>>	vectors;
 		for(auto p = part_vectors.begin(); p != part_vectors.end(); ++p) {
 			vector<bool>	v = *p;
@@ -60,11 +67,12 @@ vector<vector<bool>> VCFCollection::all_boolean_vectors(size_t n) const {
 		return vectors;
 	}
 	else {
-		const auto	part_vectors = all_boolean_vectors(n / 2);
+		const auto	part_vectors1 = all_boolean_vectors(n / 2, top);
+		const auto	part_vectors2 = all_boolean_vectors(n / 2, false);
 		vector<vector<bool>>	vectors;
-		for(auto p = part_vectors.begin(); p != part_vectors.end(); ++p) {
+		for(auto p = part_vectors1.begin(); p != part_vectors1.end(); ++p) {
 			vector<bool>	v1 = *p;
-			for(auto q = part_vectors.begin(); q != part_vectors.end(); ++q) {
+			for(auto q = part_vectors2.begin(); q != part_vectors2.end(); ++q) {
 				vector<bool>	v2 = *q;
 				v1.insert(v1.end(), v2.begin(), v2.end());
 				vectors.push_back(v1);
@@ -76,16 +84,27 @@ vector<vector<bool>> VCFCollection::all_boolean_vectors(size_t n) const {
 }
 
 vector<vector<bool>> VCFCollection::make_random_boolean_vectors(
-											size_t num_vec, size_t n) const {
+												size_t num_vec, size_t n) {
 	std::mt19937	mt(123456789);
 	std::uniform_int_distribution<int>	dist(0, 1);
 	
 	vector<vector<bool>>	vectors(num_vec, vector<bool>(n));
 	for(size_t i = 0; i < num_vec; ++i) {
-		for(size_t j = 0; j < n; ++j)
+		vectors[i][0] = false;
+		for(size_t j = 1; j < n; ++j)
 			vectors[i][j] = dist(mt) == 0;
 	}
 	return vectors;
+}
+
+vector<vector<bool>> VCFCollection::make_boolean_vectors(size_t n) {
+	const size_t	bs_limit = 10;
+	if(vcfs.size() <= bs_limit) {
+		return all_boolean_vectors(vcfs.size(), true);
+	}
+	else {
+		return make_random_boolean_vectors(1U << bs_limit, vcfs.size());
+	}
 }
 
 // 元のrecordはどうVCFに分配されているのか
@@ -109,7 +128,7 @@ vector<VCFCollection::Joint> VCFCollection::extract_joints() const {
 	for(auto p = which_vcfs.begin(); p != which_vcfs.end() - 1; ++p) {
 		const auto&	pair1 = *p;
 		const auto&	pair2 = *(p + 1);
-		if(pair1.first != pair2.second)
+		if(pair1.first != pair2.first)	// different VCF indices
 			joints.push_back(Joint(pair1, pair2));
 	}
 	return joints;
@@ -137,7 +156,7 @@ map<pair<size_t,size_t>,pair<int,int>> VCFCollection::compute_scores() const {
 		const auto&	pair2 = p->second;
 		const size_t&	i1 = pair1.first;
 		const size_t&	i2 = pair2.first;
-		pair<size_t,size_t>	key(i1, i2);
+		pair<size_t,size_t>	key(i1, i2);	// pair of vcf indices
 		dic_scores[key].first  += score_joint(*p, true);
 		dic_scores[key].second += score_joint(*p, false);
 	}
@@ -159,17 +178,12 @@ int VCFCollection::score_connection(const vector<bool>& bs,
 }
 
 void VCFCollection::determine_haplotype() {
-	// vcfsが最も矛盾なくつながるように親を反転する
-	const size_t	bs_limit = 10;
-	const map<pair<size_t,size_t>,pair<int,int>>	scores = compute_scores();
-	vector<vector<bool>>	bss;
-	if(vcfs.size() <= bs_limit) {
-		bss = all_boolean_vectors(vcfs.size());
-	}
-	else {
-		bss = make_random_boolean_vectors(1U << bs_limit, vcfs.size());
-	}
+	if(vcfs.size() == 1U)
+		return;
 	
+	// vcfsが最も矛盾なくつながるように親を反転する
+	const map<pair<size_t,size_t>,pair<int,int>>	scores = compute_scores();
+	vector<vector<bool>>	bss = make_boolean_vectors(vcfs.size());
 	vector<bool>	min_bs = bss.front();
 	int	min_score = score_connection(min_bs, scores);
 	for(auto p = bss.begin() + 1; p != bss.end(); ++p) {
@@ -219,6 +233,7 @@ VCFFamily *VCFCollection::impute_one_parent(VCFHeteroHomo *vcf,
 			delete collection;
 			continue;
 		}
+		collection->determine_haplotype();
 		auto	*subvcf2 = collection->join();
 		delete collection;
 		vcfs.push_back(subvcf2);

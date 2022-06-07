@@ -34,8 +34,12 @@ Materials *Materials::create(const Option *option) {
 	const auto	*pedigree = PedigreeTable::create(option->path_ped, vcf);
 	const auto	*geno_map = Map::read(option->path_map);
 	auto	families = pedigree->extract_families();
-	if(option->debug)
-		families.resize(10U);
+	if(!option->families.empty()) {
+		const auto	orig_families = families;
+		families.clear();
+		for(auto p = option->families.begin(); p != option->families.end(); ++p)
+			families.push_back(orig_families[*p]);
+	}
 	delete vcf;
 	return new Materials(pedigree, geno_map, families);
 }
@@ -55,7 +59,7 @@ HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option) {
 	auto	*vcf = VCFOriginal::read(option->path_vcf);
 	const auto	vcfs = VCFHeteroHomo::create_vcfs(vcf, mat->get_families(),
 												mat->get_ped(), mat->get_map(),
-												option->debug);
+												option->chroms);
 	delete vcf;
 	return vcfs;
 }
@@ -78,8 +82,6 @@ void impute_in_thread(void *config) {
 	auto&	families = c->families;
 	const size_t	num = families.size();
 	for(size_t i = c->first; i < num; i += c->num_threads) {
-if(i == 1)
-cout << i << endl;
 		auto	*vcf = impute_each(families[i], c->chr_maps,
 										c->vcfs, c->num_threads);
 		c->imputed_vcfs[i] = vcf;

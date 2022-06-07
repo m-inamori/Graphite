@@ -216,7 +216,7 @@ vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes(
 void VCFHeteroHomo::update_genotypes(const std::vector<STRVEC>& GT_table) {
 	for(size_t i = 0U; i < hh_records.size(); ++i)
 		hh_records[i]->set_GTs(GT_table[i]);
-	VCFFamily::update_genotypes(GT_table);
+//	VCFFamily::update_genotypes(GT_table);
 }
 
 // orig_vcfは巨大で何度も読みたくないので、一度読んで全ての家系のVCFを作る
@@ -225,7 +225,7 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 							const vector<Parents>& families,
 							const PedigreeTable& pedigree,
 							const Map& geno_map,
-							bool debug) {
+							int chroms) {
 	const auto	family_columns = orig_vcf->collect_family_columns(
 														families, pedigree);
 	std::map<pair<Parents,bool>, VCFHeteroHomo *> vcfs;
@@ -260,10 +260,10 @@ VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
 		const VCFRecord	*record = orig_vcf->next();
 		if(record == NULL)
 			break;
-		// 短縮のため、2染色体のみにする
-		if(debug) {
+		// 短縮する
+		if(chroms != 0) {
 			const auto	pos = orig_vcf->record_position(*record);
-			if(pos.first == 3) {
+			if(pos.first == chroms + 1) {
 				delete record;
 				break;
 			}
