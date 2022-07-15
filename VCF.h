@@ -44,6 +44,7 @@ public:
 	void copy_properties(STRVEC::iterator it) const;
 	void set_GT(std::size_t i, const std::string& gt);
 	void set_GTs(const STRVEC& GTs);
+	void set_int_GT(std::size_t i, int gt);
 	void set(const STRVEC& new_v) { v = new_v; }
 };
 

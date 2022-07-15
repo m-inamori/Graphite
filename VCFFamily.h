@@ -19,10 +19,15 @@ public:
 	int pat_int_gt() const { return this->get_int_gt(1); }
 	std::vector<int> progeny_gts() const;
 	bool is_homo(std::size_t i) const;
+	bool is_mat_homo() const { return is_homo(9); }
+	bool is_pat_homo() const { return is_homo(10); }
 	std::size_t num_progenies() const { return samples.size() - 2U; }
+	std::tuple<int,int,int> count_gts() const;
 	
 	void set_mat_GT(const std::string& gt) { set_GT(9, gt); }
 	void set_pat_GT(const std::string& gt) { set_GT(10, gt); }
+	void set_mat_int_GT(int gt) { set_int_GT(9, gt); }
+	void set_pat_int_GT(int gt) { set_int_GT(10, gt); }
 	
 	void set(const STRVEC& new_v);
 };

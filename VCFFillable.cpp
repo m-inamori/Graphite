@@ -4,6 +4,7 @@
 #include <memory>
 #include <cassert>
 #include "VCFFillable.h"
+#include "TypeDeterminer.h"
 #include "common.h"
 
 using namespace std;
@@ -56,6 +57,14 @@ STRVEC VCFFillableRecord::prog_gts() const {
 
 VCFFillableRecord *VCFFillableRecord::copy() const {
 	return new VCFFillableRecord(v, samples, type);
+}
+
+tuple<int,int,int> VCFFillableRecord::count_gts() const {
+	const auto	gts = get_int_gts();
+	int	counter[3] = { 0, 0, 0 };
+	for(auto p = gts.begin(); p != gts.end(); ++p)
+		counter[*p] += 1;
+	return make_tuple(counter[0], counter[1], counter[2]);
 }
 
 string VCFFillableRecord::gt_from_parent(int mat_from, int pat_from) const {
@@ -111,113 +120,6 @@ int VCFFillableRecord::segregation_type() const {
 	return seg_type;
 }
 
-vector<size_t> VCFFillableRecord::conflicted_progeny_indices() const {
-	const auto	vec_gts = this->gts();
-	const Genotype	mat_gt(vec_gts[0]);
-	const Genotype	pat_gt(vec_gts[1]);
-	
-	vector<size_t>	indices;
-	for(auto p = vec_gts.begin() + 2; p != vec_gts.end(); ++p) {
-		const Genotype	prog_gt(*p);
-		// phasingを考慮に入れずに矛盾をカウント
-		// phasingはあとで修正する
-		if(!prog_gt.is_consistent(mat_gt, pat_gt, false))
-			indices.push_back(p - vec_gts.begin() - 2);
-	}
-	return indices;
-}
-
-bool VCFFillableRecord::modify_parents() {
-	map<string,int>	counter;
-	const auto	vec_gts = this->gts();
-	for(auto p = vec_gts.begin(); p != vec_gts.end(); ++p)
-		counter[p->substr(0, 3)] += 1;
-	
-	const int	c00 = counter["0/0"];
-	const int	c01 = counter["0/1"];
-	const int	c11 = counter["1/1"];
-	if(c00 * 10 >= (c00 + c01 + c11) * 9) {
-		this->set_mat_GT("0/0");
-		this->set_pat_GT("0/0");
-		return true;
-	}
-	else if(c01 * 10 >= (c00 + c01 + c11) * 9) {
-		// 親は0/0と1/1のはず
-		if(this->get_GT(0) == "0/0") {
-			if(this->get_GT(1) == "0/0") {
-				return false;	// どちらを修正していいのか分からない
-			}
-			else {
-				this->set_pat_GT("1/1");
-				return true;
-			}
-		}
-		else if(this->get_GT(0) == "1/1") {
-			if(this->get_GT(1) == "1/1") {
-				return false;
-			}
-			else {
-				this->set_pat_GT("0/0");
-				return true;
-			}
-		}
-		else {
-			if(this->get_GT(1) == "0/0") {
-				this->set_mat_GT("1/1");
-				return true;
-			}
-			else if(this->get_GT(1) == "1/1") {
-				this->set_mat_GT("0/0");
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-	}
-	else if(c11 * 10 >= (c00 + c01 + c11) * 9) {
-		this->set_mat_GT("1/1");
-		this->set_pat_GT("1/1");
-		return true;
-	}
-	else {
-		return false;
-	}
-}
-
-bool VCFFillableRecord::is_valid() {
-	const int	gt_mat = this->get_int_gt(0);
-	const int	gt_pat = this->get_int_gt(1);
-	
-	// 親に対して矛盾した子が10%以上
-	if(conflicted_progeny_indices().size()*10 >= num_progenies())
-		return modify_parents();
-	
-	// 親のどちらか一方がヘテロ
-	if(this->is_homo(0) ^ this->is_homo(1))
-		return false;
-	
-	// 尤度計算して両親と合っているか
-	const int	s = segregation_type();
-	const int	g1 = min(gt_mat, gt_pat);
-	const int	g2 = max(gt_mat, gt_pat);
-	if(g1*(5-g1)/2 + g2 != s)
-		return false;
-	
-	return true;
-}
-
-void VCFFillableRecord::modify() {
-	if(this->type != RecordType::FILLED)
-		return;
-	else if(!this->is_valid())
-		// あとで各家系を統合するときに楽なので、
-		// 消すのではなく無効なレコードにする
-		this->disable();
-	else if(this->is_homo(0) && this->is_homo(1))
-		this->phase();
-}
-
 void VCFFillableRecord::phase() {
 	// 両親ともホモになっている前提
 	const string	gt_mat = this->v[9].substr(0, 1);
@@ -226,6 +128,13 @@ void VCFFillableRecord::phase() {
 	this->set_pat_GT(gt_pat + "|" + gt_pat);
 	for(size_t i = 11U; i < this->v.size(); ++i)
 		this->set_GT(i, gt_mat + "|" + gt_pat);
+}
+
+void VCFFillableRecord::modify() {
+	if(this->type != RecordType::FILLED)
+		return;
+	else if(this->is_homo(0) && this->is_homo(1))
+		this->phase();
 }
 
 int VCFFillableRecord::find_geno_type(const string& type) const {
@@ -336,6 +245,46 @@ void VCFFillableRecord::set(const STRVEC& new_v, RecordType new_type) {
 	v = new_v;
 	type = new_type;
 	VCFFamilyRecord::set(new_v);
+}
+
+void VCFFillableRecord::determine_parents_type(int p) {
+	if(p == -1) {
+		disable();
+		return;
+	}
+	
+	const int	gt1 = p >> 2;
+	const int	gt2 = p & 3;
+	if(gt1 == gt2) {
+		set_mat_int_GT(gt1);
+		set_pat_int_GT(gt2);
+		return;
+	}
+	
+	// gt1とgt2を両親のどちらかに当てはめたときの当てはまり具合を調べる
+	// 0: 当てはまらない 1: 当てはまる
+	const int	mat_gt = mat_int_gt();
+	const int	pat_gt = pat_int_gt();
+	int	match1 = (mat_gt != gt1 ? 0 : 1) | (pat_gt != gt2 ? 0 : 2);
+	int	match2 = (mat_gt != gt2 ? 0 : 1) | (pat_gt != gt1 ? 0 : 2);
+	if(match1 == 3 || match2 == 3) {	// 合っている
+		return;
+	}
+	else if(match1 != 0 && match2 == 0) {	// (gt1, gt2)はどちらかが合っている
+		if(match1 == 1)		// matだけ合っている
+			set_pat_int_GT(gt2);
+		else				// patだけ合っている
+			set_mat_int_GT(gt1);
+	}
+	else if(match1 == 0 && match2 != 0) {
+		if(match2 == 1)		// matだけ合っている
+			set_pat_int_GT(gt1);
+		else
+			set_mat_int_GT(gt2);
+	}
+	else {
+		disable();
+	}
 }
 
 VCFRecord *VCFFillableRecord::integrate_records(
@@ -572,6 +521,7 @@ int VCFFillable::from_which_chrom(const VCFFillableRecord *record,
 	return record->from_which_chrom(i, is_mat);
 }
 
+// 親のどちらの染色体から来ているかの確率
 vector<double> VCFFillable::probs_from_which_chrom(
 									int prev_chrom, int next_chrom) const {
 	double	prob1;
@@ -586,6 +536,17 @@ vector<double> VCFFillable::probs_from_which_chrom(
 	return probs;
 }
 
+vector<double> VCFFillable::probs_from_which_chrom(RecordSet& rs,
+												size_t i, bool is_mat) const {
+	if((is_mat && rs.record->is_mat_homo()) ||
+					(!is_mat && rs.record->is_pat_homo()))
+		return vector<double>(2U, 0.5);
+	else if(is_mat)
+		return probs_from_which_chrom(rs.prev_mat_from(i), rs.next_mat_from(i));
+	else
+		return probs_from_which_chrom(rs.prev_pat_from(i), rs.next_pat_from(i));
+}
+
 double VCFFillable::likelihood_each(const string& gt,
 									const vector<double>& probs_mat,
 									const vector<double>& probs_pat,
@@ -593,7 +554,7 @@ double VCFFillable::likelihood_each(const string& gt,
 	const int	sum = Genotype::sum_gt(gt);
 	double	likelihood = 0.0;
 	for(int k = 0; k < 4; ++k) {
-		const int	i = k >> 1;
+		const int	i = k >> 1;		// 母親は0|1か1|0か
 		const int	j = k & 1;
 		if((((i + mat_phasing) & 1) + ((j + pat_phasing) & 1)) == sum)
 			likelihood += probs_mat[i] * probs_pat[j];
@@ -601,18 +562,19 @@ double VCFFillable::likelihood_each(const string& gt,
 	return log(likelihood);
 }
 
-// mat_phasing : '0|1' or '1|0'
+
+
 double VCFFillable::compute_phasing_likelihood_each(RecordSet& rs, size_t i,
 									int mat_phasing, int pat_phasing) const {
-	const auto	probs_mat = probs_from_which_chrom(rs.prev_mat_from(i),
-													rs.next_mat_from(i));
-	const auto	probs_pat = probs_from_which_chrom(rs.prev_pat_from(i),
-													rs.next_pat_from(i));
+	const auto	probs_mat = probs_from_which_chrom(rs, i, true);
+	const auto	probs_pat = probs_from_which_chrom(rs, i, false);
 	return likelihood_each(rs.gt(i), probs_mat, probs_pat,
 									mat_phasing, pat_phasing);
 }
 
-// mat_phasing : '0|1' or '1|0'
+// 親のGTがひっくり返っているかひっくり返っていないのか仮定して尤度を計算する
+// GTが0/1のとき、phasingが0なら0|1、1なら1|0
+// GTが0|0のとき、どちらでも0|0
 double VCFFillable::compute_phasing_likelihood(RecordSet& rs, int mat_phasing,
 														int pat_phasing) const {
 	double	ll = 0.0;
@@ -637,8 +599,18 @@ void VCFFillable::determine_phasing(RecordSet& rs) {
 		}
 	}
 	
-	rs.record->set_mat_GT(mat_phasing == 0 ? "0|1" : "1|0");
-	rs.record->set_pat_GT(pat_phasing == 0 ? "0|1" : "1|0");
+	if(rs.record->is_mat_homo()) {
+		const string&	gt = rs.record->mat_gt();
+		rs.record->set_mat_GT(gt.substr(0, 1) + '|' + gt.substr(2, 1));
+	}
+	else
+		rs.record->set_mat_GT(mat_phasing == 0 ? "0|1" : "1|0");
+	if(rs.record->is_pat_homo()) {
+		const string&	gt = rs.record->pat_gt();
+		rs.record->set_pat_GT(gt.substr(0, 1) + '|' + gt.substr(2, 1));
+	}
+	else
+		rs.record->set_pat_GT(pat_phasing == 0 ? "0|1" : "1|0");
 }
 
 string VCFFillable::modify_gt(RecordSet& rs, size_t i) {
@@ -685,7 +657,7 @@ void VCFFillable::phase(int i, const vector<Group>& groups) {
 	auto	group_records = groups[i].second;
 	for(auto p = group_records.begin(); p != group_records.end(); ++p) {
 		auto	*record = *p;
-		if(!record->is_homo(0) && !record->is_homo(1)) {
+		if(!record->is_homo(0) || !record->is_homo(1)) {
 			RecordSet	record_set(record, prev_mat_record, next_mat_record,
 											prev_pat_record, next_pat_record);
 			determine_phasing(record_set);
@@ -819,6 +791,13 @@ cout << get_samples()[0] << " " << get_samples()[1] << endl;
 	
 	vector<Group>	groups = group_records();
 	for(size_t i = 0U; i < groups.size(); ++i) {
+const auto	group = groups[i].second;
+for(auto p = group.begin(); p != group.end(); ++p) {
+auto record = *p;
+if(record->pos() == 183065) {
+cout << record->pos() << endl;
+}
+}
 		if(groups[i].second.front()->is_filled_type())
 			this->phase(i, groups);
 	}
@@ -851,14 +830,28 @@ VCFFillable *VCFFillable::convert(const VCFFamily *vcf) {
 	return new_vcf;
 }
 
+void VCFFillable::determine_parents_type(VCFFillableRecord *record,
+									const TypeDeterminer& determiner) const {
+	const tuple<int,int,int> counter = record->count_gts();
+	// pは2つのint_gtを4進数でパッキングしたもの
+	const int	p = determiner.determine(counter);
+	record->determine_parents_type(p);
+}
+
 void VCFFillable::replace_filled_records(
 					const vector<const VCFRecord *>& orig_records) {
+	TypeDeterminer	determiner((int)samples.size(), 0.05);
 	for(size_t i = 0U; i < size(); ++i) {
 		const VCFRecord	*orig_record = orig_records[i];
 		VCFFillableRecord	*record = fillable_records[i];
 		if(record->get_v().size() == 9U) {
 			auto	v = orig_record->extract_v(record->get_samples());
 			record->set(v, record->get_type());
+			// 親が間違っているか、ここでチェックする
+			// extract_VCFsでチェックするとコストが大きい
+if(record->pos() == 183065)
+cout << record->pos() << endl;
+			determine_parents_type(record, determiner);
 		}
 	}
 }
@@ -873,6 +866,7 @@ void VCFFillable::replace_in_thread(void *config) {
 
 void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
 													VCFHuge *orig_vcf, int T) {
+	// 穴埋めをマルチスレッドで動かすために、必要な分だけ読む
 	vector<const VCFRecord *>	orig_records;
 	VCFFillable	*vcf = vcfs.front();
 	for(size_t i = 0U; i < vcf->size(); ++i) {

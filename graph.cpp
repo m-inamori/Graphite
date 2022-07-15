@@ -88,3 +88,25 @@ vector<Graph::InvGraph> Graph::divide_graph_into_connected(
 	}
 	return graphs;
 }
+
+/*
+#include <iostream> 
+
+int main(int argc, char **argv) {
+	Graph::InvGraph	graph;
+	graph[1].push_back(tuple<size_t,int,bool>(2, 1, true));
+	graph[1].push_back(tuple<size_t,int,bool>(3, 2, false));
+	graph[2].push_back(tuple<size_t,int,bool>(1, 1, true));
+	graph[2].push_back(tuple<size_t,int,bool>(3, 3, false));
+	graph[3].push_back(tuple<size_t,int,bool>(1, 2, false));
+	graph[3].push_back(tuple<size_t,int,bool>(2, 3, false));
+	
+	auto	tree = Graph::minimum_spanning_tree(graph);
+	for(auto p = tree.begin(); p != tree.end(); ++p) {
+		cout << p->first << ":";
+		for(auto q = p->second.begin(); q != p->second.end(); ++q)
+			cout << "(" << get<0>(*q) << ", " << get<1>(*q) << ", " << get<2>(*q) << ")";
+		cout << endl;
+	}
+}
+*/

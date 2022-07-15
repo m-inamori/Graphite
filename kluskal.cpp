@@ -59,11 +59,11 @@ Kluskal::GRAPH Kluskal::Kluskal(const GRAPH& graph) {
 				edges.push_back(tuple<size_t,size_t,int>(v1, v2, w));
 		}
 	}
-	std::sort(edges.begin(), edges.end(),
-				[](const tuple<size_t,size_t,int>& a,
-				   const tuple<size_t,size_t,int>& b) {
-							return get<2>(a) < get<2>(b);
-				});
+	std::stable_sort(edges.begin(), edges.end(),
+					[](const tuple<size_t,size_t,int>& a,
+					   const tuple<size_t,size_t,int>& b) {
+								return get<2>(a) < get<2>(b);
+						});
 	
 	GRAPH	new_graph;
 	size_t	counter = 0U;
@@ -71,12 +71,14 @@ Kluskal::GRAPH Kluskal::Kluskal(const GRAPH& graph) {
 		const size_t&	v1 = get<0>(*p);
 		const size_t&	v2 = get<1>(*p);
 		int			w  = get<2>(*p);
-		
-		tree.join(v1, v2);
-		new_graph[v1].push_back(pair<size_t,int>(v2, w));
-		new_graph[v2].push_back(pair<size_t,int>(v1, w));
-		if(counter == nodes.size() - 1)
-			break;
+		if(tree.root(v1) != tree.root(v2)) {
+			tree.join(v1, v2);
+			new_graph[v1].push_back(pair<size_t,int>(v2, w));
+			new_graph[v2].push_back(pair<size_t,int>(v1, w));
+			counter += 1;
+			if(counter == nodes.size() - 1)
+				break;
+		}
 	}
 	
 	return new_graph;

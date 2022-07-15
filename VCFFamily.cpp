@@ -23,6 +23,16 @@ bool VCFFamilyRecord::is_homo(size_t i) const {
 	return s.c_str()[0] == s.c_str()[2];
 }
 
+tuple<int,int,int> VCFFamilyRecord::count_gts() const {
+	int	counter[] = { 0, 0, 0 };
+	const auto	gts = progeny_gts();
+	for(auto p = gts.begin(); p != gts.end(); ++p) {
+		if(0 <= *p && *p <= 2)
+			counter[*p] += 1;
+	}
+	return make_tuple(counter[0], counter[1], counter[2]);
+}
+
 void VCFFamilyRecord::set(const STRVEC& new_v) {
 	v = new_v;
 	VCFRecord::set(v);

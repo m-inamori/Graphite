@@ -73,6 +73,15 @@ void VCFRecord::set_GTs(const STRVEC& GTs) {
 		this->set_GT(i, GTs[i]);
 }
 
+void VCFRecord::set_int_GT(size_t i, int gt) {
+	switch(gt) {
+		case  0: set_GT(i, "0/0"); return;
+		case  1: set_GT(i, "0/1"); return;
+		case  2: set_GT(i, "1/1"); return;
+		default: set_GT(i, "./."); return;
+	}
+}
+
 
 //////////////////// VCFBase ////////////////////
 

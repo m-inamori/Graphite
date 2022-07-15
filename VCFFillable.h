@@ -3,6 +3,8 @@
 
 #include "VCFFamily.h"
 
+class TypeDeterminer;
+
 
 //////////////////// Genotype ////////////////////
 
@@ -45,6 +47,7 @@ public:
 	
 	STRVEC prog_gts() const;
 	VCFFillableRecord *copy() const;
+	std::tuple<int,int,int> count_gts() const;
 	std::string gt_from_parent(int mat_from, int pat_from) const;
 	
 	void modify();
@@ -53,15 +56,11 @@ public:
 	void modify_gts(const STRVEC& new_prog_gts);
 	void fill_PGT();
 	void set(const STRVEC& new_v, RecordType new_type);
+	void determine_parents_type(int p);
 	
 private:
 	std::vector<std::vector<double>> make_probability_table() const;
 	int segregation_type() const;
-	std::vector<std::size_t> conflicted_progeny_indices() const;
-	// 例えば、子どもがだいたい0/0なのに親が0/0と1/1なら0/0に修正する
-	// modifyできたかを返す
-	bool modify_parents();
-	bool is_valid();
 	
 	void disable() { this->type = RecordType::UNABLE; }
 	void phase();
@@ -193,6 +192,8 @@ private:
 	}
 	std::vector<double> probs_from_which_chrom(
 								int prev_chrom, int next_chrom) const;
+	std::vector<double> probs_from_which_chrom(RecordSet& rs,
+											std::size_t i, bool is_mat) const;
 	double likelihood_each(const std::string& gt,
 								const std::vector<double>& probs_mat,
 								const std::vector<double>& probs_pat,
@@ -223,6 +224,8 @@ private:
 	int select_pat(const std::vector<Pair>& pairs, const RecordSet *rs) const;
 	void impute_NA_pat_each(std::size_t i, std::size_t c);
 	void impute_NA_pat(std::size_t i);
+	void determine_parents_type(VCFFillableRecord *record,
+									const TypeDeterminer& determiner) const;
 	
 public:
 	static VCFFillable *convert(const VCFFamily *vcf);
