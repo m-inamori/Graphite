@@ -45,6 +45,18 @@ vector<int> VCFRecord::get_int_gts() const {
 	return w;
 }
 
+bool VCFRecord::is_homo(size_t i) const {
+	const string&	s = this->v[i+9];
+	const char	*ptr = s.c_str();
+	return ptr[0] != '.' && ptr[0] == ptr[2];
+}
+
+bool VCFRecord::is_hetero(size_t i) const {
+	const string&	s = this->v[i+9];
+	const char	*ptr = s.c_str();
+	return ptr[0] != '.' && ptr[2] != '.' && ptr[0] != ptr[2];
+}
+
 STRVEC VCFRecord::extract_v(const STRVEC& samples) const {
 	map<string,size_t>	dic;
 	for(size_t i = 0U; i < this->samples.size(); ++i)

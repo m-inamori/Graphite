@@ -18,7 +18,7 @@ public:
 	int mat_int_gt() const { return this->get_int_gt(0); }
 	int pat_int_gt() const { return this->get_int_gt(1); }
 	std::vector<int> progeny_gts() const;
-	bool is_homo(std::size_t i) const;
+	std::vector<int> get_progeny_int_gts() const;
 	bool is_mat_homo() const { return is_homo(9); }
 	bool is_pat_homo() const { return is_homo(10); }
 	std::size_t num_progenies() const { return samples.size() - 2U; }

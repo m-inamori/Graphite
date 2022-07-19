@@ -18,9 +18,13 @@ vector<int> VCFFamilyRecord::progeny_gts() const {
 	return w;
 }
 
-bool VCFFamilyRecord::is_homo(size_t i) const {
-	const string&	s = this->v[i+9];
-	return s.c_str()[0] == s.c_str()[2];
+vector<int> VCFFamilyRecord::get_progeny_int_gts() const {
+	vector<int>	w(samples.size());
+	for(size_t i = 2U; i < samples.size(); ++i) {
+		assert(i < w.size());
+		w[i] = get_int_gt(i);
+	}
+	return w;
 }
 
 tuple<int,int,int> VCFFamilyRecord::count_gts() const {

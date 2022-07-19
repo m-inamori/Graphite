@@ -60,10 +60,12 @@ VCFFillableRecord *VCFFillableRecord::copy() const {
 }
 
 tuple<int,int,int> VCFFillableRecord::count_gts() const {
-	const auto	gts = get_int_gts();
+	const auto	gts = get_progeny_int_gts();
 	int	counter[3] = { 0, 0, 0 };
-	for(auto p = gts.begin(); p != gts.end(); ++p)
-		counter[*p] += 1;
+	for(auto p = gts.begin() + 2; p != gts.end(); ++p) {
+		if(*p != -1)
+			counter[*p] += 1;
+	}
 	return make_tuple(counter[0], counter[1], counter[2]);
 }
 
@@ -657,7 +659,7 @@ void VCFFillable::phase(int i, const vector<Group>& groups) {
 	auto	group_records = groups[i].second;
 	for(auto p = group_records.begin(); p != group_records.end(); ++p) {
 		auto	*record = *p;
-		if(!record->is_homo(0) || !record->is_homo(1)) {
+		if(record->is_hetero(0) || record->is_hetero(1)) {
 			RecordSet	record_set(record, prev_mat_record, next_mat_record,
 											prev_pat_record, next_pat_record);
 			determine_phasing(record_set);
@@ -791,13 +793,6 @@ cout << get_samples()[0] << " " << get_samples()[1] << endl;
 	
 	vector<Group>	groups = group_records();
 	for(size_t i = 0U; i < groups.size(); ++i) {
-const auto	group = groups[i].second;
-for(auto p = group.begin(); p != group.end(); ++p) {
-auto record = *p;
-if(record->pos() == 183065) {
-cout << record->pos() << endl;
-}
-}
 		if(groups[i].second.front()->is_filled_type())
 			this->phase(i, groups);
 	}
@@ -840,7 +835,7 @@ void VCFFillable::determine_parents_type(VCFFillableRecord *record,
 
 void VCFFillable::replace_filled_records(
 					const vector<const VCFRecord *>& orig_records) {
-	TypeDeterminer	determiner((int)samples.size(), 0.05);
+	TypeDeterminer	determiner((int)samples.size() - 2, 0.05);
 	for(size_t i = 0U; i < size(); ++i) {
 		const VCFRecord	*orig_record = orig_records[i];
 		VCFFillableRecord	*record = fillable_records[i];
@@ -849,8 +844,6 @@ void VCFFillable::replace_filled_records(
 			record->set(v, record->get_type());
 			// 親が間違っているか、ここでチェックする
 			// extract_VCFsでチェックするとコストが大きい
-if(record->pos() == 183065)
-cout << record->pos() << endl;
 			determine_parents_type(record, determiner);
 		}
 	}
@@ -1021,6 +1014,7 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
 		vcfs.push_back(VCFFillable::convert(*p));
 	const vector<PosWithChr>	positions = merge_positions(vcfs);
+cout << positions.size() << endl;
 	
 	vector<VCFFillable *>	filled_vcfs;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {

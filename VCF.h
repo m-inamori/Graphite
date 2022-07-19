@@ -38,6 +38,8 @@ public:
 	std::string get_GT(std::size_t i) const { return v[i+9].substr(0, 3); }
 	int get_int_gt(std::size_t i) const;
 	std::vector<int> get_int_gts() const;
+	bool is_homo(std::size_t i) const;
+	bool is_hetero(std::size_t i) const;
 	STRVEC extract_v(const STRVEC& samples) const;
 	void write(std::ostream& os) const;
 	
