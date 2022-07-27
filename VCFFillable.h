@@ -74,6 +74,7 @@ private:
 	void inverse_parents_gts(bool inv_mat, bool inv_pat);
 	bool is_same_gts(const std::string& gt1, const std::string& gt2) const;
 	bool is_near_prog_gts(const STRVEC& gts) const;
+	void find_matched_pair(const std::vector<int>& types);
 	
 public:
 	static VCFFillableRecord *from_VCFFamilyRecord(

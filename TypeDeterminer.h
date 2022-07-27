@@ -1,9 +1,8 @@
+#include <vector>
 #include <map>
 #include <tuple>
 
 class TypeDeterminer {
-	static const int	OVERLAP = 1000;
-	
 	typedef std::tuple<int,int,int>	State;
 	typedef std::tuple<double,int,int,int>	PQState;
 	
@@ -36,4 +35,8 @@ private:
 	std::vector<PQState> neighbor_states(const PQState& s0) const;
 	void insert(const State& s, int value);
 	void insert(int n0, int n1, int n2, int value);
+	
+public:
+	static std::vector<int> int_gt_pairs(int p);
+	static std::pair<int,int> int_gt_pair(int p);
 };

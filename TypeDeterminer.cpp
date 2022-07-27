@@ -27,10 +27,7 @@ int TypeDeterminer::binomial(int M) const {
 }
 
 void TypeDeterminer::insert(const State& s, int value) {
-	if(memo.find(s) != memo.end())
-		memo[s] = OVERLAP;
-	else
-		memo[s] = value;
+	memo[s] |= 1 << value;
 }
 
 void TypeDeterminer::insert(int n0, int n1, int n2, int value) {
@@ -45,6 +42,10 @@ void TypeDeterminer::make_memo00() {
 				insert(N - n1 - n2 - num_NA, n1, n2, 0);
 		}
 	}
+	
+	// 他が全部0/0なら、N/Aが2割まであってよい
+	for(int num_NA = N / 10 + 1; num_NA <= N / 5; ++num_NA)
+		insert(N - num_NA, 0, 0, 0);
 }
 
 void TypeDeterminer::make_memo01() {
@@ -62,9 +63,13 @@ void TypeDeterminer::make_memo02() {
 	for(int num_NA = 0; num_NA <= N / 10; ++num_NA) {
 		for(int n0 = 0; n0 <= N / 10; ++n0) {
 			for(int n2 = 0; n2 <= N / 10; ++n2)
-				insert(n0, N - n0 - n2 - num_NA, n2, 2);
+				insert(n0, N - n0 - n2 - num_NA, n2, 3);
 		}
 	}
+	
+	// 他が全部0/1なら、N/Aが2割まであってよい
+	for(int num_NA = N / 10 + 1; num_NA <= N / 5; ++num_NA)
+		insert(0, N - num_NA, 0, 3);
 }
 
 double TypeDeterminer::genotype_probability(int n0, int n1, int n2) const {
@@ -156,14 +161,14 @@ void TypeDeterminer::make_memo11() {
 			const PQState	pqs = pq.top();
 			pq.pop();
 			if(get<1>(pqs) == get<3>(pqs)) {
-				insert(create_state(pqs), 5);
+				insert(create_state(pqs), 2);
 				total_p += get<0>(pqs);
 			}
 			else {
 				// n0 > n2なので、n0 < n2の分も考える
 				const State	s1 = create_state(pqs);
-				insert(s1, 5);
-				insert(reverse_state(s1), 5);
+				insert(s1, 2);
+				insert(reverse_state(s1), 2);
 				total_p += get<0>(pqs) * 2;
 			}
 			
@@ -185,7 +190,7 @@ void TypeDeterminer::make_memo12() {
 			const int	M = N - num_NA - n0;
 			const int	n = binomial(M);
 			for(int n1 = n; n1 <= M - n; ++n1)
-				insert(n0, n1, M-n1, 6);
+				insert(n0, n1, M-n1, 4);
 		}
 	}
 }
@@ -195,15 +200,37 @@ void TypeDeterminer::make_memo22() {
 	for(int num_NA = 0; num_NA <= N / 10; ++num_NA) {
 		for(int n0 = 0; n0 <= N / 10; ++n0) {
 			for(int n1 = 0; n1 <= N / 10; ++n1)
-				insert(n0, n1, N - n0 - n1 - num_NA, 10);
+				insert(n0, n1, N - n0 - n1 - num_NA, 5);
 		}
 	}
+	
+	// 他が全部1/1なら、N/Aが2割まであってよい
+	for(int num_NA = N / 10 + 1; num_NA <= N / 5; ++num_NA)
+		insert(0, 0, N - num_NA, 5);
 }
 
 int TypeDeterminer::determine(const State& counter) const {
 	const auto	p = memo.find(counter);
-	if(p != memo.end() && p->second != OVERLAP)
+	if(p != memo.end())
 		return p->second;
 	else
-		return -1;
+		return 0;
+}
+
+vector<int> TypeDeterminer::int_gt_pairs(int p) {
+	vector<int>	v;
+	for(int i = 0; i < 6; ++i) {
+		if((p & (1 << i)) != 0)
+			v.push_back(i);
+	}
+	return v;
+}
+
+pair<int,int> TypeDeterminer::int_gt_pair(int p) {
+	if(p == 0)
+		return pair<int,int>(0, 0);
+	else if(p < 3)
+		return pair<int,int>(p - 1, 1);
+	else
+		return pair<int,int>(p - 3, 2);
 }

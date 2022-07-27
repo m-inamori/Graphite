@@ -249,14 +249,38 @@ void VCFFillableRecord::set(const STRVEC& new_v, RecordType new_type) {
 	VCFFamilyRecord::set(new_v);
 }
 
-void VCFFillableRecord::determine_parents_type(int p) {
-	if(p == -1) {
+void VCFFillableRecord::find_matched_pair(const vector<int>& types) {
+	const int	gt1 = mat_int_gt();
+	const int	gt2 = pat_int_gt();
+	if(gt1 == -1 || gt2 == -1) {
 		disable();
 		return;
 	}
 	
-	const int	gt1 = p >> 2;
-	const int	gt2 = p & 3;
+	const int	pair_gt = gt1 <= gt2 ? gt2 * (gt2 + 1) / 2 + gt1 :
+									   gt1 * (gt1 + 1) / 2 + gt2;
+	for(auto p = types.begin(); p != types.end(); ++p) {
+		if(*p == pair_gt)
+			return;
+	}
+	disable();
+}
+
+void VCFFillableRecord::determine_parents_type(int p) {
+	if(p == 0) {
+		disable();
+		return;
+	}
+	
+	const vector<int>	types = TypeDeterminer::int_gt_pairs(p);
+	if(types.size() >= 2) {
+		find_matched_pair(types);
+		return;
+	}
+	
+	const auto	q = TypeDeterminer::int_gt_pair(types.front());
+	const int	gt1 = q.first;
+	const int	gt2 = q.second;
 	if(gt1 == gt2) {
 		set_mat_int_GT(gt1);
 		set_pat_int_GT(gt2);
@@ -1014,7 +1038,6 @@ VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
 	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
 		vcfs.push_back(VCFFillable::convert(*p));
 	const vector<PosWithChr>	positions = merge_positions(vcfs);
-cout << positions.size() << endl;
 	
 	vector<VCFFillable *>	filled_vcfs;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
