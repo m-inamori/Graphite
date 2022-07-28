@@ -30,7 +30,7 @@ public:
 
 class VCFFillableRecord : public VCFFamilyRecord {
 public:
-	enum class RecordType { UNABLE, FILLED, MAT, PAT, NONE };
+	enum class RecordType { UNABLE, FILLED, MAT, PAT, NOT_PHASING, NONE };
 	
 protected:
 	RecordType	type;
@@ -63,6 +63,7 @@ private:
 	int segregation_type() const;
 	
 	void disable() { this->type = RecordType::UNABLE; }
+	void not_phasing(int p);
 	void phase();
 	int find_geno_type(const std::string& type) const;
 	

@@ -122,6 +122,33 @@ int VCFFillableRecord::segregation_type() const {
 	return seg_type;
 }
 
+void VCFFillableRecord::not_phasing(int p) {
+	this->set_mat_GT("./.");
+	this->set_pat_GT("./.");
+	
+	if(p == 2) {
+		for(size_t i = 11; i < samples.size(); ++i) {
+			const string	gt = this->get_GT(i - 9);
+			if(gt != "0/0" && gt != "0/1")
+				this->set_GT(i, "./.");
+		}
+	}
+	else if(p == 8) {
+		for(size_t i = 11; i < samples.size(); ++i) {
+			this->set_GT(i, "0/1");
+		}
+	}
+	else if(p == 16) {
+		for(size_t i = 11; i < samples.size(); ++i) {
+			const string	gt = this->get_GT(i - 9);
+			if(gt != "0/1" && gt != "1/1")
+				this->set_GT(i, "./.");
+		}
+	}
+	
+	this->type = RecordType::NOT_PHASING;
+}
+
 void VCFFillableRecord::phase() {
 	// 両親ともホモになっている前提
 	const string	gt_mat = this->v[9].substr(0, 1);
@@ -307,6 +334,11 @@ void VCFFillableRecord::determine_parents_type(int p) {
 			set_pat_int_GT(gt1);
 		else
 			set_mat_int_GT(gt2);
+	}
+	else if(match1 != 0 && match2 != 0) {
+		// どの親をどのGenotypeにすればいいか分からない
+		// 親をN/Aにして、子どもはphasingしない
+		not_phasing(p);
 	}
 	else {
 		disable();
