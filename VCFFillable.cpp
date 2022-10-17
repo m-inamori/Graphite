@@ -127,20 +127,20 @@ void VCFFillableRecord::not_phasing(int p) {
 	this->set_pat_GT("./.");
 	
 	if(p == 2) {
-		for(size_t i = 11; i < samples.size(); ++i) {
-			const string	gt = this->get_GT(i - 9);
+		for(size_t i = 2; i < samples.size(); ++i) {
+			const string	gt = this->get_GT(i);
 			if(gt != "0/0" && gt != "0/1")
 				this->set_GT(i, "./.");
 		}
 	}
 	else if(p == 8) {
-		for(size_t i = 11; i < samples.size(); ++i) {
+		for(size_t i = 2; i < samples.size(); ++i) {
 			this->set_GT(i, "0/1");
 		}
 	}
 	else if(p == 16) {
-		for(size_t i = 11; i < samples.size(); ++i) {
-			const string	gt = this->get_GT(i - 9);
+		for(size_t i = 2; i < samples.size(); ++i) {
+			const string	gt = this->get_GT(i);
 			if(gt != "0/1" && gt != "1/1")
 				this->set_GT(i, "./.");
 		}

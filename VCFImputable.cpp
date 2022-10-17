@@ -134,6 +134,12 @@ void VCFImputableRecord::inverse_haplotype() {
 		which_comes_from[i] = which_comes_from[i] == 0 ? 1 : 0;
 }
 
+void VCFImputableRecord::set_haplo_into_info() {
+	stringstream	ss;
+	ss << haplo[0];
+	v[7] = ss.str();
+}
+
 
 //////////////////// VCFImputable ////////////////////
 
@@ -457,6 +463,60 @@ void VCFImputable::renumber_indices(vector<VCFImputable *>& vcfs) {
 	}
 }
 
+void VCFImputable::print_block(const vector<VCFImputable *>& vcfs) {
+	if(vcfs.empty())
+		return;
+	
+	vector<pair<size_t,ll>>	v;
+	for(size_t i = 0U; i < vcfs.size(); ++i) {
+		auto	*subvcf = vcfs[i];
+		for(size_t j = 0U; j < subvcf->size(); ++j)
+			v.push_back(pair<ll,size_t>(subvcf->get_record(j)->pos(), i));
+	}
+	std::sort(v.begin(), v.end());
+	
+	const auto&	samples = vcfs.front()->get_samples();
+	cout << "family " << samples[0] << " " << samples[1] << " " <<
+				vcfs.front()->get_record(0)->chrom() << endl;
+	size_t	k = 100000U;
+	ll		last_pos = 0U;
+	for(auto p = v.begin(); p != v.end(); ++p) {
+		const size_t	i = p->second;
+		const ll		pos = p->first;
+		if(i != k) {
+			if(k != 100000U) {
+				cout << k << " " << last_pos << endl;
+			}
+			k = i;
+			cout << k << " " << pos << endl;
+		}
+		last_pos = pos;
+	}
+	cout << k << " " << last_pos << endl;
+}
+
+void VCFImputable::write_subvcf(bool is_mat, const string& chr) {
+	for(auto p = imp_records.begin(); p != imp_records.end(); ++p)
+		(*p)->set_haplo_into_info();
+	
+	stringstream	ss;
+	ss << "output/" << samples[0] << "x" << samples[1]
+								<< "_pat_chr" << chr << ".vcf";
+	cout << ss.str() << endl;
+	ofstream	ofs(ss.str().c_str());
+	write(ofs);
+}
+
+void VCFImputable::draw_graph(const Graph::InvGraph& graph, size_t v0) {
+	const auto	p = graph.find(v0);
+	for(auto q = p->second.begin(); q != p->second.end(); ++q) {
+		const size_t	v = get<0>(*q);
+		const int		dist = get<1>(*q);
+		const bool		inv = get<2>(*q);
+		cout << v << ", " << dist << ", " << inv << endl;
+	}
+}
+
 VCFCollection *VCFImputable::determine_haplotype(VCFHeteroHomo *vcf,
 									const OptionImpute *option, bool is_mat,
 									BiasProbability *bias_probability) {
@@ -473,10 +533,37 @@ VCFCollection *VCFImputable::determine_haplotype(VCFHeteroHomo *vcf,
 															bias_probability);
 		if(new_vcf != NULL)
 			vcfs.push_back(new_vcf);
+#if 0
+const bool		mat = false;
+const string	chr = "5";
+if(new_vcf != NULL && (is_mat == mat) && new_vcf->get_record(0)->chrom() == chr) {
+new_vcf->write_subvcf(mat, chr);
+Graph::InvGraph	new_graph = make_graph(vcf, option->max_dist);
+cout << 767 << endl;
+cout << "---------" << endl;
+draw_graph(new_graph, 767);
+cout << 768 << endl;
+cout << "---------" << endl;
+draw_graph(new_graph, 768);
+const Graph::InvGraph	tree = Graph::minimum_spanning_tree(subgraph);
+const auto	path = Graph::find_path(767, 768, tree);
+if(!path.empty()) {
+for(auto p = path.begin() + 1; p != path.end(); ++p) {
+auto	*r1 = vcf->get_record(*(p-1));
+auto	*r2 = vcf->get_record(*p);
+const ll	bp = r2->pos() - r1->pos();
+const double	cM = vcf->cM(*p) - vcf->cM(*(p-1));
+const int	d = Graph::get_edge_value(*(p-1), *p, tree);
+cout << *(p-1) << ' ' << *p << " " << bp << " " << cM << " " << d << endl;
+}
+}
+}
+#endif
 	}
 	
 	// vcfsのMapは共通
 	renumber_indices(vcfs);
+//	print_block(vcfs);
 	return new VCFCollection(vcfs);
 }
 

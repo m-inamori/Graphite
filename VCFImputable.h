@@ -45,6 +45,7 @@ public:
 	void set_int_gts_by_which_comes_from(const std::vector<int>& hs);
 	void update_genotypes();
 	void inverse_haplotype();
+	void set_haplo_into_info();
 	
 private:
 	int which_comes_from_hetero_parent_chromosomes_each(int gt);
@@ -110,6 +111,7 @@ private:
 	std::vector<Matrix> create_transition_probability_matrix() const;
 	std::string make_seq(std::size_t i) const;
 	void which_comes_from_hetero_parent_chromosomes();
+	void write_subvcf(bool is_mat, const std::string& chr);
 	
 public:
 	static void walk(std::size_t v0, std::vector<std::vector<int>>& haplo,
@@ -119,6 +121,8 @@ public:
 									const Graph::InvGraph& graph, bool is_mat,
 									BiasProbability *bias_probability);
 	static void renumber_indices(std::vector<VCFImputable *>& vcfs);
+	static void print_block(const std::vector<VCFImputable *>& vcfs);
+	static void draw_graph(const Graph::InvGraph& graph, std::size_t v0);
 	static VCFCollection *determine_haplotype(VCFHeteroHomo *vcf,
 									const OptionImpute *option, bool is_mat,
 									BiasProbability *bias_probability);
