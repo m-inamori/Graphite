@@ -6,6 +6,23 @@
 using namespace std;
 
 
+//////////////////// Family ////////////////////
+
+Family::~Family() {
+	for(auto p = progenies.begin(); p != progenies.end(); ++p)
+		delete *p;
+}
+
+vector<string> Family::collect_samples() const {
+	vector<string>	samples;
+	samples.push_back(this->mat);
+	samples.push_back(this->pat);
+	for(auto p = this->progenies.begin(); p != this->progenies.end(); ++p)
+		samples.push_back((*p)->get_name());
+	return samples;
+}
+
+
 //////////////////// Progeny ////////////////////
 
 const Progeny *Progeny::copy() const {
@@ -47,23 +64,30 @@ const PedigreeTable *PedigreeTable::filter_with_parents(
 	return new PedigreeTable(progs);
 }
 
-vector<string> PedigreeTable::get_family_children(const string& mat,
-												  const string& pat) const {
-	vector<string>	children;
+vector<const Progeny *> PedigreeTable::get_progenies(const string& mat,
+													  const string& pat) const {
+	vector<const Progeny *>	children;
 	pair<string,string>	parents(mat, pat);
 	for(auto p = table.begin(); p != table.end(); ++p) {
 		if((*p)->parents() == parents)
-			children.push_back((*p)->get_name());
+			children.push_back((*p)->copy());
 	}
 	return children;
 }
 
-vector<pair<string,string>> PedigreeTable::extract_families() const {
+vector<const Family *> PedigreeTable::extract_families() const {
 	set<pair<string,string>>	s;
-	for(auto p = table.begin(); p != table.end(); ++p)
+	for(auto p = this->table.begin(); p != this->table.end(); ++p)
 		s.insert((*p)->parents());
-	vector<pair<string,string>>	families(s.begin(), s.end());
-	std::sort(families.begin(), families.end());
+	
+	vector<const Family *>	families;
+	for(auto p = s.begin(); p != s.end(); ++p) {
+		const string&	mat = p->first;
+		const string&	pat = p->second;
+		const auto	progenies = this->get_progenies(mat, pat);
+		const Family	*family = new Family(mat, pat, progenies);
+		families.push_back(family);
+	}
 	return families;
 }
 
@@ -75,9 +99,10 @@ const PedigreeTable *PedigreeTable::read(const string& path) {
 	return new PedigreeTable(progs);
 }
 
-const PedigreeTable *PedigreeTable::create(const string& path, VCFBase *vcf) {
+const PedigreeTable *PedigreeTable::create(const string& path,
+												const vector<string>& samples) {
 	const PedigreeTable	*ped = PedigreeTable::read(path);
-	const PedigreeTable	*ped2 = ped->filter_with_parents(vcf->get_samples());
+	const PedigreeTable	*ped2 = ped->filter_with_parents(samples);
 	
 	map<pair<string,string>,int>	counter;
 	for(auto p = ped2->table.begin(); p != ped2->table.end(); ++p) {

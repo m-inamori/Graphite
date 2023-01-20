@@ -1,21 +1,33 @@
+#ifndef __TYPEDETERMINER
+#define __TYPEDETERMINER
+
 #include <vector>
 #include <map>
 #include <tuple>
 
+
+//////////////////// ParentComb ////////////////////
+
+enum class ParentComb {
+	P00x00 = 0, P00x01, P01x01, P00x11, P01x11, P11x11, PNA
+};
+
+
+//////////////////// TypeDeterminer ////////////////////
+
 class TypeDeterminer {
-	typedef std::tuple<int,int,int>	State;
-	typedef std::tuple<double,int,int,int>	PQState;
+	typedef std::tuple<std::size_t,std::size_t,std::size_t>	State;
+	typedef std::tuple<double,std::size_t,std::size_t,std::size_t>	PQState;
 	
-	const int	N;
+	const std::size_t	N;
 	const double	alpha;
-	// どのGenotypeの組み合わせかを4進で表す
-	// e.g. 0/1 x 1/1 -> 1 + 2*4 = 9
-	std::map<State,int>	memo;
+	std::map<State, std::vector<std::pair<double, ParentComb>>>	memo;
 	
 public:
-	TypeDeterminer(int n, double alpha_);
+	TypeDeterminer(std::size_t n, double alpha_);
 	
-	int determine(const State& counter) const;
+	std::vector<std::pair<double, ParentComb>> determine(
+												const State& counter) const;
 	
 private:
 	void make_memo00();
@@ -24,19 +36,40 @@ private:
 	void make_memo11();
 	void make_memo12();
 	void make_memo22();
+	void sort();
 	
-	int binomial(int M) const;
-	double genotype_probability(int n0, int n1, int n2) const;
-	PQState initialize_state(int M) const;
-	PQState create_pqstate(int n0, int n1, int n2) const;
+	std::vector<std::pair<int, double>> binomial(std::size_t M) const;
+	double genotype_probability(std::size_t n0,
+								std::size_t n1, std::size_t n2) const;
+	PQState initialize_state(size_t M) const;
+	PQState create_pqstate(std::size_t n0,
+							std::size_t n1, std::size_t n2) const;
 	PQState create_pqstate(const State& s) const;
 	State create_state(const PQState& s) const;
 	State reverse_state(const State& s) const;
 	std::vector<PQState> neighbor_states(const PQState& s0) const;
-	void insert(const State& s, int value);
-	void insert(int n0, int n1, int n2, int value);
+	void insert(const State& s, ParentComb c, double p);
+	void insert(std::size_t n0, std::size_t n1, std::size_t n2,
+													ParentComb c, double p);
 	
 public:
 	static std::vector<int> int_gt_pairs(int p);
-	static std::pair<int,int> int_gt_pair(int p);
+	static bool is_same_parent_gts(ParentComb c) {
+		return c == ParentComb::P00x00 || c == ParentComb::P01x01 ||
+											c == ParentComb::P11x11;
+	}
+	static bool is_homohomo(ParentComb pc) {
+		return pc == ParentComb::P00x00 || pc == ParentComb::P00x11 ||
+											pc == ParentComb::P11x11;
+	}
+	static bool is_heterohomo(ParentComb pc) {
+		return pc == ParentComb::P00x01 || pc == ParentComb::P01x11;
+	}
+	static int get_avoiding_gt(ParentComb c) {
+		return (5 - static_cast<int>(c)) >> 1;
+	}
+	
+	static std::pair<int,int> int_gt_pair(ParentComb comb);
+
 };
+#endif

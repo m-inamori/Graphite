@@ -1,6 +1,7 @@
 #ifndef __BAUMWELCHWITHFIXEDTS
 #define __BAUMWELCHWITHFIXEDTS
 
+#include <vector>
 #include <string>
 #include <map>
 

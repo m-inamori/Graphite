@@ -12,17 +12,17 @@ VCFFamilyRecord *VCFFamilyRecord::copy() const {
 }
 
 vector<int> VCFFamilyRecord::progeny_gts() const {
-	vector<int>	w(this->samples.size() - 2);
+	vector<int>	w(this->num_progenies());
 	for(size_t i = 2U; i < samples.size(); ++i)
 		w[i-2] = this->get_int_gt(i);
 	return w;
 }
 
 vector<int> VCFFamilyRecord::get_progeny_int_gts() const {
-	vector<int>	w(samples.size());
-	for(size_t i = 2U; i < samples.size(); ++i) {
-		assert(i < w.size());
-		w[i] = get_int_gt(i);
+	vector<int>	w(this->num_progenies());
+	for(size_t i = 2U; i < this->samples.size(); ++i) {
+		assert(i < w.size() + 2);
+		w[i-2] = get_int_gt(i);
 	}
 	return w;
 }
@@ -91,10 +91,42 @@ bool VCFFamily::is_all_homo(bool is_mat) const {
 	return true;
 }
 
-void VCFFamily::update_genotypes(const std::vector<STRVEC>& GTs) {
-	for(size_t i = 0U; i < records.size(); ++i)
-		records[i]->set_GTs(GTs[i]);
-//	VCFSmall::update_genotypes(GTs);
+VCFFamily *VCFFamily::create(const VCFSmall *vcf, const STRVEC& samples) {
+	const auto	columns = VCFFamily::select_columns(samples, vcf);
+	if(columns.size() < 10)
+		return NULL;
+	
+	const auto	header = vcf->create_header(samples);
+	const vector<VCFRecord *>&	orig_records = vcf->get_records();
+	vector<VCFFamilyRecord *>	records;
+	for(auto p = orig_records.begin(); p != orig_records.end(); ++p)
+		records.push_back(VCFFamily::subset(*p, samples, columns));
+	VCFFamily	*new_vcf = new VCFFamily(header, samples, records);
+	return new_vcf;
+}
+
+vector<int> VCFFamily::select_columns(const STRVEC& samples,
+												const VCFSmall *vcf) {
+	const STRVEC&	orig_samples = vcf->get_samples();
+	map<string, int>	dic;
+	int	c = 9;
+	for(auto p = orig_samples.begin(); p != orig_samples.end(); ++p, ++c)
+		dic.insert(make_pair(*p, c));
+	
+	vector<int>	columns;
+	for(auto p = samples.begin(); p != samples.end(); ++p)
+		columns.push_back(dic[*p]);
+	return columns;
+}
+
+VCFFamilyRecord *VCFFamily::subset(VCFRecord *record, const STRVEC& samples,
+												const vector<int>& columns) {
+	const STRVEC&	orig_v = record->get_v();
+	STRVEC	v(orig_v.begin(), orig_v.begin() + 9);
+	for(auto p = columns.begin(); p != columns.end(); ++p) {
+		v.push_back(orig_v[*p]);
+	}
+	return new VCFFamilyRecord(v, samples);
 }
 
 VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {

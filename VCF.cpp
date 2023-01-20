@@ -26,6 +26,9 @@ STRVEC VCFRecord::gts() const {
 }
 
 int VCFRecord::get_int_gt(size_t i) const {
+if(i + 9 >= v.size()) {
+cout << i + 9 << " " << v.size() << endl;
+}
 	const string&	s = v[i+9];
 	try {
 		return stoi(s.substr(0U, 1U)) + stoi(s.substr(2U, 1U));
@@ -77,12 +80,7 @@ void VCFRecord::copy_properties(STRVEC::iterator it) const {
 }
 
 void VCFRecord::set_GT(size_t i, const string& gt) {
-	this->v[i].replace(0, 3, gt);
-}
-
-void VCFRecord::set_GTs(const STRVEC& GTs) {
-	for(size_t i = 9U; i < v.size(); ++i)
-		this->set_GT(i, GTs[i]);
+	this->v[i+9].replace(0, 3, gt);
 }
 
 void VCFRecord::set_int_GT(size_t i, int gt) {
@@ -101,6 +99,15 @@ VCFBase::VCFBase(const vector<STRVEC>& h, const STRVEC& s) :
 								header(h), samples(s),
 								sample_ids(number_samples(s)) {
 	determine_chromosome_id();
+}
+
+vector<STRVEC> VCFBase::create_header(const STRVEC& samples) const {
+	const vector<STRVEC>&	vcf_header = this->get_header();
+	vector<STRVEC>	header(vcf_header.begin(), vcf_header.end() - 1);
+	STRVEC	bottom(vcf_header.back().begin(), vcf_header.back().begin() + 9);
+	bottom.insert(bottom.end(), samples.begin(), samples.end());
+	header.push_back(bottom);
+	return header;
 }
 
 map<string,size_t> VCFBase::number_samples(const STRVEC& samples_) const {
@@ -199,6 +206,86 @@ STRVEC VCFReader::get_samples() const {
 }
 
 
+//////////////////// VCFSmall ////////////////////
+
+VCFSmall::VCFSmall(const vector<STRVEC>& h, const STRVEC& s,
+											vector<VCFRecord *> rs) :
+												VCFBase(h, s), records(rs) {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		this->record_position(**p);
+}
+
+VCFSmall::~VCFSmall() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
+}
+
+void VCFSmall::write(ostream& os, bool write_header) const {
+	if(write_header)
+		this->write_header(os);
+	for(auto p = records.begin(); p != records.end(); ++p)
+		(*p)->write(os);
+}
+
+VCFSmall *VCFSmall::read(const string& path) {
+	VCFReader	*reader = new VCFReader(path);
+	reader->read_header();
+	const vector<STRVEC>	header = reader->get_header();
+	const STRVEC	samples = reader->get_samples();
+	
+	vector<VCFRecord *>	records;
+	while(true) {
+		const STRVEC	v = reader->next();
+		if(v.empty())
+			break;
+		VCFRecord	*record = new VCFRecord(v, samples);
+		records.push_back(record);
+	}
+	delete reader;
+	
+	return new VCFSmall(header, samples, records);
+}
+
+
+//////////////////// VCFHuge::ChromDivisor ////////////////////
+
+VCFSmall *VCFHuge::ChromDivisor::next() {
+	while(true) {
+		VCFRecord	*record = this->vcf->next();
+		if(state == STATE::START) {
+			if(record == NULL)
+				return NULL;
+			else {
+				this->chrom = record->chrom();
+				this->records.push_back(record);
+				state = STATE::DOING;
+			}
+		}
+		else if(state == STATE::END) {
+			return NULL;
+		}
+		else if(record == NULL) {
+			VCFSmall	*vcf_chrom = new VCFSmall(this->vcf->header,
+											this->vcf->samples, this->records);
+			this->records.clear();
+			state = STATE::END;
+			return vcf_chrom;
+		}
+		else if(record->chrom() != this->chrom) {
+			VCFSmall	*vcf_chrom = new VCFSmall(this->vcf->header,
+											this->vcf->samples, this->records);
+			this->records.clear();
+			this->records.push_back(record);
+			this->chrom = record->chrom();
+			return vcf_chrom;
+		}
+		else {
+			this->records.push_back(record);
+		}
+	}
+}
+
+
 //////////////////// VCFHuge ////////////////////
 
 VCFHuge::VCFHuge(const vector<STRVEC>& h, const STRVEC& s, VCFReader *r_) :
@@ -238,49 +325,4 @@ VCFHuge *VCFHuge::read(const string& path) {
 	const vector<STRVEC>&	header = reader->get_header();
 	const STRVEC	samples = reader->get_samples();
 	return new VCFHuge(header, samples, reader);
-}
-
-
-//////////////////// VCFSmall ////////////////////
-
-VCFSmall::VCFSmall(const vector<STRVEC>& h, const STRVEC& s,
-											vector<VCFRecord *> rs) :
-												VCFBase(h, s), records(rs) {
-	for(auto p = records.begin(); p != records.end(); ++p)
-		this->record_position(**p);
-}
-
-VCFSmall::~VCFSmall() {
-	for(auto p = records.begin(); p != records.end(); ++p)
-		delete *p;
-}
-
-void VCFSmall::write(ostream& os) const {
-	this->write_header(os);
-	for(auto p = records.begin(); p != records.end(); ++p)
-		(*p)->write(os);
-}
-
-void VCFSmall::update_genotypes(const std::vector<STRVEC>& GT_table) {
-	for(size_t i = 0U; i < records.size(); ++i)
-		records[i]->set_GTs(GT_table[i]);
-}
-
-VCFSmall *VCFSmall::read(const string& path) {
-	VCFReader	*reader = new VCFReader(path);
-	reader->read_header();
-	const vector<STRVEC>	header = reader->get_header();
-	const STRVEC	samples = reader->get_samples();
-	
-	vector<VCFRecord *>	records;
-	while(true) {
-		const STRVEC	v = reader->next();
-		if(v.empty())
-			break;
-		VCFRecord	*record = new VCFRecord(v, samples);
-		records.push_back(record);
-	}
-	delete reader;
-	
-	return new VCFSmall(header, samples, records);
 }

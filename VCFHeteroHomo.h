@@ -1,7 +1,10 @@
 #ifndef __VCFHETEROHOMO
 #define __VCFHETEROHOMO
 
-#include "VCFFamily.h"
+#include "VCFImpFamily.h"
+#include "option.h"
+#include "graph.h"
+#include "Baum_Welch_with_fixed_Ts.h"
 
 class Map;
 class BiasProbability;
@@ -11,40 +14,28 @@ class VCFOriginal;
 
 //////////////////// VCFHeteroHomoRecord ////////////////////
 
-class VCFHeteroHomoRecord : public VCFFamilyRecord {
-	enum class SEGTYPE { HomoHetero, HeteroHetero, HeteroHomo, None };
+class VCFHeteroHomoRecord : public VCFImpFamilyRecord {
+	std::vector<int>	which_comes_from;
 	
 public:
-	VCFHeteroHomoRecord(const STRVEC& v, const STRVEC& s) :
-											VCFFamilyRecord(v, s) { }
+	VCFHeteroHomoRecord(const STRVEC& v, const STRVEC& s,
+							int i, WrongType type, ParentComb c) :
+							VCFImpFamilyRecord(v, s, i, type, c),
+							which_comes_from(num_progenies(), -1) { }
 	
-	VCFHeteroHomoRecord *copy() const;
+	int get_which_comes_from(int i) const { return which_comes_from[i]; }
+	bool is_mat_hetero() const { return this->mat_int_gt() == 1; }
+	bool is_pat_hetero() const { return this->pat_int_gt() == 1; }
 	
-	int mat_int_gt() const { return get_int_gt(0); }
-	int pat_int_gt() const { return get_int_gt(1); }
-//	std::vector<int> get_int_gts() const;
+	bool is_homohomo() const { return false; }
+	bool is_imputable() const {
+		return this->wrong_type == WrongType::RIGHT;
+	}
+	FillType get_fill_type() const;
 	
-	SEGTYPE segregation_type() const;
-	bool is_hetero_and_homo(bool is_mat) const;
-	std::vector<int> genotypes_from_hetero_parent(bool is_mat_hetero) const;
-	bool is_valid_segregation(bool is_mat, double cM,
-								BiasProbability *bias_probability) const;
-	
-private:
-	std::vector<std::vector<double>> make_probability_table() const;
-	std::vector<int> count_numbers() const;
-	std::vector<double> log_likelihood(
-						const std::vector<std::vector<double>>& pss,
-						const std::vector<int>& ns) const;
-	bool is_Mendelian_segregation() const;
-	
-	int genotype_from_hetero_parent(int i, int homo_gt) const;
-	
-/*
-public:
-	static const VCFFamilyRecord *subset(const VCFRecord *record,
-											const std::vector<int>& columns);
-*/
+	std::vector<int> genotypes_from_hetero_parent() const;
+	void set_haplo(int h);
+	void set_int_gt_by_which_comes_from(const std::vector<int>& ws);
 };
 
 
@@ -63,31 +54,63 @@ public:
 						std::vector<VCFHeteroHomoRecord *> rs, const Map& m);
 	~VCFHeteroHomo() { }
 	
-	VCFHeteroHomo *create_from_header(const Map& m) const;
+	bool is_mat_hetero() const { return hh_records.front()->is_mat_hetero(); }
+	
+	double cM(std::size_t i) const;
 	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs);
 	void set_records_base(const std::vector<VCFHeteroHomoRecord *>& rs);
+	void clear_records();
+	
+	// haplotype1の各レコードのGenotypeが0なのか1なのか
+	std::vector<int> make_parent_haplotypes(const Graph::InvGraph& graph) const;
+	VCFHeteroHomo *make_subvcf(const Graph::InvGraph& graph) const;
+	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
+						determine_haplotype(const OptionImpute *option) const;
+	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
+																	impute();
+	// 共通のヘテロ親はどれだけマッチしているか
+	std::pair<int, int> match(const VCFHeteroHomo *other) const;
+	void inverse_hetero_parent_phases();
 	
 	VCFHeteroHomoRecord *get_record(std::size_t i) const {
 		return hh_records[i];
 	}
+	const std::vector<VCFHeteroHomoRecord *>& get_records() const {
+		return hh_records;
+	}
 	const Map& get_map() const { return genetic_map; }
-	double cM(std::size_t i) const;
 	std::pair<int,bool> distance(const std::vector<int>& gts1,
 							const std::vector<int>& gts2, int max_dist) const;
-	std::vector<VCFHeteroHomo *> divide_into_chromosomes(
-								const std::vector<const Map *>& chr_maps) const;
 	
-	void update_genotypes(const std::vector<STRVEC>& GT_table);
+private:
+	Graph::InvGraph make_graph(double max_dist) const;
+	std::string make_seq(std::size_t i) const;
+	std::string impute_each_sample_seq(int i,
+								const std::vector<double>& cMs, double min_c);
+	void impute_each(const OptionImpute *option);
+	const OptionImpute *create_option() const;
 	
 public:
-	static std::vector<int> select_columns(const Parents& parents,
-											const VCFOriginal *vcf,
-											const PedigreeTable& pedigree);
-	static std::map<std::pair<Parents,bool>, VCFHeteroHomo *> create_vcfs(
-										VCFOriginal *orig_vcf,
-										const std::vector<Parents>& families,
-										const PedigreeTable& pedigree,
-										const Map& geno_map,
-										int chroms);
+	// ヘテロ親が同じVCFを集めて補完する
+	// ついでにphaseもなるべく同じになるように変更する
+	static std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
+			impute_vcfs(std::vector<VCFHeteroHomo *>& vcfs, const Option* op);
+	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
+	static std::vector<std::vector<std::tuple<int, int, int>>> make_vcf_graph(
+										const std::vector<VCFHeteroHomo *>& vcfs);
+	
+private:
+	static std::pair<double, bool> distance(const std::vector<int>& gts1,
+											const std::vector<int>& gts2);
+	static double dist_with_NA(int right, int counter_NA, int N);
+	static void walk(std::size_t v0, std::vector<int>& haplo,
+									const Graph::InvGraph& tree_graph);
+	static bool is_all_same_without_N(const std::string& seq);
+	static std::string create_same_color_string(const std::string& seq);
+	static std::vector<std::vector<bool>> enumerate_bools(std::size_t L);
+	static int match_score(const std::vector<bool>& invs,
+			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
+	static std::vector<bool> optimize_phase_inversions(
+			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
 };
 #endif

@@ -1,16 +1,16 @@
 #include <map>
 #include <sstream>
 #include <algorithm>
-#include "paint.h"
+#include "Imputer.h"
 #include "common.h"
 
 using namespace std;
 
 
-//////////////////// Paint::List ////////////////////
+//////////////////// Imputer::List ////////////////////
 
 template<typename T>
-vector<T> Paint::List<T>::to_vector() const {
+vector<T> Imputer::List<T>::to_vector() const {
 	vector<T>	v;
 	const List<T>	*ptr_list = this;
 	while(ptr_list != NULL) {
@@ -23,22 +23,23 @@ vector<T> Paint::List<T>::to_vector() const {
 }
 
 template<typename T>
-typename Paint::List<T>::ptrList Paint::List<T>::add(const ptrList ptr, T val) {
+typename Imputer::List<T>::ptrList Imputer::List<T>::add(
+											const ptrList ptr, T val) {
 	return ptrList(new List<T>(ptr, val));
 }
 
 
-//////////////////// Paint::Region ////////////////////
+//////////////////// Imputer::Region ////////////////////
 
-string Paint::Region::str() const {
+string Imputer::Region::str() const {
 	stringstream	ss;
 	ss << '[' << first << ", " << last << ']';
 	return ss.str();
 }
 
-vector<const Paint::Region *> Paint::Region::create(const string& seq,
+vector<const Imputer::Region *> Imputer::Region::create(const string& seq,
 													const vector<double>& cMs) {
-	vector<const Paint::Region *>	regions;
+	vector<const Imputer::Region *>	regions;
 	size_t	last = 0U;
 	Color	prev_color = -1;
 	
@@ -58,16 +59,16 @@ vector<const Paint::Region *> Paint::Region::create(const string& seq,
 }
 
 
-//////////////////// Paint::State ////////////////////
+//////////////////// Imputer::State ////////////////////
 
-Paint::State::State(const std::vector<const Region *>& rs) :
+Imputer::State::State(const std::vector<const Region *>& rs) :
 						regions(rs),
 						color_list(new List<Color>(regions[0]->get_color())),
 						size(1U), num_continuous(1U),
 						continuous_length(regions[0]->get_cM()),
 						painted_len(0.0) { }
 
-bool Paint::State::is_changable(double MIN_CROSSOVER) const {
+bool Imputer::State::is_changable(double MIN_CROSSOVER) const {
 	if(continuous_length >= MIN_CROSSOVER)
 		return true;
 	
@@ -83,7 +84,7 @@ bool Paint::State::is_changable(double MIN_CROSSOVER) const {
 	return true;
 }
 
-Paint::State *Paint::State::add(double cM) const {
+Imputer::State *Imputer::State::add(double cM) const {
 	const bool	painted = last_color() != next_color();
 	ptrColors	colors = List<Color>::add(color_list, last_color());
 	const double	new_painted_length = painted_len + (painted ? cM : 0.0);
@@ -91,7 +92,7 @@ Paint::State *Paint::State::add(double cM) const {
 							continuous_length + cM, new_painted_length);
 }
 
-Paint::State *Paint::State::change(double cM) const {
+Imputer::State *Imputer::State::change(double cM) const {
 	const Color	color = last_color() == 0 ? 1 : 0;
 	const bool	painted = color != next_color();
 	ptrColors	colors = List<Color>::add(color_list, color);
@@ -99,7 +100,7 @@ Paint::State *Paint::State::change(double cM) const {
 	return new State(regions, colors, size + 1, 1, cM, new_painted_length);
 }
 
-vector<Paint::Color> Paint::State::get_colors() const {
+vector<Imputer::Color> Imputer::State::get_colors() const {
 	vector<Color>	colors;
 	vector<Color>	region_colors = color_list.get()->to_vector();
 	for(auto p = region_colors.begin(); p != region_colors.end(); ++p) {
@@ -111,7 +112,7 @@ vector<Paint::Color> Paint::State::get_colors() const {
 	return colors;
 }
 
-vector<const Paint::State *> Paint::State::nexts(double cM,
+vector<const Imputer::State *> Imputer::State::nexts(double cM,
 												double MIN_CROSSOVER) const {
 	vector<const State *>	states;
 	if(is_extendable())
@@ -121,7 +122,7 @@ vector<const Paint::State *> Paint::State::nexts(double cM,
 	return states;
 }
 
-Paint::ptrState Paint::State::min(const vector<ptrState>& states) {
+Imputer::ptrState Imputer::State::min(const vector<ptrState>& states) {
 	ptrState	min_state = states.front();
 	for(auto p = states.begin() + 1; p != states.end(); ++p) {
 		const State	*state = p->get();
@@ -132,7 +133,7 @@ Paint::ptrState Paint::State::min(const vector<ptrState>& states) {
 }
 
 // minimize states
-vector<Paint::ptrState> Paint::State::select(
+vector<Imputer::ptrState> Imputer::State::select(
 								const vector<const State *>& states) {
 	typedef pair<int,Color>	Key;
 	map<Key,vector<ptrState>>	dic;
@@ -147,7 +148,7 @@ vector<Paint::ptrState> Paint::State::select(
 	return selected_states;
 }
 
-vector<Paint::ptrState> Paint::State::next(vector<ptrState>& states,
+vector<Imputer::ptrState> Imputer::State::next(vector<ptrState>& states,
 											double cM, double MIN_CROSSOVER) {
 	vector<const State *>	new_states;
 	for(auto p = states.begin(); p != states.end(); ++p) {
@@ -158,7 +159,7 @@ vector<Paint::ptrState> Paint::State::next(vector<ptrState>& states,
 	return select(new_states);
 }
 
-string Paint::State::str() const {
+string Imputer::State::str() const {
 	stringstream	ss;
 	for(auto p = regions.begin(); p != regions.end(); ++p)
 		ss << (*p)->str();
@@ -174,7 +175,7 @@ string Paint::State::str() const {
 
 //////////////////// Paint ////////////////////
 
-string Paint::paint(const string& seq, const vector<double>& cMs,
+string Imputer::paint(const string& seq, const vector<double>& cMs,
 												double MIN_CROSSOVER) {
 	const auto	regions = Region::create(seq, cMs);
 	if(regions.size() <= 2U) {
@@ -194,4 +195,32 @@ string Paint::paint(const string& seq, const vector<double>& cMs,
 		ss << *p;
 	Common::delete_all(regions);
 	return ss.str();
+}
+
+
+//////////////////// impute ////////////////////
+
+Imputer::Matrix Imputer::compute_T(double prob,
+									const vector<char>& hidden_states) {
+	Matrix	T;
+	for(auto p = hidden_states.begin(); p != hidden_states.end(); ++p) {
+		for(auto q = hidden_states.begin(); q != hidden_states.end(); ++q)
+			T[make_pair(*p, *q)] = *p == *q ? 1.0 - prob : prob;
+	}
+	return T;
+}
+
+string Imputer::impute(const string& seq, const vector<char>& hidden_states,
+						const vector<char>& states, const vector<double>& cMs) {
+	vector<double>	ps;
+	for(size_t i = 0; i < cMs.size() - 1; ++i)
+		ps.push_back((cMs[i+1] - cMs[i]) / 100);
+	
+	vector<Matrix>	Ts;
+	for(auto p = ps.begin(); p != ps.end(); ++p)
+		Ts.push_back(compute_T(*p, hidden_states));
+	
+	const string	hidden_seq = BaumWelch::impute(seq,
+												hidden_states, states, Ts);
+	return hidden_seq;
 }

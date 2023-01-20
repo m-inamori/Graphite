@@ -45,7 +45,6 @@ public:
 	
 	void copy_properties(STRVEC::iterator it) const;
 	void set_GT(std::size_t i, const std::string& gt);
-	void set_GTs(const STRVEC& GTs);
 	void set_int_GT(std::size_t i, int gt);
 	void set(const STRVEC& new_v) { v = new_v; }
 };
@@ -66,6 +65,7 @@ public:
 	~VCFBase() { }
 	
 	const std::vector<STRVEC>& get_header() const { return header; }
+	std::vector<STRVEC> create_header(const STRVEC& samples) const;
 	const STRVEC& get_samples() const { return samples; }
 	std::map<std::string,std::size_t>
 	number_samples(const STRVEC& samples_) const;
@@ -99,24 +99,6 @@ public:
 };
 
 
-//////////////////// VCFHuge ////////////////////
-
-class VCFHuge : public VCFBase {
-	VCFReader	*reader;
-	
-public:
-	VCFHuge(const std::vector<STRVEC>& header_, const STRVEC& samples_,
-													VCFReader *reader_);
-	~VCFHuge();
-	
-	VCFRecord *next();
-	VCFRecord *proceed(POSITION pos);
-	
-public:
-	static VCFHuge *read(const std::string& path);
-};
-
-
 //////////////////// VCFSmall ////////////////////
 
 class VCFSmall : public VCFBase {
@@ -129,12 +111,47 @@ public:
 	~VCFSmall();
 	
 	const std::vector<VCFRecord *>& get_records() const { return records; }
+	bool empty() const { return records.empty(); }
 	std::size_t size() const { return records.size(); }
-	void write(std::ostream& os) const;
+	void write(std::ostream& os, bool write_header=true) const;
 	
-	void update_genotypes(const std::vector<STRVEC>& GT_table);
+	void add_records(std::vector<VCFRecord *>& rs) {
+		records.insert(records.end(), rs.begin(), rs.end());
+	}
 	
 public:
 	static VCFSmall *read(const std::string& path);
+};
+
+
+//////////////////// VCFHuge ////////////////////
+
+class VCFHuge : public VCFBase {
+public:
+	class ChromDivisor {
+		enum class STATE { START, DOING, END };
+		VCFHuge	*vcf;
+		std::vector<VCFRecord *>	records;
+		std::string	chrom;
+		STATE	state;
+		
+	public:
+		ChromDivisor(VCFHuge *v) : vcf(v), state(STATE::START) { }
+		VCFSmall *next();
+	};
+	
+private:
+	VCFReader	*reader;
+	
+public:
+	VCFHuge(const std::vector<STRVEC>& header_, const STRVEC& samples_,
+													VCFReader *reader_);
+	~VCFHuge();
+	
+	VCFRecord *next();
+	VCFRecord *proceed(POSITION pos);
+	
+public:
+	static VCFHuge *read(const std::string& path);
 };
 #endif

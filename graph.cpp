@@ -1,6 +1,6 @@
 #include <cassert>
 #include "graph.h"
-#include "kluskal.h"
+#include "kruskal.h"
 
 using namespace std;
 
@@ -61,7 +61,7 @@ Graph::InvGraph Graph::filter_graph(const InvGraph& graph,
 
 Graph::InvGraph Graph::minimum_spanning_tree(const InvGraph& graph) {
 	const WeightedGraph	weighted_graph = trim_inverse(graph);
-	const WeightedGraph	tree = Kluskal::Kluskal(weighted_graph);
+	const WeightedGraph	tree = Kruskal::Kruskal(weighted_graph);
 	return filter_graph(graph, tree);
 }
 
@@ -71,7 +71,7 @@ void Graph::walk(size_t v0, const InvGraph& graph,
 	visited.insert(v0);
 	auto	iter = graph.find(v0);
 	assert(iter != graph.end());
-	const vector<std::tuple<std::size_t,int,bool>>&	vec = iter->second;
+	const vector<std::tuple<std::size_t,double,bool>>&	vec = iter->second;
 	for(auto p = vec.begin(); p != vec.end(); ++p) {
 		const size_t&	v = get<0>(*p);
 		if(visited.find(v) != visited.end())
@@ -135,25 +135,3 @@ vector<size_t> Graph::find_path(size_t v1, size_t v2, const InvGraph& graph) {
 	const auto	rev_path = walk(v1, v2, graph, visited);
 	return vector<size_t>(rev_path.rbegin(), rev_path.rend());
 }
-
-/*
-#include <iostream> 
-
-int main(int argc, char **argv) {
-	Graph::InvGraph	graph;
-	graph[1].push_back(tuple<size_t,int,bool>(2, 1, true));
-	graph[1].push_back(tuple<size_t,int,bool>(3, 2, false));
-	graph[2].push_back(tuple<size_t,int,bool>(1, 1, true));
-	graph[2].push_back(tuple<size_t,int,bool>(3, 3, false));
-	graph[3].push_back(tuple<size_t,int,bool>(1, 2, false));
-	graph[3].push_back(tuple<size_t,int,bool>(2, 3, false));
-	
-	auto	tree = Graph::minimum_spanning_tree(graph);
-	for(auto p = tree.begin(); p != tree.end(); ++p) {
-		cout << p->first << ":";
-		for(auto q = p->second.begin(); q != p->second.end(); ++q)
-			cout << "(" << get<0>(*q) << ", " << get<1>(*q) << ", " << get<2>(*q) << ")";
-		cout << endl;
-	}
-}
-*/

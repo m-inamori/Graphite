@@ -24,14 +24,16 @@ vector<int> VCFOriginal::select_columns(const pair<string,string>& parents,
 	const string&	pat = parents.second;
 	const int	mat_column = this->find_column(mat);
 	const int	pat_column = this->find_column(pat);
-	const STRVEC	children = pedigree.get_family_children(mat, pat);
-	const set<string>	set_children(children.begin(), children.end());
+	const auto	progenies = pedigree.get_progenies(mat, pat);
+	set<string>	set_progenies;
+	for(auto p = progenies.begin(); p != progenies.end(); ++p)
+		set_progenies.insert((*p)->get_name());
 	
 	vector<int>	columns = { mat_column, pat_column };
 	int	i = 0;
 	for(auto p = samples.begin(); p != samples.end(); ++p) {
 		const string&	sample = *p;
-		if(set_children.find(sample) != set_children.end())
+		if(set_progenies.find(sample) != set_progenies.end())
 			columns.push_back(i + 9);
 		++i;
 	}

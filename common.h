@@ -35,6 +35,14 @@ namespace Common {
 	}
 	*/
 	bool is_all_same(const std::string& seq);
+	template<typename T>
+	bool is_all_same(const std::vector<T>& v) {
+		for(auto p = v.begin() + 1; p != v.end(); ++p) {
+			if(*p != v.front())
+				return false;
+		}
+		return true;
+	}
 	
 	template<typename T>
 	std::vector<T> unique_vector(const std::vector<T>& v) {

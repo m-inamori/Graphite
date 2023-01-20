@@ -1,10 +1,12 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <cassert>
 #include "VCFFillable.h"
-#include "TypeDeterminer.h"
+#include "VCFHeteroHomo.h"
+#include "option.h"
 #include "common.h"
 
 using namespace std;
@@ -23,8 +25,8 @@ bool Genotype::includes(char gt) const {
 	return gt == gt1 || gt == gt2;
 }
 
-bool Genotype::is_consistent(const Genotype& mat_gt, const Genotype& pat_gt,
-												bool considers_phasing) const {
+bool Genotype::conflicts(const Genotype& mat_gt, const Genotype& pat_gt,
+												bool considers_phasing) {
 	if(considers_phasing && this->phasing) {
 		return mat_gt.includes(gt1) && pat_gt.includes(gt2);
 	}
@@ -37,17 +39,64 @@ bool Genotype::is_consistent(const Genotype& mat_gt, const Genotype& pat_gt,
 	}
 }
 
-bool Genotype::is_valid(const string& gt) {
-	return (gt.c_str()[0] == '0' || gt.c_str()[0] == '1') &&
-			(gt.c_str()[2] == '0' || gt.c_str()[2] == '1');
+bool Genotype::is_valid(const string& gt, int mat_gt, int pat_gt) {
+	if(gt.length() < 3)
+		return false;
+	
+	const string	mat_gts = possible_gts(mat_gt);
+	const string	pat_gts = possible_gts(pat_gt);
+	return (mat_gts.find(gt.substr(0, 1)) != string::npos &&
+			pat_gts.find(gt.substr(2, 1)) != string::npos) ||
+		   (mat_gts.find(gt.substr(2, 1)) != string::npos &&
+			pat_gts.find(gt.substr(0, 1)) != string::npos);
+}
+
+string Genotype::possible_gts(int gt) {
+	switch(gt) {
+		case  0: return "0";
+		case  3: return "1";
+		default: return "01";
+	}
 }
 
 int Genotype::sum_gt(const string& gt) {
 	return (int)((gt.c_str()[0] - '0') + (gt.c_str()[2] - '0'));
 }
 
+bool Genotype::is_all_NA(const vector<string>& GTs) {
+	for(auto p = GTs.begin(); p != GTs.end(); ++p) {
+		if(*p != "./.")
+			return false;
+	}
+	return true;
+}
+
 
 //////////////////// VCFFillableRecord ////////////////////
+
+#define P(a,b) make_pair(a,b)
+
+vector<pair<int, int>> VCFFillableRecord::possible_phasings() const {
+	switch(this->comb) {
+		case ParentComb::P00x00: return { P(0, 0) };
+		case ParentComb::P00x01: return { P(0, 1), P(0, 2), P(1, 0), P(2, 0),
+										  P(1, 1), P(1, 2), P(2, 1), P(2, 2) };
+		case ParentComb::P01x01: return { P(1, 1), P(1, 2), P(2, 1), P(2, 2),
+										  P(0, 1), P(0, 2), P(1, 0), P(2, 0),
+										  P(1, 3), P(2, 3), P(3, 1), P(3, 2) };
+		case ParentComb::P00x11: return { P(0, 3), P(3, 0) };
+		case ParentComb::P01x11: return { P(1, 3), P(2, 3), P(3, 1), P(3, 2),
+										  P(1, 1), P(1, 2), P(2, 1), P(2, 2) };
+		case ParentComb::P11x11: return { P(3, 3) };
+		default: break;
+	}
+	
+	// any pair is possible
+	vector<pair<int, int>>	pairs;
+	for(int i = 0; i < 16; ++i)
+		pairs.push_back(P(i >> 2, i & 3));
+	return pairs;
+}
 
 STRVEC VCFFillableRecord::prog_gts() const {
 	STRVEC	vec(v.size() - 11);
@@ -56,7 +105,7 @@ STRVEC VCFFillableRecord::prog_gts() const {
 }
 
 VCFFillableRecord *VCFFillableRecord::copy() const {
-	return new VCFFillableRecord(v, samples, type);
+	return new VCFFillableRecord(v, samples, index, type, comb);
 }
 
 tuple<int,int,int> VCFFillableRecord::count_gts() const {
@@ -73,6 +122,70 @@ string VCFFillableRecord::gt_from_parent(int mat_from, int pat_from) const {
 	stringstream	ss;
 	ss << v[9].c_str()[mat_from*2-2] << '|' << v[10].c_str()[pat_from*2-2];
 	return ss.str();
+}
+
+string VCFFillableRecord::gt_from_mat(int mat_from, int c) const {
+	const string	gt = this->get_GT(c - 9);
+	const int		int_gt = this->get_int_gt(c - 9);
+	const char		mat_gt = this->v[9].c_str()[mat_from*2-2];
+	const string	pat_GT = this->get_GT(1);
+	if(int_gt == 0) {
+		if(mat_gt == '0')
+			return "0|0";
+		else if(pat_GT.find('0') != string::npos)
+			return "1|0";
+		else
+			return "1|1";
+	}
+	else if(int_gt == 2) {
+		if(mat_gt == '1')
+			return "1|1";
+		else if(pat_GT.find('1') != string::npos)
+			return "0|1";
+		else
+			return "0|0";
+	}
+	else if(int_gt == 1) {
+		if(mat_gt == '0')
+			return "0|1";
+		else
+			return "1|0";
+	}
+	else {
+		return ".|.";
+	}
+}
+
+string VCFFillableRecord::gt_from_pat(int pat_from, int c) const {
+	const string	gt = this->get_GT(c - 9);
+	const int		int_gt = this->get_int_gt(c - 9);
+	const char		pat_gt = this->v[10].c_str()[pat_from*2-2];
+	const string	mat_GT = this->get_GT(0);
+	if(int_gt == 0) {
+		if(pat_gt == '0')
+			return "0|0";
+		else if(mat_GT.find('0') != string::npos)
+			return "0|1";
+		else
+			return "1|1";
+	}
+	else if(int_gt == 2) {
+		if(pat_gt == '1')
+			return "1|1";
+		else if(mat_GT.find('1') != string::npos)
+			return "1|0";
+		else
+			return "0|0";
+	}
+	else if(int_gt == 1) {
+		if(pat_gt == '0')
+			return "1|0";
+		else
+			return "1|0";
+	}
+	else {
+		return ".|.";
+	}
 }
 
 vector<vector<double>> VCFFillableRecord::make_probability_table() const {
@@ -99,71 +212,36 @@ vector<vector<double>> VCFFillableRecord::make_probability_table() const {
 	return pss;
 }
 
-int VCFFillableRecord::segregation_type() const {
-	const auto	pss = make_probability_table();
-	const auto	gts = progeny_gts();	// [gt: int(0|1|2)]
-	vector<int>	ns(3, 0);
-	for(auto p = gts.begin(); p != gts.end(); ++p) {
-		if(0 <= *p && *p < 3)
-			ns[*p] += 1;
-	}
-	
-	int	seg_type = 0;	// temporary
-	double	max_lls = -1e+308;
-	for(int i = 0; i < 6; ++i) {
-		double	lls = 0.0;
-		for(int j = 0; j < 3; ++j)
-			lls += ns[j] * log(pss[i][j]);
-		if(lls > max_lls) {
-			seg_type = i;
-			max_lls = lls;
-		}
-	}
-	return seg_type;
-}
-
-void VCFFillableRecord::not_phasing(int p) {
-	this->set_mat_GT("./.");
-	this->set_pat_GT("./.");
-	
-	if(p == 2) {
-		for(size_t i = 2; i < samples.size(); ++i) {
-			const string	gt = this->get_GT(i);
-			if(gt != "0/0" && gt != "0/1")
-				this->set_GT(i, "./.");
-		}
-	}
-	else if(p == 8) {
-		for(size_t i = 2; i < samples.size(); ++i) {
-			this->set_GT(i, "0/1");
-		}
-	}
-	else if(p == 16) {
-		for(size_t i = 2; i < samples.size(); ++i) {
-			const string	gt = this->get_GT(i);
-			if(gt != "0/1" && gt != "1/1")
-				this->set_GT(i, "./.");
-		}
-	}
-	
-	this->type = RecordType::NOT_PHASING;
-}
-
 void VCFFillableRecord::phase() {
 	// 両親ともホモになっている前提
 	const string	gt_mat = this->v[9].substr(0, 1);
 	const string	gt_pat = this->v[10].substr(0, 1);
 	this->set_mat_GT(gt_mat + "|" + gt_mat);
 	this->set_pat_GT(gt_pat + "|" + gt_pat);
-	for(size_t i = 11U; i < this->v.size(); ++i)
+	for(size_t i = 2; i < this->num_samples(); ++i)
 		this->set_GT(i, gt_mat + "|" + gt_pat);
 }
 
-void VCFFillableRecord::modify() {
-	if(this->type != RecordType::FILLED)
-		return;
-	else if(this->is_homo(0) && this->is_homo(1))
-		this->phase();
+int VCFFillableRecord::mat_from(int c) const {
+	if(this->v[c].c_str()[0] == '.')
+		return 0;
+	else if(!this->is_hetero(0))
+		return 0;
+	else if(this->v[c].c_str()[0] == this->v[9].c_str()[0])
+		return 1;
+	else
+		return 2;
+}
+
+int VCFFillableRecord::pat_from(int c) const {
+	if(this->v[c].c_str()[0] == '.')
+		return 0;
+	else if(!this->is_hetero(1))
+		return 0;
+	else if(this->v[c].c_str()[2] == this->v[10].c_str()[0])
+		return 1;
+	else
+		return 2;
 }
 
 int VCFFillableRecord::find_geno_type(const string& type) const {
@@ -214,9 +292,9 @@ STRVEC VCFFillableRecord::inverse_prog_gts(const STRVEC& prog_gts,
 void VCFFillableRecord::inverse_parents_gts(bool inv_mat, bool inv_pat) {
 	// both must be hetero
 	if(inv_mat)
-		set_GT(9, v[9].substr(2, 1) + "|" + v[9].substr(0, 1));
+		set_GT(0, v[9].substr(2, 1) + "|" + v[9].substr(0, 1));
 	if(inv_pat)
-		set_GT(10, v[10].substr(2, 1) + "|" + v[10].substr(0, 1));
+		set_GT(1, v[10].substr(2, 1) + "|" + v[10].substr(0, 1));
 }
 
 bool VCFFillableRecord::is_same_gts(const string& gt1,
@@ -263,86 +341,10 @@ int VCFFillableRecord::from_which_chrom(size_t i, bool is_mat) const {
 	return parent_gt.c_str()[0] == this->get_gt(i).c_str()[j*2] ? 1 : 2;
 }
 
-VCFFillableRecord *VCFFillableRecord::from_VCFFamilyRecord(
-											const VCFFamilyRecord *record,
-											const STRVEC& samples) {
-	auto	type = record->is_homo(1) ? RecordType::MAT : RecordType::PAT;
-	return new VCFFillableRecord(record->get_v(), samples, type);
-}
-
-void VCFFillableRecord::set(const STRVEC& new_v, RecordType new_type) {
+void VCFFillableRecord::set(const STRVEC& new_v, FillType new_type) {
 	v = new_v;
 	type = new_type;
 	VCFFamilyRecord::set(new_v);
-}
-
-void VCFFillableRecord::find_matched_pair(const vector<int>& types) {
-	const int	gt1 = mat_int_gt();
-	const int	gt2 = pat_int_gt();
-	if(gt1 == -1 || gt2 == -1) {
-		disable();
-		return;
-	}
-	
-	const int	pair_gt = gt1 <= gt2 ? gt2 * (gt2 + 1) / 2 + gt1 :
-									   gt1 * (gt1 + 1) / 2 + gt2;
-	for(auto p = types.begin(); p != types.end(); ++p) {
-		if(*p == pair_gt)
-			return;
-	}
-	disable();
-}
-
-void VCFFillableRecord::determine_parents_type(int p) {
-	if(p == 0) {
-		disable();
-		return;
-	}
-	
-	const vector<int>	types = TypeDeterminer::int_gt_pairs(p);
-	if(types.size() >= 2) {
-		find_matched_pair(types);
-		return;
-	}
-	
-	const auto	q = TypeDeterminer::int_gt_pair(types.front());
-	const int	gt1 = q.first;
-	const int	gt2 = q.second;
-	if(gt1 == gt2) {
-		set_mat_int_GT(gt1);
-		set_pat_int_GT(gt2);
-		return;
-	}
-	
-	// gt1とgt2を両親のどちらかに当てはめたときの当てはまり具合を調べる
-	// 0: 当てはまらない 1: 当てはまる
-	const int	mat_gt = mat_int_gt();
-	const int	pat_gt = pat_int_gt();
-	int	match1 = (mat_gt != gt1 ? 0 : 1) | (pat_gt != gt2 ? 0 : 2);
-	int	match2 = (mat_gt != gt2 ? 0 : 1) | (pat_gt != gt1 ? 0 : 2);
-	if(match1 == 3 || match2 == 3) {	// 合っている
-		return;
-	}
-	else if(match1 != 0 && match2 == 0) {	// (gt1, gt2)はどちらかが合っている
-		if(match1 == 1)		// matだけ合っている
-			set_pat_int_GT(gt2);
-		else				// patだけ合っている
-			set_mat_int_GT(gt1);
-	}
-	else if(match1 == 0 && match2 != 0) {
-		if(match2 == 1)		// matだけ合っている
-			set_pat_int_GT(gt1);
-		else
-			set_mat_int_GT(gt2);
-	}
-	else if(match1 != 0 && match2 != 0) {
-		// どの親をどのGenotypeにすればいいか分からない
-		// 親をN/Aにして、子どもはphasingしない
-		not_phasing(p);
-	}
-	else {
-		disable();
-	}
 }
 
 VCFRecord *VCFFillableRecord::integrate_records(
@@ -357,6 +359,173 @@ VCFRecord *VCFFillableRecord::integrate_records(
 		v.insert(v.end(), (*p)->v.begin() + 9, (*p)->v.end());
 	}
 	return new VCFRecord(v, records.front()->get_samples());
+}
+
+int VCFFillableRecord::hash(int d) const {
+	int	hash = 0;
+	const string&	str_pos = this->v[1];
+	for(auto p = str_pos.begin(); p != str_pos.end(); ++p) {
+		hash = (hash * 10 + (*p - '0')) % d;
+	}
+	return hash;
+}
+
+string VCFFillableRecord::decide_by_majority(const vector<string>& GTs) const {
+	// ex) ['0/0', '0/1', '0/0', '1/1'] -> { '0/0': 2, '0/1': 1, '1/1': 1 }
+	map<string, int>	counter;
+	for(auto p = GTs.begin(); p != GTs.end(); ++p)
+		counter[*p] += 1;
+	
+	// ex) { '0/0': 2, '0/1': 1, '1/1': 1 } -> { 2: ['0/0'], 1: ['0/1', '1/1'] }
+	map<int, vector<string>>	dic_num;
+	for(auto p = counter.begin(); p != counter.end(); ++p)
+		dic_num[p->second].push_back(p->first);
+	
+	pair<int, vector<string>>	max_pair;
+	for(auto p = dic_num.begin(); p != dic_num.end(); ++p) {
+		if(p->first > max_pair.first)
+			max_pair = *p;
+	}
+	
+	const vector<string>&	max_GTs = max_pair.second;
+	if(max_GTs.size() == 1)
+		return max_GTs.front();
+	else	// 最多が複数ある場合は乱数的なものを使う
+		return max_GTs[this->hash((int)max_GTs.size())];
+}
+
+void VCFFillableRecord::swap_parents(int i, const string& GT) {
+	if(GT == this->v[i+9].substr(0, 3))
+		;
+	else if(GT == "0|0") {
+		this->set_GT(i, GT);
+		this->set_GT(i == 0 ? 1 : 0, "1|1");
+	}
+	else if(GT == "1|1") {
+		this->set_GT(i, GT);
+		this->set_GT(i == 0 ? 1 : 0, "0|0");
+	}
+}
+
+string VCFFillableRecord::decide_duplicated_Genotype(
+									const vector<VCFFillableRecord *>& records,
+									const vector<pair<int, int>>& positions) {
+	// 全部./.ならそのまま
+	// 子どもがいたらそれ
+	// ./.を除いて全部同じだったらそれ
+	// ./.と0/0 x 1/1で全部なら0/0 x 1/1で多数決
+	// ./.と0/0 x 1/1を除いて全部同じだったらそれ
+	// ./.と0/0 x 1/1を除いて複数種あれば多数決
+	STRVEC	GTs;
+	for(auto p = positions.begin(); p != positions.end(); ++p)
+		GTs.push_back(records[p->first]->get_GT(p->second));
+	
+	if(Genotype::is_all_NA(GTs))
+		return "./.";
+	
+	// 子どもが優先
+	for(size_t i = 0; i < GTs.size(); ++i) {
+		const int	j = positions[i].second;
+		const string&	GT = GTs[i];
+		if(j >= 2 && GT != "./.")
+			return GT;
+	}
+	
+	STRVEC	GTs_less_NA;
+	for(auto p = GTs.begin(); p != GTs.end(); ++p) {
+		if(*p != "./.")
+			GTs_less_NA.push_back(*p);
+	}
+	
+	if(Common::is_all_same(GTs_less_NA))
+		return GTs_less_NA.front();
+	
+	STRVEC	GTs_less_00x11;
+	for(size_t i = 0; i < GTs.size(); ++i) {
+		const auto	*record = records[positions[i].first];
+		const string&	GT = GTs[i];
+		if(GT != "./." && record->comb != ParentComb::P00x11)
+			GTs_less_00x11.push_back(GT);
+	}
+	
+	if(GTs_less_00x11.empty())	// only 0/0 x 1/1
+		return records.front()->decide_by_majority(GTs_less_NA);
+	else if(Common::is_all_same(GTs_less_00x11))
+		return GTs_less_00x11.front();
+	else
+		return records.front()->decide_by_majority(GTs_less_00x11);
+}
+
+VCFFillableRecord *VCFFillableRecord::convert(
+									const VCFImpFamilyRecord *record) {
+	const FillType	type = record->get_fill_type();
+	return new VCFFillableRecord(record->get_v(), record->get_samples(),
+								 record->get_index(), type, record->get_comb());
+}
+
+VCFRecord *VCFFillableRecord::merge(const vector<VCFFillableRecord *>& records,
+														const STRVEC& samples) {
+	STRVEC	v = records.front()->v;
+	for(auto p = records.begin() + 1; p != records.end(); ++p)
+		v.insert(v.end(), (*p)->v.begin(), (*p)->v.end());
+	return new VCFRecord(v, samples);
+}
+
+void VCFFillableRecord::integrate_each_sample(
+									const vector<VCFFillableRecord *>& records,
+									const vector<pair<int, int>>& positions) {
+	const string	GT = decide_duplicated_Genotype(records, positions);
+	for(auto p = positions.begin(); p != positions.end(); ++p) {
+		VCFFillableRecord	*record = records[p->first];
+		if(record->is_00x11() && p->second <= 1)
+			record->swap_parents(p->second, GT);
+	}
+}
+
+bool VCFFillableRecord::is_all_same_GT(
+						const vector<VCFFillableRecord *>& records,
+						const vector<pair<int, int>>& pos_samples) {
+	if(pos_samples.size() == 1)
+		return true;
+	
+	const auto	pos_sample = pos_samples.front();
+	const string	GT0 = records[pos_sample.first]->get_GT(pos_sample.second);
+	for(auto p = pos_samples.begin() + 1; p != pos_samples.end(); ++p) {
+		const string	GT = records[p->first]->get_GT(p->second);
+		if(GT != GT0)
+			return false;
+	}
+	return true;
+}
+
+VCFRecord *VCFFillableRecord::integrate(
+							const vector<VCFFillableRecord *>& records,
+							const vector<string>& samples,
+							const vector<vector<pair<int, int>>>& pos_samples) {
+	const VCFFillableRecord	*record = records.front();
+	// 0|0 x 1|1なら親のGenotypeを交換できる
+	for(auto p = pos_samples.begin(); p != pos_samples.end(); ++p) {
+		if(!is_all_same_GT(records, *p)) {
+			integrate_each_sample(records, *p);
+		}
+	}
+	
+	// 交換したあとにGenotypeを集める
+	vector<string>	v(record->v.begin(), record->v.begin() + 9);
+	for(auto p = pos_samples.begin(); p != pos_samples.end(); ++p) {
+		const pair<int, int>&	pos = p->front();
+		v.push_back(records[pos.first]->get_gt(pos.second));
+	}
+	return new VCFRecord(v, samples);
+}
+
+// phasingされている前提
+int VCFFillableRecord::from_which_chrom(const VCFFillableRecord *record,
+													size_t i, bool is_mat) {
+	if(record == NULL)
+		return 0;
+	
+	return record->from_which_chrom(i, is_mat);
 }
 
 
@@ -448,7 +617,8 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 		return Pair(0, 0);
 	else if(pairs.size() == 1U)
 		return pairs.front();
-	else if(!Genotype::is_valid(record->get_gt(i)))
+	else if(!Genotype::is_valid(record->get_gt(i), record->mat_int_gt(),
+													record->pat_int_gt()))
 		return select_nearest_froms(pairs, i);
 	else if(selected)
 		return select_nearest_froms(pairs, i);
@@ -466,6 +636,223 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 		return select_pair(pairs, i, true);
 }
 
+// 親のどちらの染色体から来ているかの確率
+vector<double> VCFFillable::RecordSet::probs_from_which_chrom(
+									int prev_from, int next_from) const {
+	static const double ps[] = {
+		0.5, 0.9, 0.1, 0.9, 0.99, 0.5, 0.1, 0.5, 0.01
+	};
+	const double	prob1 = ps[prev_from+next_from*3];
+	vector<double>	probs = { prob1, 1.0 - prob1 };
+	return probs;
+}
+
+vector<double> VCFFillable::RecordSet::probs_from_which_chrom(
+												size_t i, bool is_mat) const {
+//	if((is_mat && record->is_mat_homo()) || (!is_mat && record->is_pat_homo()))
+//		return vector<double>(2U, 0.5);
+	if(is_mat)
+		return probs_from_which_chrom(prev_mat_from(i), next_mat_from(i));
+	else
+		return probs_from_which_chrom(prev_pat_from(i), next_pat_from(i));
+}
+
+double VCFFillable::RecordSet::likelihood_each(const string& gt,
+									const vector<double>& probs_mat,
+									const vector<double>& probs_pat,
+									int mat_phasing, int pat_phasing) const {
+	const int	sum = Genotype::sum_gt(gt);
+	double	likelihood = 0.0;
+	for(int k = 0; k < 4; ++k) {
+		const int	i = k >> 1;		// 母親は0|1か1|0か
+		const int	j = k & 1;
+		if((((mat_phasing >> i) & 1) + ((pat_phasing >> j) & 1)) == sum)
+			likelihood += probs_mat[i] * probs_pat[j];
+	}
+	if(likelihood == 0.0)	// 該当する組合せが無い
+		return log(0.0001);
+	else
+		return log(likelihood);
+}
+
+double VCFFillable::RecordSet::compute_phasing_likelihood_each(size_t i,
+									int mat_phasing, int pat_phasing) const {
+	const auto	probs_mat = this->probs_from_which_chrom(i, true);
+	const auto	probs_pat = this->probs_from_which_chrom(i, false);
+	return this->likelihood_each(this->gt(i), probs_mat, probs_pat,
+											mat_phasing, pat_phasing);
+}
+
+// 親のGTがひっくり返っているかひっくり返っていないのか仮定して尤度を計算する
+// GTが0/1のとき、phasingが0なら0|1、1なら1|0
+// GTが0|0のとき、どちらでも0|0
+double VCFFillable::RecordSet::compute_phasing_likelihood(int mat_phasing,
+														int pat_phasing) const {
+	double	ll = 0.0;
+	for(int i = 2; i < (int)record->num_samples(); ++i) {
+		if(record->get_GT(i) == "./.")
+			ll += log(0.0001);	// 本来要らないがPython版と合わせるため
+		else
+			ll += compute_phasing_likelihood_each(i, mat_phasing, pat_phasing);
+	}
+	return ll;
+}
+
+void VCFFillable::RecordSet::determine_phasing() {
+	if(this->record == NULL)
+		return;
+	
+	int	mat_phasing = 0;
+	int	pat_phasing = 0;
+	const vector<pair<int, int>>	phasing = record->possible_phasings();
+	double	max_ll = -std::numeric_limits<double>::max();
+	for(auto p = phasing.begin(); p != phasing.end(); ++p) {
+		const double	ll = compute_phasing_likelihood(p->first, p->second);
+		if(ll > max_ll) {
+			mat_phasing = p->first;
+			pat_phasing = p->second;
+			max_ll = ll;
+		}
+	}
+	
+	// この処理は本当に合っているのか
+	static const string	gts[] = { "0|0", "1|0", "0|1", "1|1" };
+	record->set_mat_GT(gts[mat_phasing]);
+	record->set_pat_GT(gts[pat_phasing]);
+}
+
+int VCFFillable::RecordSet::select_from(int from1, int from2,
+										const VCFRecord *record1,
+										const VCFRecord *record2) const {
+	// どちらかは0でない前提
+	if(from1 == 0)
+		return from2;
+	else if(from2 == 0)
+		return from1;
+	else {	// 両側にRecordがある
+		// 近い方を選ぶ
+		if(record->pos() * 2 < record1->pos() + record2->pos())
+			return from1;
+		else
+			return from2;
+	}
+}
+
+string VCFFillable::RecordSet::modify_gt(size_t i) {
+	const int	prev_mat_from = this->prev_mat_from(i);
+	const int	next_mat_from = this->next_mat_from(i);
+	const int	prev_pat_from = this->prev_pat_from(i);
+	const int	next_pat_from = this->next_pat_from(i);
+	if((prev_mat_from == 0 && next_mat_from == 0) ||
+							(prev_pat_from == 0 && next_pat_from == 0)) {
+		return record->get_gt(i);
+	}
+	
+	vector<pair<int,int>>	pairs_ = {
+				pair<int,int>(prev_mat_from, prev_pat_from),
+				pair<int,int>(prev_mat_from, next_pat_from),
+				pair<int,int>(next_mat_from, prev_pat_from),
+				pair<int,int>(next_mat_from, next_pat_from)
+	};
+	vector<pair<int,int>>	pairs__;
+	for(auto p = pairs_.begin(); p != pairs_.end(); ++p) {
+		if(p->first != 0 && p->second != 0)
+			pairs__.push_back(*p);
+	}
+	const auto	pairs = Common::unique_vector(pairs__);
+	const auto	p = select_pair(pairs, i);
+	const int	mat_from = p.first;
+	const int	pat_from = p.second;
+	if(mat_from == 0 && pat_from == 0) {
+		if(prev_mat_from != 0 || next_mat_from != 0) {
+			const int	mat_from_selected = select_from(
+											prev_mat_from, next_mat_from,
+											prev_mat_record, next_mat_record);
+			return record->gt_from_mat(mat_from_selected, i + 9);
+		}
+		else if(prev_pat_from != 0 || next_pat_from != 0) {
+			const int	pat_from_selected = select_from(
+											prev_pat_from, next_pat_from,
+											prev_pat_record, next_pat_record);
+			return record->gt_from_pat(pat_from_selected, i + 9);
+		}
+		else {
+			// if both are 0, do nothing
+			return record->get_GT(i);
+		}
+	}
+	else {
+		return record->gt_from_parent(mat_from, pat_from);
+	}
+}
+
+void VCFFillable::RecordSet::impute_core() {
+	STRVEC	new_gts;
+	for(size_t i = 2; i < record->num_samples(); ++i) {
+		new_gts.push_back(modify_gt(i));
+	}
+	record->modify_gts(new_gts);
+}
+
+int VCFFillable::RecordSet::select_mat(const vector<Pair>& pairs) const {
+	if(pairs.size() == 1)
+		return pairs.front().first;
+	else if(this->prev_mat_record == NULL || this->next_mat_record == NULL)
+		return 0;
+	else if(this->is_mat_prev_near())
+		return pairs.front().first;		// prev_mat_from
+	else
+		return pairs.back().first;		// next_mat_from
+}
+
+void VCFFillable::RecordSet::impute_NA_mat_each(size_t i) const {
+	const int	prev_mat_from = VCFFillableRecord::from_which_chrom_mat(
+													this->prev_mat_record, i);
+	const int	next_mat_from = VCFFillableRecord::from_which_chrom_mat(
+													this->next_mat_record, i);
+	
+	// patはホモだから1でも2でもよい
+	vector<Pair>	pairs;	// [(mat_from, pat_from)]
+	if(this->prev_mat_record != NULL)
+		pairs.push_back(Pair(prev_mat_from, 1));
+	if(this->next_mat_record != NULL && next_mat_from != prev_mat_from)
+		pairs.push_back(Pair(next_mat_from, 1));
+	if(pairs.empty())
+		return;
+	
+	const int	mat_from = this->select_mat(pairs);
+	this->record->set_GT(i, this->record->gt_from_parent(mat_from, 1));
+}
+
+int VCFFillable::RecordSet::select_pat(const vector<Pair>& pairs) const {
+	if(pairs.size() == 1)
+		return pairs.front().second;
+	else if(this->prev_pat_record == NULL || this->next_pat_record == NULL)
+		return 0;
+	else if(this->is_pat_prev_near())
+		return pairs.front().second;	// prev_pat_from
+	else
+		return pairs.back().second;		// next_pat_from
+}
+
+void VCFFillable::RecordSet::impute_NA_pat_each(size_t i) const {
+	const int	prev_pat_from = VCFFillableRecord::from_which_chrom_pat(
+													this->prev_pat_record, i);
+	const int	next_pat_from = VCFFillableRecord::from_which_chrom_pat(
+													this->next_pat_record, i);
+	
+	vector<Pair>	pairs;
+	if(this->prev_pat_record != NULL)
+		pairs.push_back(Pair(1, prev_pat_from));
+	if(this->next_pat_record != NULL && next_pat_from != prev_pat_from)
+		pairs.push_back(Pair(1, next_pat_from));
+	if(pairs.empty())
+		return;
+	
+	const int	pat_from = this->select_pat(pairs);
+	this->record->set_GT(i, this->record->gt_from_parent(1, pat_from));
+}
+
 
 //////////////////// VCFFillable ////////////////////
 
@@ -473,6 +860,27 @@ VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFillableRecord *> rs) :
 					VCFSmall(h, s, vector<VCFRecord *>(rs.begin(), rs.end())),
 					fillable_records(rs) { }
+
+void VCFFillable::modify() {
+	vector<Group>	groups = group_records();
+	for(size_t i = 0U; i < groups.size(); ++i) {
+		if(groups[i].second.front()->is_fillable_type())
+			this->phase(i, groups);
+	}
+	
+	for(size_t i = 0U; i < fillable_records.size(); ++i) {
+		auto	*record = fillable_records[i];
+		if(record->is_mat_type())
+			this->impute_NA_mat(i);
+		else if(record->is_pat_type())
+			this->impute_NA_pat(i);
+		else if(record->is_fillable_type())
+			this->impute_others(i);
+	}
+	
+	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
+		(*p)->fill_PGT();
+}
 
 VCFFillable *VCFFillable::create_from_header() const {
 	vector<VCFFillableRecord *>	rs;
@@ -489,41 +897,6 @@ void VCFFillable::set_records(const vector<VCFFillableRecord *>& rs) {
 // 親に書くと子クラスのvectorを全て並べることになるので子に書く
 void VCFFillable::set_records_base(const vector<VCFFillableRecord *>& rs) {
 	records.insert(records.end(), rs.begin(), rs.end());
-}
-
-VCFFillable *VCFFillable::insert_positions(const vector<Position>& positions) {
-	// 空のVCFFillableを作って、samplesを参照させる
-	VCFFillable	*vcf = create_from_header();
-	const STRVEC&	samples_ = vcf->get_samples();
-	
-	// とりあえず、ポジションだけの空のレコードを作る
-	vector<VCFFillableRecord *>	new_records;
-	size_t	i = 0U;
-	auto	pos1 = record_position(*fillable_records[i]);
-	for(auto p = positions.begin(); p != positions.end(); ++p) {
-		const auto&	pos2 = *p;
-		if(pos1.first == get<0>(pos2) && pos1.second == get<1>(pos2)
-											&& i < fillable_records.size()) {
-			// 新しいVCFを作る時はRecordも新しく作る
-			new_records.push_back(fillable_records[i]->copy());
-			// proceed
-			i += 1;
-			if(i < fillable_records.size())
-				pos1 = record_position(*fillable_records[i]);
-		}
-		else {
-			STRVEC	vec(9);
-			vec[0] = this->chr(get<0>(pos2));
-			stringstream	ss2;
-			ss2 << get<1>(pos2);
-			vec[1] = ss2.str();
-			new_records.push_back(new VCFFillableRecord(vec, samples_,
-										VCFFillableRecord::RecordType::FILLED));
-		}
-	}
-	
-	vcf->set_records(new_records);
-	return vcf;
 }
 
 vector<VCFFillable::Group> VCFFillable::group_records() const {
@@ -544,9 +917,8 @@ vector<VCFFillable::Group> VCFFillable::group_records() const {
 	return groups;
 }
 
-VCFFillableRecord *VCFFillable::find_prev_record(
-								VCFFillableRecord::RecordType type,
-								int i, const vector<Group>& groups) const {
+VCFFillableRecord *VCFFillable::find_prev_record(FillType type, int i,
+											const vector<Group>& groups) const {
 	const string&	chr = groups[i].second.front()->chrom();
 	for(int j = i - 1; j >= 0; --j) {
 		if(groups[j].second.front()->chrom() != chr)
@@ -557,9 +929,8 @@ VCFFillableRecord *VCFFillable::find_prev_record(
 	return NULL;
 }
 
-VCFFillableRecord *VCFFillable::find_next_record(
-								VCFFillableRecord::RecordType type,
-								int i, const vector<Group>& groups) const {
+VCFFillableRecord *VCFFillable::find_next_record(FillType type, int i,
+											const vector<Group>& groups) const {
 	const string&	chr = groups[i].second.front()->chrom();
 	for(int j = i + 1; j < (int)groups.size(); ++j) {
 		if(groups[j].second.front()->chrom() != chr)
@@ -570,144 +941,9 @@ VCFFillableRecord *VCFFillable::find_next_record(
 	return NULL;
 }
 
-// phasingされている前提
-int VCFFillable::from_which_chrom(const VCFFillableRecord *record,
-											size_t i, bool is_mat) const {
-	if(record == NULL)
-		return 0;
-	
-	return record->from_which_chrom(i, is_mat);
-}
-
-// 親のどちらの染色体から来ているかの確率
-vector<double> VCFFillable::probs_from_which_chrom(
-									int prev_chrom, int next_chrom) const {
-	double	prob1;
-	if(prev_chrom == 1 && next_chrom == 1)
-		prob1 = 0.99;
-	else if(prev_chrom == 2 && next_chrom == 2)
-		prob1 = 0.01;
-	else
-		prob1 = 0.5;
-	
-	vector<double>	probs = { prob1, 1.0 - prob1 };
-	return probs;
-}
-
-vector<double> VCFFillable::probs_from_which_chrom(RecordSet& rs,
-												size_t i, bool is_mat) const {
-	if((is_mat && rs.record->is_mat_homo()) ||
-					(!is_mat && rs.record->is_pat_homo()))
-		return vector<double>(2U, 0.5);
-	else if(is_mat)
-		return probs_from_which_chrom(rs.prev_mat_from(i), rs.next_mat_from(i));
-	else
-		return probs_from_which_chrom(rs.prev_pat_from(i), rs.next_pat_from(i));
-}
-
-double VCFFillable::likelihood_each(const string& gt,
-									const vector<double>& probs_mat,
-									const vector<double>& probs_pat,
-									int mat_phasing, int pat_phasing) const {
-	const int	sum = Genotype::sum_gt(gt);
-	double	likelihood = 0.0;
-	for(int k = 0; k < 4; ++k) {
-		const int	i = k >> 1;		// 母親は0|1か1|0か
-		const int	j = k & 1;
-		if((((i + mat_phasing) & 1) + ((j + pat_phasing) & 1)) == sum)
-			likelihood += probs_mat[i] * probs_pat[j];
-	}
-	return log(likelihood);
-}
-
-
-
-double VCFFillable::compute_phasing_likelihood_each(RecordSet& rs, size_t i,
-									int mat_phasing, int pat_phasing) const {
-	const auto	probs_mat = probs_from_which_chrom(rs, i, true);
-	const auto	probs_pat = probs_from_which_chrom(rs, i, false);
-	return likelihood_each(rs.gt(i), probs_mat, probs_pat,
-									mat_phasing, pat_phasing);
-}
-
-// 親のGTがひっくり返っているかひっくり返っていないのか仮定して尤度を計算する
-// GTが0/1のとき、phasingが0なら0|1、1なら1|0
-// GTが0|0のとき、どちらでも0|0
-double VCFFillable::compute_phasing_likelihood(RecordSet& rs, int mat_phasing,
-														int pat_phasing) const {
-	double	ll = 0.0;
-	for(int i = 2; i < (int)samples.size(); ++i) {
-		if(rs.record->get_GT(i) == "./.")
-			continue;
-		ll += compute_phasing_likelihood_each(rs, i, mat_phasing, pat_phasing);
-	}
-	return ll;
-}
-
-void VCFFillable::determine_phasing(RecordSet& rs) {
-	int	mat_phasing = 0;
-	int	pat_phasing = 0;
-	double	max_ll = compute_phasing_likelihood(rs, 0, 0);
-	for(int i = 1; i < 4; ++i) {
-		const double	ll = compute_phasing_likelihood(rs, i >> 1, i & 1);
-		if(ll > max_ll) {
-			mat_phasing = i >> 1;
-			pat_phasing = i & 1;
-			max_ll = ll;
-		}
-	}
-	
-	if(rs.record->is_mat_homo()) {
-		const string&	gt = rs.record->mat_gt();
-		rs.record->set_mat_GT(gt.substr(0, 1) + '|' + gt.substr(2, 1));
-	}
-	else
-		rs.record->set_mat_GT(mat_phasing == 0 ? "0|1" : "1|0");
-	if(rs.record->is_pat_homo()) {
-		const string&	gt = rs.record->pat_gt();
-		rs.record->set_pat_GT(gt.substr(0, 1) + '|' + gt.substr(2, 1));
-	}
-	else
-		rs.record->set_pat_GT(pat_phasing == 0 ? "0|1" : "1|0");
-}
-
-string VCFFillable::modify_gt(RecordSet& rs, size_t i) {
-	const int	prev_mat_from = rs.prev_mat_from(i);
-	const int	next_mat_from = rs.next_mat_from(i);
-	const int	prev_pat_from = rs.prev_pat_from(i);
-	const int	next_pat_from = rs.next_pat_from(i);
-	if((prev_mat_from == 0 && next_mat_from == 0) ||
-							(prev_pat_from == 0 && next_pat_from == 0)) {
-		return rs.record->get_gt(i);
-	}
-	
-	vector<pair<int,int>>	pairs_ = {
-				pair<int,int>(prev_mat_from, prev_pat_from),
-				pair<int,int>(prev_mat_from, next_pat_from),
-				pair<int,int>(next_mat_from, prev_pat_from),
-				pair<int,int>(next_mat_from, next_pat_from)
-	};
-	vector<pair<int,int>>	pairs__;
-	for(auto p = pairs_.begin(); p != pairs_.end(); ++p) {
-		if(p->first != 0 && p->second != 0)
-			pairs__.push_back(*p);
-	}
-	const auto	pairs = Common::unique_vector(pairs__);
-	const auto	p = rs.select_pair(pairs, i);
-	return rs.record->gt_from_parent(p.first, p.second);
-}
-
-void VCFFillable::impute_core(RecordSet& rs) {
-	STRVEC	new_gts;
-	for(size_t i = 2U; i < samples.size(); ++i) {
-		new_gts.push_back(modify_gt(rs, i));
-	}
-	rs.record->modify_gts(new_gts);
-}
-
 void VCFFillable::phase(int i, const vector<Group>& groups) {
-	const auto	mat = VCFFillableRecord::RecordType::MAT;
-	const auto	pat = VCFFillableRecord::RecordType::PAT;
+	const auto	mat = FillType::MAT;
+	const auto	pat = FillType::PAT;
 	auto	*prev_mat_record = find_prev_record(mat, i, groups);
 	auto	*next_mat_record = find_next_record(mat, i, groups);
 	auto	*prev_pat_record = find_prev_record(pat, i, groups);
@@ -715,19 +951,17 @@ void VCFFillable::phase(int i, const vector<Group>& groups) {
 	auto	group_records = groups[i].second;
 	for(auto p = group_records.begin(); p != group_records.end(); ++p) {
 		auto	*record = *p;
-		if(record->is_hetero(0) || record->is_hetero(1)) {
-			RecordSet	record_set(record, prev_mat_record, next_mat_record,
+		RecordSet	record_set(record, prev_mat_record, next_mat_record,
 											prev_pat_record, next_pat_record);
-			determine_phasing(record_set);
-			impute_core(record_set);
-		}
+		record_set.determine_phasing();
+		record_set.impute_core();
 	}
 }
 
 template<typename Iter>
 VCFFillableRecord *VCFFillable::find_neighbor_same_type_record(
 							size_t i, size_t c, Iter first, Iter last) const {
-	const VCFFillableRecord::RecordType	type = fillable_records[i]->get_type();
+	const FillType	type = fillable_records[i]->get_type();
 	const string&	chromosome = fillable_records[i]->chrom();
 	for(auto p = first; p != last; ++p) {
 		auto	*record = *p;
@@ -753,9 +987,9 @@ VCFFillableRecord *VCFFillable::find_next_same_type_record(
 	if(i == fillable_records.size() - 1)
 		return NULL;
 	
-	return find_neighbor_same_type_record(i, c,
-											fillable_records.begin() + i + 1,
-											fillable_records.end());
+	const auto	first = fillable_records.begin() + i + 1;
+	const auto	last = fillable_records.end();
+	return find_neighbor_same_type_record(i, c, first, last);
 }
 
 const VCFFillable::RecordSet *VCFFillable::create_recordset(
@@ -769,327 +1003,273 @@ const VCFFillable::RecordSet *VCFFillable::create_recordset(
 		return new RecordSet(record, NULL, NULL, prev_record, next_record);
 }
 
-int VCFFillable::select_mat(const vector<Pair>& pairs,
-										const RecordSet *rs) const {
-	if(pairs.size() == 1)
-		return pairs.front().first;
-	else if(rs->is_mat_prev_near())
-		return pairs.front().first;		// prev_mat_from
-	else
-		return pairs.back().first;		// next_mat_from
-}
-
 void VCFFillable::impute_NA_mat_each(size_t i, size_t c) {
-	const RecordSet	*rs = create_recordset(i, c, true);
-	const int	prev_mat_from = from_which_chrom_mat(rs->prev_mat_record, c-9);
-	const int	next_mat_from = from_which_chrom_mat(rs->next_mat_record, c-9);
-	
-	// patはホモだから1でも2でもよい
-	vector<Pair>	pairs;	// [(mat_from, pat_from)]
-	if(rs->prev_mat_record != NULL)
-		pairs.push_back(Pair(prev_mat_from, 1));
-	if(rs->next_mat_record != NULL && next_mat_from != prev_mat_from)
-		pairs.push_back(Pair(next_mat_from, 1));
-	if(pairs.empty())
-		return;
-	
-	const int	mat_from = select_mat(pairs, rs);
-	rs->record->set_GT(c, rs->record->gt_from_parent(mat_from, 1));
+	const RecordSet	*rs = this->create_recordset(i, c, true);
+	rs->impute_NA_mat_each(c - 9);
 	delete rs;
 }
 
 void VCFFillable::impute_NA_mat(size_t i) {
-	auto	*record = fillable_records[i];
+	auto	*record = this->fillable_records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
 		if(record->get_GT(c-9) == "./.")
 			impute_NA_mat_each(i, c);
 	}
 }
 
-int VCFFillable::select_pat(const vector<Pair>& pairs,
-										const RecordSet *rs) const {
-	if(pairs.size() == 1)
-		return pairs.front().second;
-	else if(rs->is_pat_prev_near())
-		return pairs.front().second;	// prev_pat_from
-	else
-		return pairs.back().second;		// next_pat_from
-}
-
 void VCFFillable::impute_NA_pat_each(size_t i, size_t c) {
-	const RecordSet	*rs = create_recordset(i, c, false);
-	const int	prev_pat_from = from_which_chrom_pat(rs->prev_pat_record, c-9);
-	const int	next_pat_from = from_which_chrom_pat(rs->next_pat_record, c-9);
-	
-	vector<Pair>	pairs;
-	if(rs->prev_pat_record != NULL)
-		pairs.push_back(Pair(1, prev_pat_from));
-	if(rs->next_pat_record != NULL && next_pat_from != prev_pat_from)
-		pairs.push_back(Pair(1, next_pat_from));
-	if(pairs.empty())
-		return;
-	
-	const int	pat_from = select_pat(pairs, rs);
-	rs->record->set_GT(c, rs->record->gt_from_parent(1, pat_from));
+	const RecordSet	*rs = this->create_recordset(i, c, false);
+	rs->impute_NA_pat_each(c - 9);
 	delete rs;
 }
 
 void VCFFillable::impute_NA_pat(size_t i) {
-	auto	*record = fillable_records[i];
+	auto	*record = this->fillable_records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
 		if(record->get_GT(c-9) == "./.")
 			impute_NA_pat_each(i, c);
 	}
 }
 
-void VCFFillable::impute() {
-cout << get_samples()[0] << " " << get_samples()[1] << endl;
-	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
-		(*p)->modify();
-	
-	vector<Group>	groups = group_records();
-	for(size_t i = 0U; i < groups.size(); ++i) {
-		if(groups[i].second.front()->is_filled_type())
-			this->phase(i, groups);
+pair<int, int> VCFFillable::find_prev_mat_from(int i, int c) const {
+	for(int k = i - 1; k >= 0; --k) {
+		const int	from1 = this->fillable_records[k]->mat_from(c);
+		if(from1 != 0)
+			return pair<int, int>(k, from1);
 	}
-	
-	for(size_t i = 0U; i < fillable_records.size(); ++i) {
-		auto	*record = fillable_records[i];
-		if(record->is_mat_type())
-			impute_NA_mat(i);
-		else if(record->is_pat_type())
-			impute_NA_pat(i);
-	}
-	
-	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
-		(*p)->fill_PGT();
+	return pair<int, int>(-1, 0);
 }
 
-VCFFillable *VCFFillable::convert(const VCFFamily *vcf) {
-	vector<VCFFillableRecord *>	new_records;
-	const STRVEC&	samples = vcf->get_samples();
-	VCFFillable	*new_vcf = new VCFFillable(vcf->get_header(),
-												samples, new_records);
-	vcf->copy_chrs(new_vcf);
-	for(size_t i = 0U; i < vcf->size(); ++i) {
-		const VCFFamilyRecord	*record = vcf->get_record(i);
-		auto	new_record = VCFFillableRecord::from_VCFFamilyRecord(record,
-																	samples);
-		new_records.push_back(new_record);
+pair<int, int> VCFFillable::find_next_mat_from(int i, int c) const {
+	for(int k = i + 1; k < (int)this->size(); ++k) {
+		const int	from2 = this->fillable_records[k]->mat_from(c);
+		if(from2 != 0)
+			return pair<int, int>(k, from2);
 	}
-	new_vcf->set_records(new_records);
-	return new_vcf;
+	return pair<int, int>(-1, 0);
 }
 
-void VCFFillable::determine_parents_type(VCFFillableRecord *record,
-									const TypeDeterminer& determiner) const {
-	const tuple<int,int,int> counter = record->count_gts();
-	// pは2つのint_gtを4進数でパッキングしたもの
-	const int	p = determiner.determine(counter);
-	record->determine_parents_type(p);
+pair<int, int> VCFFillable::find_prev_pat_from(int i, int c) const {
+	for(int k = i - 1; k >= 0; --k) {
+		const int	from1 = this->fillable_records[k]->pat_from(c);
+		if(from1 != 0)
+			return pair<int, int>(k, from1);
+	}
+	return pair<int, int>(-1, 0);
 }
 
-void VCFFillable::replace_filled_records(
-					const vector<const VCFRecord *>& orig_records) {
-	TypeDeterminer	determiner((int)samples.size() - 2, 0.05);
-	for(size_t i = 0U; i < size(); ++i) {
-		const VCFRecord	*orig_record = orig_records[i];
-		VCFFillableRecord	*record = fillable_records[i];
-		if(record->get_v().size() == 9U) {
-			auto	v = orig_record->extract_v(record->get_samples());
-			record->set(v, record->get_type());
-			// 親が間違っているか、ここでチェックする
-			// extract_VCFsでチェックするとコストが大きい
-			determine_parents_type(record, determiner);
+pair<int, int> VCFFillable::find_next_pat_from(int i, int c) const {
+	for(int k = i + 1; k < (int)this->size(); ++k) {
+		const int	from2 = this->fillable_records[k]->pat_from(c);
+		if(from2 != 0)
+			return pair<int, int>(k, from2);
+	}
+	return pair<int, int>(-1, 0);
+}
+
+int VCFFillable::select_from(const pair<int, int>& f1,
+							 const pair<int, int>& f2, int i) const {
+	const int	i1 = f1.first;
+	const int	from1 = f1.second;
+	const int	i2 = f2.first;
+	const int	from2 = f2.second;
+	if(from1 == from2)
+		return from1;
+	else if(from2 == 0)
+		return from1;
+	else if(from1 == 0)
+		return from2;
+	else {
+		// 最後は物理距離で決める
+		const auto	*r0 = this->fillable_records[i];
+		const auto	*r1 = this->fillable_records[i1];
+		const auto	*r2 = this->fillable_records[i2];
+		if(r0->pos() * 2 <= r1->pos() + r2->pos())
+			return from1;
+		else
+			return from2;
+	}
+}
+
+int VCFFillable::find_mat_from(int i, int c) const {
+	return this->select_from(this->find_prev_mat_from(i, c),
+							 this->find_next_mat_from(i, c), i);
+}
+
+int VCFFillable::find_pat_from(int i, int c) const {
+	return this->select_from(this->find_prev_pat_from(i, c),
+							 this->find_next_pat_from(i, c), i);
+}
+
+void VCFFillable::impute_others(int i) {
+	auto	*record = this->fillable_records[i];
+	const bool	mat_homo = record->is_homo(0);
+	const bool	pat_homo = record->is_homo(1);
+	for(size_t c = 11; c != record->get_v().size(); ++c) {
+		if(record->get_v()[c].c_str()[1] == '/' ||
+								record->get_int_gt(c-9) == -1)
+			continue;
+		const int	mat_from = mat_homo ? 1 : this->find_mat_from(i, c);
+		const int	pat_from = pat_homo ? 1 : this->find_pat_from(i, c);
+		record->set_GT(c-9, record->gt_from_parent(mat_from, pat_from));
+	}
+}
+
+VCFFillable *VCFFillable::fill(const vector<VCFHeteroHomo *>& vcfs,
+					const vector<VCFImpFamilyRecord *>& records, bool all_out) {
+	vector<VCFFillableRecord *>	merged_records;
+	if(all_out)
+		merged_records = VCFFillable::merge_records(vcfs, records, all_out);
+	else {
+		vector<VCFImpFamilyRecord *>	records_;
+		for(auto p = records.begin(); p != records.end(); ++p) {
+			if(!(*p)->is_fixed())
+				records_.push_back(*p);
 		}
+		merged_records = merge_records(vcfs, records_, all_out);
 	}
+	VCFFillable	*vcf = new VCFFillable(vcfs.front()->get_header(),
+								vcfs.front()->get_samples(), merged_records);
+	vcf->modify();
+	return vcf;
 }
 
-void VCFFillable::replace_in_thread(void *config) {
-	const auto	*c = (ConfigReplaceThread *)config;
-	const auto&	vcfs = c->vcfs;
-	for(size_t i = c->first; i < vcfs.size(); i += c->num_thread) {
-		vcfs[i]->replace_filled_records(c->orig_records);
+vector<VCFFillableRecord *> VCFFillable::merge_records(
+									const vector<VCFHeteroHomo *>& vcfs,
+									const vector<VCFImpFamilyRecord *>& records,
+									bool all_out) {
+	vector<VCFFillableRecord *>	all_records;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		auto	*vcf = *p;
+		auto&	hh_records = vcf->get_records();
+		for(auto q = hh_records.begin(); q != hh_records.end(); ++q)
+			all_records.push_back(VCFFillableRecord::convert(*q));
 	}
+	
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		if(all_out || (*p)->is_fillable())
+			all_records.push_back(VCFFillableRecord::convert(*p));
+	}
+	std::sort(all_records.begin(), all_records.end(),
+				[](const VCFFillableRecord *r1, const VCFFillableRecord *r2) {
+					return r1->get_index() < r2->get_index(); });
+	return all_records;
 }
 
-void VCFFillable::replace_filled_records(const vector<VCFFillable *>& vcfs,
-													VCFHuge *orig_vcf, int T) {
-	// 穴埋めをマルチスレッドで動かすために、必要な分だけ読む
-	vector<const VCFRecord *>	orig_records;
-	VCFFillable	*vcf = vcfs.front();
-	for(size_t i = 0U; i < vcf->size(); ++i) {
-		const POSITION	pos = vcf->record_position(*(vcf->get_record(i)));
-		const VCFRecord	*record = orig_vcf->proceed(pos);
-		orig_records.push_back(record);
-	}
-	
-	vector<ConfigReplaceThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigReplaceThread(vcfs, orig_records, i, T);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i) {
-		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&replace_in_thread, (void *)configs[i]);
-	}
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		replace_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-	Common::delete_all(orig_records);
-}
-
-vector<VCFFillable::PosWithChr> VCFFillable::merge_positions(
-								vector<VCFFillable *>::const_iterator first,
-								vector<VCFFillable *>::const_iterator last) {
-	vector<PosWithChr>	positions;
-	if(last - first == 1) {
-		auto	*vcf = *first;
-		for(size_t i = 0U; i < vcf->size(); ++i) {
-			auto	*record = vcf->get_record(i);
-			auto	pos = vcf->record_position(*record);
-			PosWithChr	position(pos.first, pos.second, record->chrom());
-			positions.push_back(position);
+vector<vector<VCFFillableRecord *>> VCFFillable::collect_records(
+										const vector<VCFFillable *>& vcfs,
+										bool all_out) {
+	vector<vector<VCFFillableRecord *>>	rss;
+	if(all_out) {
+		for(size_t i = 0; i < vcfs.front()->size(); ++i) {
+			vector<VCFFillableRecord *>	rs;
+			for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
+				rs.push_back((*p)->get_record(i));
+			rss.push_back(rs);
 		}
 	}
 	else {
-		auto	mid = first + (last - first) / 2;
-		const auto	positions1 = merge_positions(first, mid);
-		const auto	positions2 = merge_positions(mid, last);
-		size_t	k = 0U;
-		size_t	l = 0U;
-		while(k < positions1.size() && l < positions2.size()) {
-			const PosWithChr	pos1 = positions1[k];
-			const PosWithChr	pos2 = positions2[l];
-			if(pos1 == pos2) {
-				positions.push_back(pos1);
-				k += 1;
-				l += 1;
-			}
-			else if(pos1 < pos2) {
-				positions.push_back(pos1);
-				k += 1;
-			}
-			else {
-				positions.push_back(pos2);
-				l += 1;
-			}
+		int	max_index = 0;
+		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+			max_index = max(max_index, (*p)->get_records().back()->get_index());
 		}
 		
-		for( ; k < positions1.size(); ++k)
-			positions.push_back(positions1[k]);
-		for( ; l < positions2.size(); ++l)
-			positions.push_back(positions2[l]);
+		vector<size_t>	js(vcfs.size());	// 各VCFの現在の位置
+		for(int i = 0; i <= max_index; ++i) {
+			// このindexで全ての家系でrecordが揃っていればrssに登録する
+			vector<VCFFillableRecord *>	rs(vcfs.size(), NULL);
+			for(size_t k = 0; k < vcfs.size(); ++k) {
+				VCFFillable	*vcf = vcfs[k];
+				if(js[k] == vcf->size())
+					continue;
+				VCFFillableRecord	*record = vcf->get_record(js[k]);
+				if(record->get_index() == i) {
+					rs[k] = record;
+					js[k] += 1;
+				}
+				
+				if(std::all_of(rs.begin(), rs.end(),
+									[](auto *r) { return r != NULL; }))
+					rss.push_back(rs);
+			}
+		}
 	}
-	return positions;
+	return rss;
 }
 
-std::vector<VCFFillable::PosWithChr> VCFFillable::merge_positions(
-									const std::vector<VCFFillable *>& vcfs) {
-	return merge_positions(vcfs.begin(), vcfs.end());
-}
-
-STRVEC VCFFillable::join_samples(const vector<VCFFillable *>& vcfs) {
-	// 本当は同じサンプルは排除したい
-	STRVEC	samples;
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		const STRVEC&	vcf_samples = (*p)->get_samples();
-		samples.insert(samples.end(), vcf_samples.begin(), vcf_samples.end());
-	}
-	return samples;
-}
-
-vector<STRVEC> VCFFillable::join_header(const vector<VCFFillable *>& vcfs,
-													const STRVEC& samples) {
-	const vector<STRVEC>&	vcf_header = vcfs.front()->get_header();
-	vector<STRVEC>	header(vcf_header.begin(), vcf_header.end() - 1);
-	STRVEC	bottom(vcf_header.back().begin(), vcf_header.back().begin() + 9);
-	bottom.insert(bottom.end(), samples.begin(), samples.end());
-	header.push_back(bottom);
-	return header;
-}
-
-VCFSmall *VCFFillable::merge_vcfs(const vector<VCFFillable *>& vcfs) {
-	const STRVEC	samples = join_samples(vcfs);
-	const vector<STRVEC>	header = join_header(vcfs, samples);
-	
-	vector<VCFRecord *>	new_records;
-	for(size_t i = 0U; i < vcfs.front()->size(); ++i) {
-		vector<VCFFillableRecord *>	records;
-		for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
-			records.push_back((*p)->get_record(i));
-		VCFRecord	*record = VCFFillableRecord::integrate_records(records);
-		if(record != NULL)
-			new_records.push_back(record);
-	}
-	return new VCFSmall(header, samples, new_records);
-}
-
-void VCFFillable::impute_in_thread(void *config) {
-	const auto	*c = (ConfigThread *)config;
-	const auto&	vcfs = c->vcfs;
-	for(size_t i = c->first; i < vcfs.size(); i += c->num_thread) {
-		vcfs[i]->impute();
-	}
-}
-
-void VCFFillable::impute_all_in_multithreads(
-							const vector<VCFFillable *>& vcfs, int T) {
-	vector<ConfigThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(vcfs, i, T);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i) {
-		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
+pair<STRVEC, vector<vector<pair<int, int>>>>
+VCFFillable::integrate_samples(const vector<STRVEC>& sss,
+									const STRVEC& orig_samples) {
+	// { sample: (index of family, index of inner family) }
+	map<string, vector<pair<int, int>>>	dic;
+	for(size_t i = 0; i < sss.size(); ++i) {
+		const vector<string>&	samples = sss[i];
+		for(size_t j = 0; j < samples.size(); ++j)
+			dic[samples[j]].push_back(P(i, j));
 	}
 	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		impute_in_thread(configs[i]);
-#endif
+	STRVEC	new_samples;
+	vector<vector<pair<int, int>>>	pos_samples;
+	for(auto p = orig_samples.begin(); p != orig_samples.end(); ++p) {
+		const string&	sample = *p;
+		if(dic.find(sample) != dic.end()) {
+			new_samples.push_back(sample);
+			pos_samples.push_back(dic[sample]);
+		}
+	}
 	
-	for(int i = 0; i < T; ++i)
-		delete configs[i];
+	return P(new_samples, pos_samples);
 }
 
-VCFSmall *VCFFillable::join_vcfs(const vector<VCFFamily *>& vcfs_,
-											const string& path_VCF, int T) {
-	vector<VCFFillable *>	vcfs;
-	for(auto p = vcfs_.begin(); p != vcfs_.end(); ++p)
-		vcfs.push_back(VCFFillable::convert(*p));
-	const vector<PosWithChr>	positions = merge_positions(vcfs);
-	
-	vector<VCFFillable *>	filled_vcfs;
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		VCFFillable	*vcf = (*p)->insert_positions(positions);
-		filled_vcfs.push_back(vcf);
+// 重複したサンプルが一つになるようにVCFを統合する
+VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
+								const vector<vector<VCFFillableRecord *>>& rss,
+								const STRVEC& orig_samples) {
+	vector<STRVEC>	sss;
+	for(auto p = rss.front().begin(); p != rss.front().end(); ++p) {
+		const STRVEC&	samples = (*p)->get_samples();
+		sss.push_back(samples);
 	}
-	Common::delete_all(vcfs);
 	
-	VCFHuge	*orig_vcf = VCFHuge::read(path_VCF);
-	VCFFillable::replace_filled_records(filled_vcfs, orig_vcf, T);
-#ifndef DEBUG
-	VCFFillable::impute_all_in_multithreads(filled_vcfs, T);
-#else
-	for(auto p = filled_vcfs.begin(); p != filled_vcfs.end(); ++p) {
-		(*p)->impute();
+	const auto	q = integrate_samples(sss, orig_samples);
+	const STRVEC&	new_samples = q.first;
+	const auto&		pos_samples = q.second;
+	
+	const vector<STRVEC>	header = vcf->create_header(new_samples);
+	VCFSmall	*new_vcf = new VCFSmall(header, new_samples,
+											vector<VCFRecord *>());
+	const STRVEC&	samples = new_vcf->get_samples();
+	vector<VCFRecord *>	records;
+	for(auto p = rss.begin(); p != rss.end(); ++p) {
+		records.push_back(
+				VCFFillableRecord::integrate(*p, samples, pos_samples));
 	}
-#endif
-	
-	VCFSmall	*merged_vcf = merge_vcfs(filled_vcfs);
-	Common::delete_all(filled_vcfs);
-	delete orig_vcf;
-	return merged_vcf;
+	new_vcf->add_records(records);
+	return new_vcf;
+}
+
+VCFSmall *VCFFillable::merge(const vector<VCFFillable *>& vcfs,
+							const STRVEC& orig_samples, const Option *option) {
+	const auto	rss = collect_records(vcfs, option->all_out);
+	if(option->integrates_samples) {
+		return integrate(vcfs.front(), rss, orig_samples);
+	}
+	else {
+		STRVEC	samples;
+		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+			const STRVEC&	ss = (*p)->get_samples();
+			samples.insert(samples.end(), ss.begin(), ss.end());
+		}
+		const auto	header = vcfs.front()->create_header(samples);
+		VCFSmall	*vcf = new VCFSmall(header, samples, vector<VCFRecord *>());
+		
+		vector<VCFRecord *>	records;
+		const STRVEC&	ss = vcf->get_samples();
+		for(auto p = rss.begin(); p != rss.end(); ++p) {
+			VCFRecord	*record = VCFFillableRecord::merge(*p, ss);
+			records.push_back(record);
+		}
+		vcf->add_records(records);
+		return vcf;
+	}
 }

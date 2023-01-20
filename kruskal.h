@@ -1,14 +1,15 @@
-#ifndef __KLUSKAL
-#define __KLUSKAL
+#ifndef __KRUSKAL
+#define __KRUSKAL
 
 #include <string>
 #include <vector>
 #include <map>
 
 
-namespace Kluskal {
+namespace Kruskal {
 	
-	using GRAPH = std::map<std::size_t,std::vector<std::pair<std::size_t,int>>>;
+	using GRAPH = std::map<std::size_t,
+							std::vector<std::pair<std::size_t,double>>>;
 	
 	
 	//////////////////// UnionFind ////////////////////
@@ -24,8 +25,8 @@ namespace Kluskal {
 		const std::size_t& root(const std::size_t& v0) const;
 	};
 	
-	//////////////////// Kluskal ////////////////////
+	//////////////////// Kruskal ////////////////////
 	
-	GRAPH Kluskal(const GRAPH& graph);
+	GRAPH Kruskal(const GRAPH& graph);
 }
 #endif

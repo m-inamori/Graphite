@@ -7,6 +7,13 @@ using namespace std;
 
 //////////////////// Option ////////////////////
 
+bool Option::is_efficient_chrom(int i) const {
+	if(chroms.empty())
+		return true;
+	else
+		return std::find(chroms.begin(), chroms.end(), i) != chroms.end();
+}
+
 string Option::flag_value(const string& s, int argc, char **argv) {
 	for(size_t i = 4U; i < (size_t)(argc - 1); ++i) {
 		if(argv[i] == s)
@@ -15,23 +22,31 @@ string Option::flag_value(const string& s, int argc, char **argv) {
 	return string();
 }
 
-vector<size_t> Option::parse_families(const string& f) {
-	vector<size_t>	family_indices;
+bool Option::exists(const string& s, int argc, char **argv) {
+	for(size_t i = 4U; i < (size_t)(argc - 1); ++i) {
+		if(argv[i] == s)
+			return true;
+	}
+	return false;
+}
+
+vector<size_t> Option::parse_array(const string& f) {
+	vector<size_t>	array;
 	const vector<string>	v = Common::split(f, ',');
 	for(auto p = v.begin(); p != v.end(); ++p) {
 		const vector<string>	w = Common::split(*p, ':');
 		if(w.size() == 1U) {
-			family_indices.push_back(stoi(w[0]));
+			array.push_back(stoi(w[0]));
 		}
 		else if(w.size() == 2U) {
 			for(size_t i = stoi(w[0]); i < (size_t)stoi(w[1]); ++i)
-				family_indices.push_back(i);
+				array.push_back(i);
 		}
 		else {
 			throw std::invalid_argument("");
 		}
 	}
-	return family_indices;
+	return array;
 }
 
 vector<size_t> Option::get_families(int argc, char **argv) {
@@ -39,15 +54,15 @@ vector<size_t> Option::get_families(int argc, char **argv) {
 	if(s.empty())
 		return vector<size_t>();
 	else
-		return parse_families(s);
+		return parse_array(s);
 }
 
-int Option::get_chroms(int argc, char **argv) {
+vector<size_t> Option::get_chroms(int argc, char **argv) {
 	const string	s = flag_value("-c", argc, argv);
 	if(s.empty())
-		return 0;	// all
+		return vector<size_t>();
 	else
-		return stoi(s);
+		return parse_array(s);
 }
 
 int Option::get_num_threads(int argc, char **argv) {
@@ -59,15 +74,17 @@ int Option::get_num_threads(int argc, char **argv) {
 }
 
 Option *Option::create(int argc, char **argv) {
-	if(argc < 5 || 11 < argc)
+	if(argc < 5 || 13 < argc)
 		return NULL;
 	
 	try {
 		const vector<size_t>	families = get_families(argc, argv);
-		const int	chroms = get_chroms(argc, argv);
+		const vector<size_t>	chroms = get_chroms(argc, argv);
 		const int	num_threads = get_num_threads(argc, argv);
-		return new Option(argv[1], argv[2], argv[3],
-							families, chroms, num_threads, argv[argc-1]);
+		const bool	all_out = exists("-a", argc, argv);
+		const bool	integ = exists("-i", argc, argv);
+		return new Option(argv[1], argv[2], argv[3], families,
+							chroms, num_threads, all_out, integ, argv[argc-1]);
 	}
 	catch(std::invalid_argument& e) {
 		return NULL;
@@ -76,7 +93,11 @@ Option *Option::create(int argc, char **argv) {
 
 void Option::usage(char **argv) {
 	cerr << argv[0] << " VCF ped map [-t num_threads] "
-					<< "[-f family indices] [-c chrom num] out." << endl;
+				<< "[-f family indices] [-c chrom indices] "
+				<< "[-a] [-i] out." << endl;
 	cerr << "family indices: (index|first:last)[,(index|first:last),[..]]"
 																	<< endl;
+	cerr << "chrom indices: same as family indices." << endl;
+	cerr << "-a: all records out." << endl;
+	cerr << "-i: integrate same samples." << endl;
 }

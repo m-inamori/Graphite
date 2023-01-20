@@ -1,20 +1,20 @@
 #include <tuple>
 #include <algorithm>
-#include "kluskal.h"
+#include "kruskal.h"
 
 using namespace std;
 
 
 //////////////////// UnionFind ////////////////////
 
-Kluskal::UnionFind::UnionFind(const vector<size_t>& nodes) {
+Kruskal::UnionFind::UnionFind(const vector<size_t>& nodes) {
 	for(auto p = nodes.begin(); p != nodes.end(); ++p) {
 		parents.insert(pair<size_t,size_t>(*p, *p));
 		heights.insert(pair<size_t,int>(*p, 1));
 	}
 }
 
-void Kluskal::UnionFind::join(const size_t& v1, const size_t& v2) {
+void Kruskal::UnionFind::join(const size_t& v1, const size_t& v2) {
 	const size_t&	r1 = this->root(v1);
 	const size_t&	r2 = this->root(v2);
 	const int	h1 = this->heights[r1];
@@ -29,7 +29,7 @@ void Kluskal::UnionFind::join(const size_t& v1, const size_t& v2) {
 	}
 }
 
-const size_t& Kluskal::UnionFind::root(const size_t& v0) const {
+const size_t& Kruskal::UnionFind::root(const size_t& v0) const {
 	size_t	v = v0;
 	while(true) {
 		auto	p = this->parents.find(v);
@@ -39,9 +39,9 @@ const size_t& Kluskal::UnionFind::root(const size_t& v0) const {
 	}
 }
 
-//////////////////// Kluskal ////////////////////
+//////////////////// Kruskal ////////////////////
 
-Kluskal::GRAPH Kluskal::Kluskal(const GRAPH& graph) {
+Kruskal::GRAPH Kruskal::Kruskal(const GRAPH& graph) {
 	vector<size_t>	nodes;
 	for(auto p = graph.begin(); p != graph.end(); ++p)
 		nodes.push_back(p->first);
@@ -51,7 +51,7 @@ Kluskal::GRAPH Kluskal::Kluskal(const GRAPH& graph) {
 	vector<tuple<size_t,size_t,int>>	edges;
 	for(auto p = graph.begin(); p != graph.end(); ++p) {
 		const size_t&	v1 = p->first;
-		const vector<pair<size_t,int>>&	vec = p->second;
+		const vector<pair<size_t,double>>&	vec = p->second;
 		for(auto q = vec.begin(); q != vec.end(); ++q) {
 			const size_t&	v2 = q->first;
 			const int		w = q->second;
@@ -70,7 +70,7 @@ Kluskal::GRAPH Kluskal::Kluskal(const GRAPH& graph) {
 	for(auto p = edges.begin(); p != edges.end(); ++p) {
 		const size_t&	v1 = get<0>(*p);
 		const size_t&	v2 = get<1>(*p);
-		int			w  = get<2>(*p);
+		double			w  = get<2>(*p);
 		if(tree.root(v1) != tree.root(v2)) {
 			tree.join(v1, v2);
 			new_graph[v1].push_back(pair<size_t,int>(v2, w));

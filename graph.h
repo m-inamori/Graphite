@@ -7,10 +7,10 @@
 
 namespace Graph {
 
-typedef std::map<std::size_t,std::vector<std::pair<std::size_t,int>>>
+typedef std::map<std::size_t,std::vector<std::pair<std::size_t,double>>>
 															WeightedGraph;
 // graph with weight and inverse
-typedef std::map<std::size_t,std::vector<std::tuple<std::size_t,int,bool>>>
+typedef std::map<std::size_t,std::vector<std::tuple<std::size_t,double,bool>>>
 																	InvGraph;
 
 std::vector<std::size_t> keys(const InvGraph& graph);

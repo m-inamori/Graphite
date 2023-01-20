@@ -33,6 +33,7 @@ public:
 	Map(const std::vector<const Record *>& rs) : records(rs) { }
 	~Map();
 	
+	double total_cM() const { return records.back()->cM - records.front()->cM; }
 	const std::vector<const Map *> divide_into_chromosomes() const;
 	
 	double bp_to_cM(long long bp) const;

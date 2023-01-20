@@ -1,147 +1,66 @@
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <cassert>
 #include "common.h"
 #include "VCFHeteroHomo.h"
 #include "VCFOriginal.h"
 #include "Map.h"
 #include "Pedigree.h"
-#include "BiasProbability.h"
+#include "Imputer.h"
 
 using namespace std;
 
 
 //////////////////// VCFHeteroHomoRecord ////////////////////
 
-VCFHeteroHomoRecord *VCFHeteroHomoRecord::copy() const {
-	return new VCFHeteroHomoRecord(this->v, this->samples);
-}
-
-/*
-vector<int> VCFHeteroHomoRecord::get_int_gts() const {
-	vector<int>	gts(samples.size());
-	for(size_t i = 0U; i < samples.size(); ++i)
-		gts[i] = get_int_gt(i);
-	return gts;
-}
-*/
-
-vector<vector<double>> VCFHeteroHomoRecord::make_probability_table() const {
-	vector<vector<double>>	pss_(3, vector<double>(3));
-	pss_[0][0] = 0.5;  pss_[0][1] = 0.5;  pss_[0][2] = 0.0;
-	pss_[1][0] = 0.25; pss_[1][1] = 0.5;  pss_[1][2] = 0.25;
-	pss_[2][0] = 0.0;  pss_[2][1] = 0.5;  pss_[2][2] = 0.5;
-	
-	vector<vector<double>>	pss(3, vector<double>(3));
-	const double	p_miss = 0.01;
-	for(int i = 0; i < 3; ++i) {
-		for(int j = 0; j < 3; ++j)
-			pss[i][j] = (pss_[i][j] + p_miss) / (1.0 + 3 * p_miss);
-	}
-	return pss;
-}
-
-vector<int> VCFHeteroHomoRecord::count_numbers() const {
-	vector<int>	ns(3);
-	for(size_t i = 2U; i < samples.size(); ++i) {
-		const int	int_gt = get_int_gt(i);
-		if(int_gt >= 0)
-			ns[int_gt] += 1;
-	}
-	return ns;
-}
-
-vector<double> VCFHeteroHomoRecord::log_likelihood(
-								const vector<vector<double>>& pss,
-								const vector<int>& ns) const {
-	vector<double>	lls(3, 0.0);
-	for(int i = 0; i < 3; ++i) {
-		for(int j = 0; j < 3; ++j)
-			lls[i] += ns[j] * log(pss[i][j]);
-	}
-	return lls;
-}
-
-VCFHeteroHomoRecord::SEGTYPE VCFHeteroHomoRecord::segregation_type() const {
-	const vector<vector<double>>	pss = make_probability_table();
-	const vector<int>				ns = count_numbers();
-	const vector<double>			lls = log_likelihood(pss, ns);
-	
-	if(ns[0] + ns[1] == 0 || ns[0] + ns[2] == 0 || ns[1] + ns[2] == 0)
-		return SEGTYPE::None;
-	
-	const auto	max_iter = max_element(lls.begin(), lls.end());
-	if(lls[0] == *max_iter)
-		return SEGTYPE::HomoHetero;
-	else if(lls[1] == *max_iter)
-		return SEGTYPE::HeteroHetero;
+FillType VCFHeteroHomoRecord::get_fill_type() const {
+	if(this->is_imputable())
+		return this->is_mat_hetero() ? FillType::MAT : FillType::PAT;
 	else
-		return SEGTYPE::HeteroHomo;
+		return FillType::IMPUTABLE;
 }
 
-bool VCFHeteroHomoRecord::is_Mendelian_segregation() const {
-	const auto	seg_type = segregation_type();
-	if(seg_type == SEGTYPE::None)
-		return false;
+vector<int> VCFHeteroHomoRecord::genotypes_from_hetero_parent() const {
+	const vector<int>	gts = this->get_int_gts();
+	const int	homo_gt = this->is_mat_hetero() ? pat_int_gt() : mat_int_gt();
+	vector<int>	which_froms;
+	for(auto p = gts.begin() + 2; p != gts.end(); ++p) {
+		const int	gt = homo_gt == 0 ? *p : *p - 1;
+		which_froms.push_back(gt != 0 && gt != 1 ? -1 : gt);
+	}
+	return which_froms;
+}
+
+void VCFHeteroHomoRecord::set_haplo(int h) {
+	const int	hetero_col = this->is_mat_hetero() ? 9 : 10;
+	const int	homo_col = hetero_col == 9 ? 10 : 9;
+	this->v[hetero_col] = h == 0 ? "0|1" : "1|0";
+	this->v[homo_col] = this->v[homo_col].c_str()[0] == '0' ? "0|0" : "1|1";
 	
-	const int	gt_m = this->mat_int_gt();
-	const int	gt_p = this->pat_int_gt();
-	if(gt_m == -1 || gt_p == -1)
-		return false;
-	
-	switch(seg_type) {
-	case SEGTYPE::HomoHetero:	return gt_m + gt_p == 1;
-	case SEGTYPE::HeteroHetero:	return gt_m == 1 && gt_p == 1;
-	default:					return gt_m + gt_p == 3;
+	const auto	gts = this->genotypes_from_hetero_parent();
+	for(size_t i = 0; i < gts.size(); ++i)
+		this->which_comes_from[i] = gts[i] == h ? 0 : 1;
+}
+
+void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(
+												const vector<int>& ws) {
+	this->which_comes_from = ws;
+	const string&	mat_gt = this->v[9];
+	const string&	pat_gt = this->v[10];
+	if(this->is_mat_hetero()) {
+		const string	homo_gt = pat_gt.substr(0, 1);
+		for(size_t i = 0; i < this->num_progenies(); ++i) {
+			this->set_GT(i+2, mat_gt.substr(ws[i]*2, 1) + '|' + homo_gt);
+		}
+	}
+	else {
+		const string	homo_gt = mat_gt.substr(0, 1);
+		for(size_t i = 0; i < this->num_progenies(); ++i) {
+			this->set_GT(i+2, homo_gt + '|' + pat_gt.substr(ws[i]*2, 1));
+		}
 	}
 }
-
-bool VCFHeteroHomoRecord::is_hetero_and_homo(bool is_mat) const {
-	if(!is_Mendelian_segregation())
-		return false;
-	
-	const int	gt_m = this->mat_int_gt();
-	const int	gt_p = this->pat_int_gt();
-	if(is_mat)	// is mat hetero?
-		return gt_m == 1 && (gt_p == 0 || gt_p == 2);
-	else
-		return (gt_m == 0 || gt_m == 2) && gt_p == 1;
-}
-
-int VCFHeteroHomoRecord::genotype_from_hetero_parent(int i, int homo_gt) const {
-	const int	gt_ = get_int_gt(i);
-	const int	gt = gt_ - homo_gt / 2;
-	if(gt == 0 || gt == 1)
-		return gt;
-	else
-		return -1;
-}
-
-vector<int> VCFHeteroHomoRecord::genotypes_from_hetero_parent(
-											bool is_mat_hetero) const {
-	vector<int>	gts;
-	const int	homo_gt = is_mat_hetero ? pat_int_gt() : mat_int_gt();
-	for(size_t i = 2U; i < samples.size(); ++i) {
-		gts.push_back(genotype_from_hetero_parent(i, homo_gt));
-	}
-	return gts;
-}
-
-bool VCFHeteroHomoRecord::is_valid_segregation(bool is_mat, double cM,
-									BiasProbability *bias_probability) const {
-	const vector<int>	gts = genotypes_from_hetero_parent(is_mat);
-	int	N = 0;
-	int	n0 = 0;
-	for(auto p = gts.begin(); p != gts.end(); ++p) {
-		if(*p != -1)
-			N += 1;
-		if(*p == 0)
-			n0 += 1;
-	}
-	const int	bias = std::min(n0, N - n0);
-	return bias >= bias_probability->compute_max_bias(N, cM);
-}
-
 
 //////////////////// VCFHeteroHomo ////////////////////
 
@@ -149,13 +68,6 @@ VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFHeteroHomoRecord *> rs, const Map& m) :
 			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
 			hh_records(rs), genetic_map(m) { }
-
-VCFHeteroHomo *VCFHeteroHomo::create_from_header(const Map& m) const {
-	vector<VCFHeteroHomoRecord *>	rs;
-	VCFHeteroHomo	*vcf = new VCFHeteroHomo(header, samples, rs, m);
-	copy_chrs(vcf);
-	return vcf;
-}
 
 void VCFHeteroHomo::set_records(const std::vector<VCFHeteroHomoRecord *>& rs) {
 	hh_records = rs;
@@ -167,145 +79,425 @@ void VCFHeteroHomo::set_records_base(const vector<VCFHeteroHomoRecord *>& rs) {
 	VCFFamily::set_records(frs);
 }
 
+void VCFHeteroHomo::clear_records() {
+	records.clear();
+}
+
 double VCFHeteroHomo::cM(size_t i) const {
 	return genetic_map.bp_to_cM(hh_records[i]->pos());
 }
 
-// -> (distance, inversion)
-pair<int,bool> VCFHeteroHomo::distance(const vector<int>& gts1,
-								const vector<int>& gts2, int max_dist) const {
-	int	counter1 = 0;	// different genotype
-	int	counter2 = 0;	// same genotype
-	for(size_t i = 0U; i < gts1.size(); ++i) {
-		if(gts1[i] != gts2[i])
-			counter1 += 1;
-		if(gts1[i] + gts2[i] != 1)
-			counter2 += 1;
-		if(counter1 > max_dist && counter2 > max_dist)
-			return pair<int,bool>(max_dist + 1, false);		// dummy value
-	}
-	return pair<int,bool>(std::min(counter1, counter2), counter1 > max_dist);
-}
-
-vector<VCFHeteroHomo *> VCFHeteroHomo::divide_into_chromosomes(
-									const vector<const Map *>& chr_maps) const {
-	vector<VCFHeteroHomo *>	vcfs;
-	auto	iter_map = chr_maps.begin();
-	string	prev_chr = "";
-	VCFHeteroHomo	*vcf = create_from_header(**iter_map);
-	vector<VCFHeteroHomoRecord *>	rs;
-	for(auto p = hh_records.begin(); p != hh_records.end(); ++p) {
-		const string&	chr = (*p)->chrom();
-		if(chr != prev_chr) {
-			if(!rs.empty()) {
-				vcf->set_records(rs);
-				vcfs.push_back(vcf);
-				++iter_map;
-				rs.clear();
-				vcf = create_from_header(**iter_map);
-			}
-			prev_chr = chr;
-		}
-		rs.push_back((*p)->copy());
-	}
-	vcf->set_records(rs);
-	vcfs.push_back(vcf);
-	return vcfs;
-}
-
-void VCFHeteroHomo::update_genotypes(const std::vector<STRVEC>& GT_table) {
-	for(size_t i = 0U; i < hh_records.size(); ++i)
-		hh_records[i]->set_GTs(GT_table[i]);
-//	VCFFamily::update_genotypes(GT_table);
-}
-
-// orig_vcfは巨大で何度も読みたくないので、一度読んで全ての家系のVCFを作る
-map<pair<VCFHeteroHomo::Parents,bool>, VCFHeteroHomo *>
-VCFHeteroHomo::create_vcfs(VCFOriginal *orig_vcf,
-							const vector<Parents>& families,
-							const PedigreeTable& pedigree,
-							const Map& geno_map,
-							int chroms) {
-	const auto	family_columns = orig_vcf->collect_family_columns(
-														families, pedigree);
-	std::map<pair<Parents,bool>, VCFHeteroHomo *> vcfs;
-	const STRVEC&	orig_samples = orig_vcf->get_samples();
-	for(auto p = family_columns.begin(); p != family_columns.end(); ++p) {
-		const vector<int>&	columns = *p;
-		if(columns.size() < 10U)
-			continue;
-		STRVEC	samples(columns.size());
-		size_t	i = 0U;
-		for(auto p = columns.begin(); p != columns.end(); ++p) {
-			samples[i] = orig_samples[*p-9];
-			++i;
-		}
-		vector<STRVEC>	header = orig_vcf->get_header();
-		STRVEC&	b = header.back();
-		b.erase(b.begin() + 9, b.end());
-		b.insert(b.end(), samples.begin(), samples.end());
-		auto	*vcf_mat = new VCFHeteroHomo(header, samples,
-									vector<VCFHeteroHomoRecord *>(), geno_map);
-		auto	*vcf_pat = new VCFHeteroHomo(header, samples,
-									vector<VCFHeteroHomoRecord *>(), geno_map);
-		const Parents	parents(samples[0], samples[1]);
-		const auto	key_mat = pair<Parents,bool>(parents, true);
-		vcfs[key_mat] = vcf_mat;
-		const auto	key_pat = pair<Parents,bool>(parents, false);
-		vcfs[key_pat] = vcf_pat;
+Graph::InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
+	vector<vector<int>>	gtss;
+	for(auto p = this->hh_records.begin(); p != this->hh_records.end(); ++p) {
+		gtss.push_back((*p)->genotypes_from_hetero_parent());
 	}
 	
-	map<pair<Parents,bool>, vector<VCFHeteroHomoRecord *>>	selected_records;
-	while(true) {
-		const VCFRecord	*record = orig_vcf->next();
-		if(record == NULL)
-			break;
-		// 短縮する
-		if(chroms != 0) {
-			const auto	pos = orig_vcf->record_position(*record);
-			if(pos.first == chroms + 1) {
-				delete record;
+	vector<double>	cMs;
+	const size_t	L = this->size();
+	for(size_t i = 0; i < L; ++i) {
+		cMs.push_back(this->cM(i));
+	}
+	
+	Graph::InvGraph	graph;
+	// キーをあらかじめ登録しておかないと、孤立した点が表されない
+	for(size_t k = 0U; k < L; ++k)
+		graph[k];
+	for(size_t k = 0; k < L; ++k) {
+		for(size_t l = k + 1; l < L; ++l) {
+
+			const double	cM = cMs[l] - cMs[k];
+			if(cM > 10.0)	// 10cM以上離れていたら繋がりを見ない
 				break;
+			const auto	p = distance(gtss[k], gtss[l]);
+			const double	dist = p.first;
+			const bool		inv = p.second;
+			if(dist <= max_dist) {
+				graph[k].push_back(make_tuple(l, dist, inv));
+				graph[l].push_back(make_tuple(k, dist, inv));
 			}
 		}
-		for(auto p = family_columns.begin(); p != family_columns.end(); ++p) {
-			const vector<int>&	columns = *p;
-			Parents	parents(orig_samples[columns[0]-9],
-							orig_samples[columns[1]-9]);
-			if(columns.size() < 10U)
-				continue;
-			const auto	q = vcfs.find(pair<Parents,bool>(parents, true));
-			const STRVEC&	samples = q->second->get_samples();
-			// samplesはVCFから得るように改変しなければならない
-			STRVEC	v(columns.size() + 9);
-			record->copy_properties(v.begin());
-			const STRVEC	w = record->gts();
-			size_t	i = 0U;
-			for(auto p = columns.begin(); p != columns.end(); ++p, ++i) {
-				v[i+9] = w[*p-9];
-			}
-			
-			auto	*new_record = new VCFHeteroHomoRecord(v, samples);
-			if(new_record->is_hetero_and_homo(true)) {			// mat is hetero
-				const auto	key = pair<Parents,bool>(parents, true);
-				selected_records[key].push_back(new_record);
-			}
-			else if(new_record->is_hetero_and_homo(false)) {	// pat is hetero
-				const auto	key = pair<Parents,bool>(parents, false);
-				selected_records[key].push_back(new_record);
-			}
-			else {
-				delete new_record;
-			}
-		}
-		delete record;
+	}
+	return graph;
+}
+
+// ベータ分布を使うので、distはdouble
+pair<double, bool> VCFHeteroHomo::distance(const vector<int>& gts1,
+											const vector<int>& gts2) {
+	const int	N = (int)gts1.size();
+	int	counter_right = 0;
+	int	counter_diff = 0;
+	int	counter_NA = 0;
+	for(size_t i = 0; i < gts1.size(); ++i) {
+		const int	int_gt1 = gts1[i];
+		const int	int_gt2 = gts2[i];
+		if(int_gt1 == -1 || int_gt2 == -1)
+			counter_NA += 1;
+		else if(int_gt1 == int_gt2)
+			counter_right += 1;
+		else
+			counter_diff += 1;
 	}
 	
-	for(auto p = selected_records.begin(); p != selected_records.end(); ++p) {
-		auto&	records = p->second;
-		const vector<STRVEC>	header = orig_vcf->select_header(records[0]);
-		vcfs[p->first]->set_records(records);
-		orig_vcf->copy_chrs(vcfs[p->first]);
+	if(counter_right >= counter_diff)
+		return make_pair(dist_with_NA(counter_right, counter_NA, N), false);
+	else
+		return make_pair(dist_with_NA(counter_diff, counter_NA, N), true);
+}
+
+double VCFHeteroHomo::dist_with_NA(int right, int counter_NA, int N) {
+	const int	diff = N - right - counter_NA;
+	const double	diff_ratio = (diff + 1.0) / (right + diff + 2.0);
+	return diff + counter_NA * diff_ratio;
+}
+
+// haplotype1の各レコードのGenotypeが0なのか1なのか
+vector<int> VCFHeteroHomo::make_parent_haplotypes(
+										const Graph::InvGraph& graph) const {
+	const Graph::InvGraph	tree = Graph::minimum_spanning_tree(graph);
+	auto	vs = Graph::keys(tree);
+	std::sort(vs.begin(), vs.end());
+	const size_t	L = this->size();
+	vector<int>	haplo(L, -1);
+	haplo[vs[0]] = 0;
+	walk(vs[0], haplo, tree);
+	
+	vector<int>	haplo2;
+	for(auto p = haplo.begin(); p != haplo.end(); ++p) {
+		if(*p != -1)
+				haplo2.push_back(*p);
 	}
-	return vcfs;
+	return haplo2;
+}
+
+void VCFHeteroHomo::walk(size_t v0, vector<int>& haplo,
+									const Graph::InvGraph& tree_graph) {
+	// 再帰をやめてstackを明示的に使うようにしたい
+	auto	q = tree_graph.find(v0);
+	for(auto p = q->second.begin(); p != q->second.end(); ++p) {
+		const size_t	v = get<0>(*p);
+		const bool		b = get<2>(*p);
+		if(haplo[v] != -1)
+			continue;
+		if(b)		// inverse
+			haplo[v] = haplo[v0] == 0 ? 1 : 0;
+		else
+			haplo[v] = haplo[v0];
+		walk(v, haplo, tree_graph);
+	}
+}
+
+VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const Graph::InvGraph& graph) const {
+	const vector<int>	haplo = make_parent_haplotypes(graph);
+	vector<int>	indices;
+	for(auto p = graph.begin(); p != graph.end(); ++p)
+		indices.push_back(p->first);
+	std::sort(indices.begin(), indices.end());
+	vector<VCFHeteroHomoRecord *>	records;
+	for(size_t i = 0; i < haplo.size(); ++i) {
+		VCFHeteroHomoRecord	*record = this->hh_records[indices[i]];
+		record->set_haplo(haplo[i]);
+		records.push_back(record);
+	}
+	return new VCFHeteroHomo(this->header, this->samples,
+									records, this->genetic_map);
+}
+
+pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
+		VCFHeteroHomo::determine_haplotype(const OptionImpute *option) const {
+	const double	max_dist = std::min((double)option->max_dist,
+									this->num_progenies() * 0.1);
+	const Graph::InvGraph	graph = this->make_graph(max_dist);
+	const vector<Graph::InvGraph>	subgraphs =
+									Graph::divide_graph_into_connected(graph);
+	
+	// 小さなgraphのmarkerは省く
+	vector<Graph::InvGraph>	gs;
+	vector<VCFHeteroHomoRecord *>	unused_records;
+	for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
+		if((int)p->size() >= option->min_graph) {
+			gs.push_back(*p);
+		}
+	}
+	
+	// 小さなgraphしかなければ、その中でも一番大きなgraphにする
+	if(gs.empty()) {
+		auto	max_g = std::min_element(subgraphs.begin(), subgraphs.end(),
+										[](const auto& a, const auto& b) {
+											return a.size() < b.size(); });
+		gs.push_back(*max_g);
+		for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
+			if(p != max_g) {
+				for(auto q = p->begin(); q != p->end(); ++q) {
+					unused_records.push_back(this->hh_records[q->first]);
+				}
+			}
+		}
+	}
+	else {
+		for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
+			if((int)p->size() < option->min_graph) {
+				for(auto q = p->begin(); q != p->end(); ++q) {
+					unused_records.push_back(this->hh_records[q->first]);
+				}
+			}
+		}
+	}
+	
+	vector<VCFHeteroHomo *>	subvcfs;
+	for(auto p = gs.begin(); p != gs.end(); ++p) {
+		subvcfs.push_back(this->make_subvcf(*p));
+	}
+	return make_pair(subvcfs, unused_records);
+}
+
+string VCFHeteroHomo::make_seq(size_t i) const {
+	string	seq;
+	for(auto p = hh_records.begin(); p != hh_records.end(); ++p) {
+		const auto	*record = *p;
+		const int	gt = record->get_which_comes_from(i);
+		if(gt == 0)
+			seq.push_back('0');
+		else if(gt == 1)
+			seq.push_back('1');
+		else
+			seq.push_back('N');
+	}
+	return seq;
+}
+
+bool VCFHeteroHomo::is_all_same_without_N(const string& seq) {
+	char	c = '.';
+	for(auto p = seq.begin(); p != seq.end(); ++p) {
+		if(*p != 'N') {
+			if(c == '.')	// initial
+				c = *p;
+			else if(*p != c)
+				return false;
+		}
+	}
+	return true;
+}
+
+string VCFHeteroHomo::create_same_color_string(const string& seq) {
+	char	c = '0';	// dummy
+	for(auto p = seq.begin(); p != seq.end(); ++p) {
+		if(*p != 'N') {
+			c = *p;
+			break;
+		}
+	}
+	return std::string(seq.size(), c);
+}
+
+string VCFHeteroHomo::impute_each_sample_seq(int i,
+								const vector<double>& cMs, double min_c) {
+	const string	seq = this->make_seq(i);
+	if(is_all_same_without_N(seq))
+		return create_same_color_string(seq);
+	
+	const vector<char>	hidden_states = { '0', '1' };
+	const vector<char>	states = { '0', '1', 'N' };
+	const string	hidden_seq = Imputer::impute(seq,
+												hidden_states, states, cMs);
+	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);
+	return painted_seq;
+}
+
+void VCFHeteroHomo::impute_each(const OptionImpute *option) {
+	vector<double>	cMs;
+	const size_t	L = this->size();
+	for(size_t i = 0; i < L; ++i) {
+		cMs.push_back(this->cM(i));
+	}
+	
+	vector<string>	imputed_seqs;
+	for(size_t i = 0; i < this->num_progenies(); ++i) {
+		imputed_seqs.push_back(
+					impute_each_sample_seq(i, cMs, option->min_crossover));
+	}
+	
+	for(size_t k = 0; k < this->size(); ++k) {
+		VCFHeteroHomoRecord	*record = this->hh_records[k];
+		vector<int>	ws;
+		for(auto p = imputed_seqs.begin(); p != imputed_seqs.end(); ++p)
+			ws.push_back(p->c_str()[k] - '0');
+		record->set_int_gt_by_which_comes_from(ws);
+	}
+}
+
+const OptionImpute *VCFHeteroHomo::create_option() const {
+	const size_t	num = std::max(2UL, this->size());
+	const int	max_dist = std::max(4,
+						(int)(genetic_map.total_cM() * num_progenies()
+										/ num * log10(num) * 2.5 * 0.01));
+	return new OptionImpute(max_dist, 20, 5, 1.0);
+}
+
+pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
+													VCFHeteroHomo::impute() {
+	if(this->records.empty()) {
+		return make_pair(vector<VCFHeteroHomo *>(1, this),
+								vector<VCFHeteroHomoRecord *>());
+	}
+	
+	const OptionImpute	*option = this->create_option();
+	auto	p = this->determine_haplotype(option);
+	vector<VCFHeteroHomo *>&	vcfs = p.first;
+	vector<VCFHeteroHomoRecord *>&	unused_records = p.second;
+	for(auto q = vcfs.begin(); q != vcfs.end(); ++q)
+		(*q)->impute_each(option);
+	delete option;
+	return make_pair(vcfs, unused_records);
+}
+
+// 共通のヘテロ親はどれだけマッチしているか
+pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
+	const int	hetero_col1 = this->is_mat_hetero() ? 9 : 10;
+	const int	hetero_col2 = other->is_mat_hetero() ? 9 : 10;
+	int	num_match = 0;
+	int	num_unmatch = 0;
+	size_t	k = 0;
+	size_t	l = 0;
+	while(k < this->size() && l < other->size()) {
+		const VCFHeteroHomoRecord	*record1 = this->hh_records[k];
+		const VCFHeteroHomoRecord	*record2 = other->hh_records[l];
+		if(record1->pos() == record2->pos()) {
+			if(record1->get_v()[hetero_col1] == record2->get_v()[hetero_col2])
+				num_match += 1;
+			else
+				num_unmatch += 1;
+		}
+		if(record1->pos() <= record2->pos())
+			k += 1;
+		if(record1->pos() >= record2->pos())
+			l += 1;
+	}
+	
+	return make_pair(num_match, num_unmatch);
+}
+
+void VCFHeteroHomo::inverse_hetero_parent_phases() {
+	const int	hetero_index = this->is_mat_hetero() ? 0 : 1;
+	for(auto p = this->hh_records.begin(); p != this->hh_records.end(); ++p) {
+		if((*p)->get_GT(hetero_index) == "0|1")
+			(*p)->set_GT(hetero_index, "1|0");
+		else
+			(*p)->set_GT(hetero_index, "0|1");
+	}
+}
+
+// ヘテロ親が同じVCFを集めて補完する
+// ついでにphaseもなるべく同じになるように変更する
+pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
+			VCFHeteroHomo::impute_vcfs(vector<VCFHeteroHomo *>& vcfs,
+										const Option* op) {
+	vector<VCFHeteroHomo *>	imputed_vcfs;
+	vector<VCFHeteroHomoRecord *>	unused_records;
+	for(auto q = vcfs.begin(); q != vcfs.end(); ++q) {
+		auto	*vcf = *q;
+		auto	p = vcf->impute();
+		auto	subvcfs = p.first;
+		auto	unused = p.second;
+		imputed_vcfs.insert(imputed_vcfs.end(), subvcfs.begin(), subvcfs.end());
+		unused_records.insert(unused_records.end(),
+										unused.begin(), unused.end());
+		// 元のVCFは消したいが、Recordsは使いまわししているので、
+		// 元のVCFのRecordsを消してからVCFのdeleteをする
+		vcf->clear_records();
+		delete vcf;
+	}
+	inverse_phases(imputed_vcfs);
+	return make_pair(imputed_vcfs, unused_records);
+}
+
+void VCFHeteroHomo::inverse_phases(const vector<VCFHeteroHomo *>& vcfs) {
+	const auto	graph = make_vcf_graph(vcfs);
+	const vector<bool>	invs = optimize_phase_inversions(graph);
+	for(size_t i = 1; i < vcfs.size(); ++i) {
+		if(invs[i-1])
+			vcfs[i]->inverse_hetero_parent_phases();
+	}
+}
+
+vector<vector<tuple<int, int, int>>> VCFHeteroHomo::make_vcf_graph(
+									const vector<VCFHeteroHomo *>& vcfs) {
+	const int	N = (int)vcfs.size();
+	vector<vector<tuple<int, int, int>>>	graph(N);
+	for(int i = 0; i < N; ++i) {
+		for(int j = i + 1; j < N; ++j) {
+			const auto	p = vcfs[i]->match(vcfs[j]);
+			const int	num_match = p.first;
+			const int	num_unmatch = p.second;
+			if(num_match != 0 || num_unmatch != 0) {
+				graph[i].push_back(make_tuple(j, num_match, num_unmatch));
+				graph[j].push_back(make_tuple(i, num_match, num_unmatch));
+			}
+		}
+	}
+	return graph;
+}
+
+vector<vector<bool>> VCFHeteroHomo::enumerate_bools(size_t L) {
+	vector<vector<bool>>	bss;
+	if(L <= 10) {
+		for(size_t n = 0; n < (1U << L); ++n) {
+			vector<bool>	bs(L);
+			for(size_t k = 0; k < L; ++k)
+				bs[k] = ((n >> k) & 1) == 1;
+			bss.push_back(bs);
+		}
+	}
+	else {
+		std::mt19937	mt(123456789);
+		std::uniform_int_distribution<int>	dist(0, 1);
+		
+		for(size_t i = 0; i < 1024; ++i) {
+			vector<bool>	bs(L);
+			for(size_t j = 1; j < L; ++j)
+				bs[j] = dist(mt) == 0;
+			bss.push_back(bs);
+		}
+	}
+	return bss;
+}
+
+int VCFHeteroHomo::match_score(const vector<bool>& invs,
+					const vector<vector<tuple<int, int, int>>>& graph) {
+	const size_t	N = graph.size();
+	int	num_wrong = 0;
+	for(int i = 0; i < (int)N; ++i) {
+		const auto&	v = graph[i];
+		for(auto q = v.begin(); q != v.end(); ++q) {
+			const int	j = std::get<0>(*q);
+			const int	n1 = std::get<1>(*q);
+			const int	n2 = std::get<2>(*q);
+			if(i > j)
+				continue;
+			const bool	inv1 = i == 0 ? false : invs[i-1];
+			const bool	inv2 = invs[j-1];
+			if(inv1 == inv2)
+				num_wrong += n2;
+			else
+				num_wrong += n1;
+		}
+	}
+	return num_wrong;
+}
+
+vector<bool> VCFHeteroHomo::optimize_phase_inversions(
+					const vector<vector<tuple<int, int, int>>>& graph) {
+	const size_t	N = graph.size();
+	int	min_score = 100000000;
+	vector<bool>	min_invs;
+	const vector<vector<bool>>	invss = enumerate_bools(N - 1);
+	for(auto p = invss.begin(); p != invss.end(); ++p) {
+		const auto	invs = *p;
+		const int	score = match_score(invs, graph);
+		if(score < min_score) {
+			min_score = score;
+			min_invs = invs;
+		}
+	}
+	return min_invs;
 }
