@@ -389,9 +389,8 @@ void VCFHeteroHomo::inverse_hetero_parent_phases() {
 
 // ヘテロ親が同じVCFを集めて補完する
 // ついでにphaseもなるべく同じになるように変更する
-pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
-			VCFHeteroHomo::impute_vcfs(vector<VCFHeteroHomo *>& vcfs,
-										const Option* op) {
+ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
+										const Option* op, int num_threads) {
 	vector<VCFHeteroHomo *>	imputed_vcfs;
 	vector<VCFHeteroHomoRecord *>	unused_records;
 	for(auto q = vcfs.begin(); q != vcfs.end(); ++q) {

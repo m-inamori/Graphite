@@ -10,6 +10,11 @@ class Map;
 class BiasProbability;
 class PedigreeTable;
 class VCFOriginal;
+class VCFHeteroHomoRecord;
+class VCFHeteroHomo;
+
+typedef std::pair<std::vector<VCFHeteroHomo *>,
+						std::vector<VCFHeteroHomoRecord *>>	ImpResult;
 
 
 //////////////////// VCFHeteroHomoRecord ////////////////////
@@ -93,8 +98,8 @@ private:
 public:
 	// ヘテロ親が同じVCFを集めて補完する
 	// ついでにphaseもなるべく同じになるように変更する
-	static std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
-			impute_vcfs(std::vector<VCFHeteroHomo *>& vcfs, const Option* op);
+	static ImpResult impute_vcfs(const std::vector<VCFHeteroHomo *>& vcfs,
+											const Option* op, int num_threads);
 	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
 	static std::vector<std::vector<std::tuple<int, int, int>>> make_vcf_graph(
 										const std::vector<VCFHeteroHomo *>& vcfs);
