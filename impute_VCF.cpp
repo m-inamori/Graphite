@@ -74,6 +74,7 @@ pair<HeHoRecords, ImpRecords> classify_records(VCFSmall *vcf,
 		const Family	*family = *q;
 		const Parents	parents = family->parents();
 		const STRVEC&	samples = family->get_samples();
+		heho_records[parents];
 		// vcf_familyはこのループの最後でdeleteするので
 		// samplesはfamilyのものを使う
 		auto	*vcf_family = VCFFamily::create(vcf, samples);
@@ -309,7 +310,7 @@ vector<VCFFillable *> fill_parellel(vector<Item>& items, const Option *op) {
 		pthread_join(threads_t[i], NULL);
 #else
 	for(int i = 0; i < T; ++i)
-		impute_in_thread(configs[i]);
+		fill_in_thread(configs[i]);
 #endif
 	
 	Common::delete_all(configs);

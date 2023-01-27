@@ -28,6 +28,9 @@ int Graph::get_edge_value(size_t v1, size_t v2, const InvGraph& graph) {
 Graph::WeightedGraph Graph::trim_inverse(const InvGraph& graph) {
 	WeightedGraph	weighted_graph;
 	for(auto p = graph.begin(); p != graph.end(); ++p) {
+		weighted_graph[p->first];
+	}
+	for(auto p = graph.begin(); p != graph.end(); ++p) {
 		const auto&	v = p->second;
 		for(auto q = v.begin(); q != v.end(); ++q)
 			weighted_graph[p->first].push_back(
@@ -47,6 +50,8 @@ Graph::InvGraph Graph::filter_graph(const InvGraph& graph,
 	}
 	
 	InvGraph	tree_graph;
+	for(auto p = graph.begin(); p != graph.end(); ++p)
+		tree_graph[p->first];
 	for(auto p = graph.begin(); p != graph.end(); ++p) {
 		const size_t	v1 = p->first;
 		const auto	vs = p->second;

@@ -66,6 +66,8 @@ Kruskal::GRAPH Kruskal::Kruskal(const GRAPH& graph) {
 						});
 	
 	GRAPH	new_graph;
+	for(auto p = graph.begin(); p != graph.end(); ++p)
+		new_graph[p->first];
 	size_t	counter = 0U;
 	for(auto p = edges.begin(); p != edges.end(); ++p) {
 		const size_t&	v1 = get<0>(*p);

@@ -222,7 +222,7 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 	
 	// 小さなgraphしかなければ、その中でも一番大きなgraphにする
 	if(gs.empty()) {
-		auto	max_g = std::min_element(subgraphs.begin(), subgraphs.end(),
+		auto	max_g = std::max_element(subgraphs.begin(), subgraphs.end(),
 										[](const auto& a, const auto& b) {
 											return a.size() < b.size(); });
 		gs.push_back(*max_g);
@@ -337,8 +337,11 @@ const OptionImpute *VCFHeteroHomo::create_option() const {
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 													VCFHeteroHomo::impute() {
 	if(this->records.empty()) {
-		return make_pair(vector<VCFHeteroHomo *>(1, this),
-								vector<VCFHeteroHomoRecord *>());
+		// vcfを新たに作らないと、deleteしていけないvcfをdeleteしてしまう
+		VCFHeteroHomo	*empty_vcf = new VCFHeteroHomo(header, samples,
+								vector<VCFHeteroHomoRecord *>(), genetic_map);
+		return make_pair(vector<VCFHeteroHomo *>(1, empty_vcf),
+									vector<VCFHeteroHomoRecord *>());
 	}
 	
 	const OptionImpute	*option = this->create_option();
@@ -353,8 +356,13 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 
 // 共通のヘテロ親はどれだけマッチしているか
 pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
-	const int	hetero_col1 = this->is_mat_hetero() ? 9 : 10;
-	const int	hetero_col2 = other->is_mat_hetero() ? 9 : 10;
+	if(this->records.empty() || other->records.empty())
+		return pair<int, int>(0, 0);
+	
+	const string	mat_GT1 = this->hh_records.front()->get_GT(0);
+	const string	mat_GT2 = other->hh_records.front()->get_GT(0);
+	const int	hetero_col1 = (mat_GT1 == "0|0" || mat_GT1 == "1|1") ? 9 : 10;
+	const int	hetero_col2 = (mat_GT2 == "0|0" || mat_GT2 == "1|1") ? 9 : 10;
 	int	num_match = 0;
 	int	num_unmatch = 0;
 	size_t	k = 0;
