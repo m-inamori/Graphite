@@ -23,7 +23,9 @@ public:
 						family(f), name(n), mat(m), pat(p) { }
 	
 	const Progeny *copy() const;
-	std::string get_name() const { return name; }
+	const std::string& get_name() const { return name; }
+	const std::string& get_mat() const { return mat; }
+	const std::string& get_pat() const { return pat; }
 	std::pair<std::string, std::string> parents() const {
 		return std::pair<std::string, std::string>(mat, pat);
 	}
@@ -52,6 +54,8 @@ public:
 	
 	const std::string& get_mat() const { return mat; }
 	const std::string& get_pat() const { return pat; }
+	const std::vector<const Progeny *>&
+						get_progenies() const { return progenies; }
 	std::size_t num_progenies() const { return this->progenies.size(); }
 	std::pair<std::string, std::string> parents() const {
 		return std::pair<std::string, std::string>(mat, pat);
@@ -76,6 +80,10 @@ public:
 	std::vector<const Family *> extract_families() const;
 	std::vector<const Progeny *> get_progenies(const std::string& mat,
 												 const std::string& pat) const;
+	const PedigreeTable *limit_samples(
+							const std::vector<std::string>& samples) const;
+	std::vector<const Family *> make_families(
+								const std::vector<std::string>& samples) const;
 	
 public:
 	static const PedigreeTable *read(const std::string& path);

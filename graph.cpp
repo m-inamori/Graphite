@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cassert>
 #include "graph.h"
 #include "kruskal.h"
@@ -107,7 +108,6 @@ vector<Graph::InvGraph> Graph::divide_graph_into_connected(
 	return graphs;
 }
 
-#include <iostream>
 // 頭より末尾にpushする方が速いので、逆向きのpathを返す
 vector<size_t> Graph::walk(size_t v1, size_t v2, const InvGraph& graph,
 													set<size_t>& visited) {

@@ -42,6 +42,15 @@ void VCFFamilyRecord::set(const STRVEC& new_v) {
 	VCFRecord::set(v);
 }
 
+void VCFFamilyRecord::impute_homohomo() {
+	const char	mat_gt = this->mat_gt().c_str()[0];
+	const char	pat_gt = this->pat_gt().c_str()[0];
+	char	chars_GT[4] = { mat_gt, '|', pat_gt, '\0' };
+	const string	GT(chars_GT);
+	for(size_t i = 2; i != samples.size(); ++i)
+		this->set_GT(i, GT);
+}
+
 
 //////////////////// VCFFamily ////////////////////
 
@@ -162,6 +171,35 @@ VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
 	
 	vcf->set_records(records);
 	return vcf;
+}
+
+// 親はvcf1から子はvcf2からGenotypeを取って新たなVCFを作る
+VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmall *vcf1,
+											const VCFSmall *vcf2,
+											const STRVEC& samples) {
+	// samplesは[mat, pat, prog1, ...]の前提
+	const int	mat_c = vcf1->find_column(samples[0]);
+	const int	pat_c = vcf1->find_column(samples[1]);
+	map<string, int>	sample_to_columns;
+	for(size_t i = 0; i < vcf2->get_samples().size(); ++i)
+		sample_to_columns[vcf2->get_samples()[i]] = i + 9;
+	
+	const auto	new_header = vcf1->create_header(samples);
+	const auto	prog_cs = vcf2->extract_columns(samples.begin() + 2,
+														samples.end());
+	vector<VCFFamilyRecord *>	new_records;
+	for(size_t i = 0; i < vcf1->size(); ++i) {
+		const auto	*record1 = vcf1->get_record(i);
+		const auto	*record2 = vcf2->get_record(i);
+		STRVEC	v(record1->get_v().begin(), record1->get_v().begin() + 9);
+		v.push_back(record1->get_gt(mat_c-9));
+		v.push_back(record1->get_gt(pat_c-9));
+		for(auto p = prog_cs.begin(); p != prog_cs.end(); ++p)
+			v.push_back(record2->get_gt(*p-9));
+		auto	*new_record = new VCFFamilyRecord(v, samples);
+		new_records.push_back(new_record);
+	}
+	return new VCFFamily(new_header, samples, new_records);
 }
 
 VCFFamily *VCFFamily::join(const vector<VCFFamily *>& vcfs) {

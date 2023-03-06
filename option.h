@@ -17,6 +17,7 @@ public:
 	const int			num_threads;
 	const std::string	path_out;
 	const double		ratio;
+	const int			lower_progs;
 	const bool			all_out;
 	const bool			integrates_samples;
 	
@@ -27,8 +28,8 @@ public:
 			int nt, bool ao,  bool integ, const std::string& out) :
 									path_vcf(vcf), path_ped(ped), path_map(map),
 									families(fam), chroms(chr), num_threads(nt),
-									path_out(out), ratio(0.01), all_out(ao),
-									integrates_samples(integ) { }
+									path_out(out), ratio(0.01), lower_progs(10),
+									all_out(ao), integrates_samples(integ) { }
 	
 	bool is_efficient_chrom(int i) const;
 	

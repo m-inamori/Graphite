@@ -12,6 +12,7 @@ class PedigreeTable;
 class VCFOriginal;
 class VCFHeteroHomoRecord;
 class VCFHeteroHomo;
+class InverseGraph;
 
 typedef std::pair<std::vector<VCFHeteroHomo *>,
 						std::vector<VCFHeteroHomoRecord *>>	ImpResult;
@@ -90,6 +91,7 @@ public:
 private:
 	Graph::InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
+	std::vector<char> create_states(const std::string& seq) const;
 	std::string impute_each_sample_seq(int i,
 								const std::vector<double>& cMs, double min_c);
 	void impute_each(const OptionImpute *option);
@@ -101,7 +103,7 @@ public:
 	static ImpResult impute_vcfs(const std::vector<VCFHeteroHomo *>& vcfs,
 											const Option* op, int num_threads);
 	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
-	static std::vector<std::vector<std::tuple<int, int, int>>> make_vcf_graph(
+	static const InverseGraph *make_vcf_graph(
 										const std::vector<VCFHeteroHomo *>& vcfs);
 	
 private:

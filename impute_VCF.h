@@ -9,6 +9,7 @@
 #include "Map.h"
 
 class Option;
+class SampleManager;
 class VCFFamily;
 class VCFHeteroHomo;
 
@@ -84,10 +85,10 @@ make_VCFHeteroHomo(const std::vector<VCFHeteroHomoRecord *>& records,
 						const Family *family,
 						const VCFSmall *vcf, const Map& geno_map);
 std::pair<std::map<Parents, std::vector<VCFHeteroHomo *>>, HeHoRecords>
-impute_hetero_homo(const HeHoRecords& records,
-					const std::vector<const Family *>& families,
-					const VCFSmall *vcf,
-					const Map& geno_map, const Option *option);
+impute_hetero_homo_core(const HeHoRecords& records,
+						const std::vector<const Family *>& families,
+						const VCFSmall *vcf,
+						const Map& geno_map, const Option *option);
 
 struct ConfigFillThread {
 	const std::vector<Item>&	items;
@@ -115,8 +116,7 @@ std::vector<VCFFillable *> fill(
 HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option);
 VCFFamily *impute_each(const Parents& parents, const Map& gmap,
 										const HeteroParentVCFs& vcfs, int T);
-VCFSmall *impute_vcf_chr(VCFSmall *vcf,
-							const std::vector<const Family *>& families,
-							const Map *geno_map, const Option *option);
+VCFSmall *impute_vcf_chr(VCFSmall *vcf, SampleManager *sample_man,
+								const Map& geno_map, const Option *option);
 void impute_VCF(const Option *option);
 #endif

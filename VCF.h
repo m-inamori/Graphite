@@ -73,6 +73,8 @@ public:
 	POSITION record_position(const VCFRecord& record) const;
 	std::string chr(int chr_id) const;
 	int find_column(const std::string& sample) const;
+	std::vector<std::size_t> extract_columns(STRVEC::const_iterator first,
+											STRVEC::const_iterator last) const;
 	void write_header(std::ostream& os) const;
 	
 	void copy_chrs(VCFBase *vcf) const { vcf->chrs = chrs; }
@@ -113,14 +115,19 @@ public:
 	const std::vector<VCFRecord *>& get_records() const { return records; }
 	bool empty() const { return records.empty(); }
 	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const { return records[i]; }
 	void write(std::ostream& os, bool write_header=true) const;
 	
+	void add_record(VCFRecord *record) { records.push_back(record); }
 	void add_records(std::vector<VCFRecord *>& rs) {
 		records.insert(records.end(), rs.begin(), rs.end());
 	}
 	
 public:
 	static VCFSmall *read(const std::string& path);
+	// samplesの順番で結合
+	static VCFSmall *join(const std::vector<VCFSmall *>& vcfs,
+												const STRVEC& samples);
 };
 
 

@@ -858,14 +858,14 @@ void VCFFillable::RecordSet::impute_NA_pat_each(size_t i) const {
 
 VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFillableRecord *> rs) :
-					VCFSmall(h, s, vector<VCFRecord *>(rs.begin(), rs.end())),
-					fillable_records(rs) { }
+			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
+			fillable_records(rs) { }
 
 void VCFFillable::modify() {
 	vector<Group>	groups = group_records();
 	for(size_t i = 0U; i < groups.size(); ++i) {
 		if(groups[i].second.front()->is_fillable_type())
-			this->phase(i, groups);
+			this->phase(i, groups, true);
 	}
 	
 	for(size_t i = 0U; i < fillable_records.size(); ++i) {
@@ -880,6 +880,15 @@ void VCFFillable::modify() {
 	
 	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
 		(*p)->fill_PGT();
+}
+
+void VCFFillable::phase_hetero_hetero() {
+	// typeが'IMPUTABLE', 'MAT', 'PAT', 'FIXED'でrecordを分ける
+	vector<Group>	groups = this->group_records();
+	for(size_t i = 0; i < groups.size(); ++i) {
+		if(groups[i].first == FillType::IMPUTABLE)
+			this->phase(i, groups, false);
+	}
 }
 
 VCFFillable *VCFFillable::create_from_header() const {
@@ -941,7 +950,8 @@ VCFFillableRecord *VCFFillable::find_next_record(FillType type, int i,
 	return NULL;
 }
 
-void VCFFillable::phase(int i, const vector<Group>& groups) {
+void VCFFillable::phase(int i, const vector<Group>& groups,
+										bool necessary_parents_phasing) {
 	const auto	mat = FillType::MAT;
 	const auto	pat = FillType::PAT;
 	auto	*prev_mat_record = find_prev_record(mat, i, groups);
@@ -953,7 +963,8 @@ void VCFFillable::phase(int i, const vector<Group>& groups) {
 		auto	*record = *p;
 		RecordSet	record_set(record, prev_mat_record, next_mat_record,
 											prev_pat_record, next_pat_record);
-		record_set.determine_phasing();
+		if(necessary_parents_phasing)
+			record_set.determine_phasing();
 		record_set.impute_core();
 	}
 }
@@ -1106,8 +1117,8 @@ void VCFFillable::impute_others(int i) {
 	const bool	mat_homo = record->is_homo(0);
 	const bool	pat_homo = record->is_homo(1);
 	for(size_t c = 11; c != record->get_v().size(); ++c) {
-		if(record->get_v()[c].c_str()[1] == '/' ||
-								record->get_int_gt(c-9) == -1)
+		if(record->get_v()[c].c_str()[1] != '/' &&
+								record->get_int_gt(c-9) != -1)
 			continue;
 		const int	mat_from = mat_homo ? 1 : this->find_mat_from(i, c);
 		const int	pat_from = pat_homo ? 1 : this->find_pat_from(i, c);

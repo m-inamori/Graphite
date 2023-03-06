@@ -91,6 +91,42 @@ vector<const Family *> PedigreeTable::extract_families() const {
 	return families;
 }
 
+vector<const Family *> PedigreeTable::make_families(
+										const vector<string>& samples) const {
+	set<string>	set_samples(samples.begin(), samples.end());
+	map<pair<string, string>, vector<const Progeny *>>	progs;
+	for(auto p = this->table.begin(); p != this->table.end(); ++p) {
+		const Progeny	*prog = *p;
+		if(set_samples.find(prog->get_mat()) != set_samples.end() &&
+				set_samples.find(prog->get_pat()) != set_samples.end())
+			progs[prog->parents()].push_back(prog);
+	}
+	
+	vector<const Family *>	families;
+	for(auto p = progs.begin(); p != progs.end(); ++p) {
+		const auto	parents = p->first;
+		const auto	progenies = p->second;
+		const Family	*family = new Family(parents.first,
+												parents.second, progenies);
+		families.push_back(family);
+	}
+	std::sort(families.begin(), families.end(),
+				[](const Family *lh, const Family *rh)
+				{ return lh->parents() < rh->parents(); });
+	return families;
+}
+
+const PedigreeTable *PedigreeTable::limit_samples(
+								const vector<string>& samples) const {
+	set<string>	set_samples(samples.begin(), samples.end());
+	vector<const Progeny *>	progs;
+	for(auto p = table.begin(); p != table.end(); ++p) {
+		if(set_samples.find((*p)->get_name()) != set_samples.end())
+			progs.push_back((*p)->copy());
+	}
+	return new PedigreeTable(progs);
+}
+
 const PedigreeTable *PedigreeTable::read(const string& path) {
 	const auto	table = Common::read_csv(path, ' ');
 	vector<const Progeny *>	progs;

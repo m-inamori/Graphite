@@ -128,7 +128,7 @@ public:
 
 //////////////////// VCFFillable ////////////////////
 
-class VCFFillable : public VCFSmall {
+class VCFFillable : public VCFFamily {
 	using Pair = std::pair<int,int>;
 	using PosWithChr = std::tuple<int,ll,std::string>;
 	
@@ -225,6 +225,7 @@ public:
 	~VCFFillable() { }
 	
 	void modify();
+	void phase_hetero_hetero();
 	VCFFillable *create_from_header() const;
 	void set_records(const std::vector<VCFFillableRecord *>& rs);
 	void set_records_base(const std::vector<VCFFillableRecord *>& rs);
@@ -242,7 +243,8 @@ private:
 										const std::vector<Group>& groups) const;
 	VCFFillableRecord *find_next_record(FillType type, int i,
 										const std::vector<Group>& groups) const;
-	void phase(int i, const std::vector<Group>& groups);
+	void phase(int i, const std::vector<Group>& groups,
+								bool necessary_parents_phasing);
 	
 	template<typename Iter>
 	VCFFillableRecord *find_neighbor_same_type_record(

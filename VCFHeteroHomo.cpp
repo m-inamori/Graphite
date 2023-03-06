@@ -1,3 +1,4 @@
+#include <stack>
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -8,6 +9,7 @@
 #include "Map.h"
 #include "Pedigree.h"
 #include "Imputer.h"
+#include "inverse_graph.h"
 
 using namespace std;
 
@@ -172,18 +174,25 @@ vector<int> VCFHeteroHomo::make_parent_haplotypes(
 
 void VCFHeteroHomo::walk(size_t v0, vector<int>& haplo,
 									const Graph::InvGraph& tree_graph) {
-	// 再帰をやめてstackを明示的に使うようにしたい
-	auto	q = tree_graph.find(v0);
-	for(auto p = q->second.begin(); p != q->second.end(); ++p) {
-		const size_t	v = get<0>(*p);
-		const bool		b = get<2>(*p);
-		if(haplo[v] != -1)
-			continue;
-		if(b)		// inverse
-			haplo[v] = haplo[v0] == 0 ? 1 : 0;
-		else
-			haplo[v] = haplo[v0];
-		walk(v, haplo, tree_graph);
+	// 再帰をやめてstackを明示的に使う
+	stack<size_t>	stk;
+	stk.push(v0);
+	while(!stk.empty()) {
+		const size_t	v = stk.top();
+		stk.pop();
+		const auto	q = tree_graph.find(v);
+		const auto&	vs = q->second;
+		for(auto p = vs.begin(); p != vs.end(); ++p) {
+			const size_t	v1 = get<0>(*p);
+			const bool		inv = get<2>(*p);
+			if(haplo[v1] != -1)		// visited
+				continue;
+			if(inv)
+				haplo[v1] = haplo[v] == 0 ? 1 : 0;
+			else
+				haplo[v1] = haplo[v];
+			stk.push(v1);
+		}
 	}
 }
 
@@ -290,6 +299,17 @@ string VCFHeteroHomo::create_same_color_string(const string& seq) {
 	return std::string(seq.size(), c);
 }
 
+vector<char> VCFHeteroHomo::create_states(const string& seq) const {
+	if(seq.find('N') != string::npos) {
+		vector<char>	states = { '0', '1', 'N' };
+		return states;
+	}
+	else {
+		vector<char>	states = { '0', '1' };
+		return states;
+	}
+}
+
 string VCFHeteroHomo::impute_each_sample_seq(int i,
 								const vector<double>& cMs, double min_c) {
 	const string	seq = this->make_seq(i);
@@ -297,7 +317,7 @@ string VCFHeteroHomo::impute_each_sample_seq(int i,
 		return create_same_color_string(seq);
 	
 	const vector<char>	hidden_states = { '0', '1' };
-	const vector<char>	states = { '0', '1', 'N' };
+	const vector<char>	states = create_states(seq);
 	const string	hidden_seq = Imputer::impute(seq,
 												hidden_states, states, cMs);
 	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);
@@ -361,8 +381,8 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 	
 	const string	mat_GT1 = this->hh_records.front()->get_GT(0);
 	const string	mat_GT2 = other->hh_records.front()->get_GT(0);
-	const int	hetero_col1 = (mat_GT1 == "0|0" || mat_GT1 == "1|1") ? 9 : 10;
-	const int	hetero_col2 = (mat_GT2 == "0|0" || mat_GT2 == "1|1") ? 9 : 10;
+	const int	hetero_col1 = mat_GT1.c_str()[0] != mat_GT1.c_str()[2] ? 9 : 10;
+	const int	hetero_col2 = mat_GT2.c_str()[0] != mat_GT2.c_str()[2] ? 9 : 10;
 	int	num_match = 0;
 	int	num_unmatch = 0;
 	size_t	k = 0;
@@ -419,20 +439,23 @@ ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
 }
 
 void VCFHeteroHomo::inverse_phases(const vector<VCFHeteroHomo *>& vcfs) {
-	const auto	graph = make_vcf_graph(vcfs);
-	const vector<bool>	invs = optimize_phase_inversions(graph);
+if(vcfs[0]->get_samples()[1] == "Mihaya" || vcfs[0]->get_samples()[0] == "Mihaya")
+cout << vcfs[0]->get_samples()[0] << endl;
+	const auto	*graph = make_vcf_graph(vcfs);
+	const vector<bool>	invs = graph->optimize_inversions();
+	delete graph;
 	for(size_t i = 1; i < vcfs.size(); ++i) {
 		if(invs[i-1])
 			vcfs[i]->inverse_hetero_parent_phases();
 	}
 }
 
-vector<vector<tuple<int, int, int>>> VCFHeteroHomo::make_vcf_graph(
+const InverseGraph *VCFHeteroHomo::make_vcf_graph(
 									const vector<VCFHeteroHomo *>& vcfs) {
-	const int	N = (int)vcfs.size();
-	vector<vector<tuple<int, int, int>>>	graph(N);
-	for(int i = 0; i < N; ++i) {
-		for(int j = i + 1; j < N; ++j) {
+	const size_t	N = vcfs.size();
+	vector<vector<tuple<size_t, int, int>>>	graph(N);
+	for(size_t i = 0; i < N; ++i) {
+		for(size_t j = i + 1; j < N; ++j) {
 			const auto	p = vcfs[i]->match(vcfs[j]);
 			const int	num_match = p.first;
 			const int	num_unmatch = p.second;
@@ -442,7 +465,7 @@ vector<vector<tuple<int, int, int>>> VCFHeteroHomo::make_vcf_graph(
 			}
 		}
 	}
-	return graph;
+	return InverseGraph::convert(graph);
 }
 
 vector<vector<bool>> VCFHeteroHomo::enumerate_bools(size_t L) {
@@ -490,21 +513,4 @@ int VCFHeteroHomo::match_score(const vector<bool>& invs,
 		}
 	}
 	return num_wrong;
-}
-
-vector<bool> VCFHeteroHomo::optimize_phase_inversions(
-					const vector<vector<tuple<int, int, int>>>& graph) {
-	const size_t	N = graph.size();
-	int	min_score = 100000000;
-	vector<bool>	min_invs;
-	const vector<vector<bool>>	invss = enumerate_bools(N - 1);
-	for(auto p = invss.begin(); p != invss.end(); ++p) {
-		const auto	invs = *p;
-		const int	score = match_score(invs, graph);
-		if(score < min_score) {
-			min_score = score;
-			min_invs = invs;
-		}
-	}
-	return min_invs;
 }

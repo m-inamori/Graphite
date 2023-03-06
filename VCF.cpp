@@ -150,6 +150,18 @@ int VCFBase::find_column(const string& sample) const {
 	return -1;
 }
 
+vector<size_t> VCFBase::extract_columns(STRVEC::const_iterator first,
+										STRVEC::const_iterator last) const {
+	map<string, size_t>	dic;
+	for(size_t i = 0; i < this->samples.size(); ++i)
+		dic[this->samples[i]] = i + 9;
+	
+	vector<size_t>	columns;
+	for(auto p = first; p != last; ++p)
+		columns.push_back(dic[*p]);
+	return columns;
+}
+
 void VCFBase::write_header(ostream& os) const {
 	for(auto p = header.begin(); p != header.end(); ++p)
 		Common::write_tsv(*p, os);
@@ -244,6 +256,45 @@ VCFSmall *VCFSmall::read(const string& path) {
 	delete reader;
 	
 	return new VCFSmall(header, samples, records);
+}
+
+// samplesの順番で結合
+VCFSmall *VCFSmall::join(const vector<VCFSmall *>& vcfs,
+										const STRVEC& samples) {
+	map<string, pair<VCFSmall *, size_t>>	dic;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		VCFSmall	*vcf = *p;
+		const STRVEC&	ss = vcf->get_samples();
+		for(size_t i = 0; i < ss.size(); ++i)
+			dic[ss[i]] = make_pair(vcf, i + 9);
+	}
+	
+	vector<tuple<string, VCFSmall *, size_t>>	cols;
+	for(auto p = samples.begin(); p != samples.end(); ++p) {
+		auto	q = dic.find(*p);
+		if(q != dic.end())
+			cols.push_back(make_tuple(*p, q->second.first, q->second.second));
+	}
+	
+	STRVEC	new_samples;
+	for(auto p = cols.begin(); p != cols.end(); ++p)
+		new_samples.push_back(get<0>(*p));
+	
+	// new_vcfがsamplesを持つ
+	auto	new_header = vcfs.front()->create_header(new_samples);
+	vector<VCFRecord *>	empty_records;
+	VCFSmall	*new_vcf = new VCFSmall(new_header, new_samples, empty_records);
+	const STRVEC&	samples_ = new_vcf->get_samples();
+	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
+		VCFSmall	*vcf = vcfs[0];
+		const STRVEC&	orig_v = vcf->get_record(i)->get_v();
+		STRVEC	v(orig_v.begin(), orig_v.begin() + 9);
+		for(auto p = cols.begin(); p != cols.end(); ++p)
+			v.push_back(get<1>(*p)->get_record(i)->get_v()[get<2>(*p)]);
+		new_vcf->add_record(new VCFRecord(v, samples_));
+	}
+	
+	return new_vcf;
 }
 
 

@@ -26,6 +26,8 @@ public:
 	std::vector<int> get_progeny_int_gts() const;
 	bool is_mat_homo() const { return is_homo(0); }
 	bool is_pat_homo() const { return is_homo(1); }
+	bool is_mat_hetero() const { return is_hetero(0); }
+	bool is_pat_hetero() const { return is_hetero(1); }
 	std::size_t num_progenies() const { return samples.size() - 2U; }
 	std::tuple<int,int,int> count_gts() const;
 	
@@ -35,6 +37,7 @@ public:
 	void set_pat_int_GT(int gt) { set_int_GT(1, gt); }
 	
 	void set(const STRVEC& new_v);
+	void impute_homohomo();
 };
 
 
@@ -60,6 +63,9 @@ public:
 	VCFFamilyRecord *get_record(std::size_t i) const {
 		return family_records[i];
 	}
+	const std::vector<VCFFamilyRecord *>& get_family_records() const {
+		return family_records;
+	}
 	std::size_t num_progenies() const { return samples.size() - 2U; }
 	
 	bool is_all_hetero(bool is_mat) const;
@@ -72,6 +78,9 @@ public:
 												const VCFSmall *vcf);
 	static VCFFamilyRecord *subset(VCFRecord *record, const STRVEC& samples,
 											const std::vector<int>& columns);
+	static VCFFamily *create_by_two_vcfs(const VCFSmall *vcf1,
+											const VCFSmall *vcf2,
+											const STRVEC& samples);
 	// join the VCFs divided into chrmosome
 	static VCFFamily *join(const std::vector<VCFFamily *>& vcfs);
 };
