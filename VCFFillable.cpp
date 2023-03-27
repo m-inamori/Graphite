@@ -335,6 +335,13 @@ void VCFFillableRecord::modify_gts(const STRVEC& new_prog_gts) {
 	std::copy(new_prog_gts.begin(), new_prog_gts.end(), v.begin() + 11);
 }
 
+void VCFFillableRecord::modify_parents_type() {
+	if(!is_00x11() &&
+			((get_GT(0) == "0|0" && get_GT(1) == "1|1") ||
+			 (get_GT(0) == "1|1" && get_GT(1) == "0|0")))
+		comb = ParentComb::P00x11;
+}
+
 int VCFFillableRecord::from_which_chrom(size_t i, bool is_mat) const {
 	int j = is_mat ? 0 : 1;
 	const string&	parent_gt = this->get_gt(j);
@@ -362,12 +369,12 @@ VCFRecord *VCFFillableRecord::integrate_records(
 }
 
 int VCFFillableRecord::hash(int d) const {
-	int	hash = 0;
+	int	hash_ = 0;
 	const string&	str_pos = this->v[1];
 	for(auto p = str_pos.begin(); p != str_pos.end(); ++p) {
-		hash = (hash * 10 + (*p - '0')) % d;
+		hash_ = (hash_ + (*p - '0')) % d;
 	}
-	return hash;
+	return hash_;
 }
 
 string VCFFillableRecord::decide_by_majority(const vector<string>& GTs) const {
@@ -387,7 +394,8 @@ string VCFFillableRecord::decide_by_majority(const vector<string>& GTs) const {
 			max_pair = *p;
 	}
 	
-	const vector<string>&	max_GTs = max_pair.second;
+	vector<string>	max_GTs = max_pair.second;
+	std::sort(max_GTs.begin(), max_GTs.end());	// Python版と合わせるため
 	if(max_GTs.size() == 1)
 		return max_GTs.front();
 	else	// 最多が複数ある場合は乱数的なものを使う
@@ -396,14 +404,17 @@ string VCFFillableRecord::decide_by_majority(const vector<string>& GTs) const {
 
 void VCFFillableRecord::swap_parents(int i, const string& GT) {
 	if(GT == this->v[i+9].substr(0, 3))
-		;
-	else if(GT == "0|0") {
-		this->set_GT(i, GT);
-		this->set_GT(i == 0 ? 1 : 0, "1|1");
-	}
-	else if(GT == "1|1") {
-		this->set_GT(i, GT);
-		this->set_GT(i == 0 ? 1 : 0, "0|0");
+		return;
+	
+	if(GT == "0|0" || GT == "1|1") {
+		const bool	is_mat_00 = (i == 0) ^ (GT == "1|1");
+		this->set_GT(0, is_mat_00 ? "0|0" : "1|1");
+		this->set_GT(1, is_mat_00 ? "1|1" : "0|0");
+		
+		// 子どもも入れ換えなければならない
+		const string	prog_GT = is_mat_00 ? "0|1" : "1|0";
+		for(size_t i = 2; i < this->samples.size(); ++i)
+			this->set_GT(i, prog_GT);
 	}
 }
 
@@ -509,6 +520,8 @@ VCFRecord *VCFFillableRecord::integrate(
 			integrate_each_sample(records, *p);
 		}
 	}
+if(record->pos() == 14312784)
+cout << record->pos() << endl;
 	
 	// 交換したあとにGenotypeを集める
 	vector<string>	v(record->v.begin(), record->v.begin() + 9);
@@ -623,7 +636,7 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 	else if(selected)
 		return select_nearest_froms(pairs, i);
 	
-	vector<Pair>	new_pairs;
+	vector<Pair>	new_pairs;	// 元々のGenotypeと同じになるペア
 	for(auto p = pairs.begin(); p != pairs.end(); ++p) {
 		string	parent_gt = record->gt_from_parent(p->first, p->second);
 		if(Genotype::sum_gt(record->get_gt(i)) == Genotype::sum_gt(parent_gt))
@@ -698,22 +711,61 @@ double VCFFillable::RecordSet::compute_phasing_likelihood(int mat_phasing,
 	return ll;
 }
 
+pair<int, int> VCFFillable::RecordSet::select_phasing(
+									const vector<pair<int, int>>& candidates) {
+	if(candidates.size() == 1)
+		return candidates.front();
+	
+	const int	mat_int_gt = record->mat_int_gt();
+	const int	pat_int_gt = record->pat_int_gt();
+	
+	vector<tuple<int, int, int>>	v;	// [(score, mat_phasing, pat_phasing)]
+	for(auto p = candidates.begin(); p != candidates.end(); ++p) {
+		const int	mat_int_gt1 = (p->first >> 1) + (p->first & 1);
+		const int	pat_int_gt1 = (p->second >> 1) + (p->second & 1);
+		const int	score = abs(mat_int_gt1 - mat_int_gt) +
+							abs(pat_int_gt1 - pat_int_gt);
+		v.push_back(make_tuple(score, p->first, p->second));
+	}
+	// これだと、同じスコアならphasingが小さい方から選んでいる
+	// 本当はランダム的に選びたい
+	const auto	p = std::min_element(v.begin(), v.end());
+	return make_pair(get<1>(*p), get<2>(*p));
+}
+
+pair<int, int> VCFFillable::RecordSet::determine_phasing_core(
+								const vector<tuple<double, int, int>>& lls) {
+	// 最大に近いllを集める
+	vector<pair<int, int>>	candidates;
+	const double	max_ll = get<0>(lls.back());
+	for(size_t i = lls.size() - 1; i < lls.size(); --i) {
+		const double	ll = get<0>(lls[i]);
+		if(ll > max_ll - 1e-9)
+			candidates.push_back(make_pair(get<1>(lls[i]), get<2>(lls[i])));
+		else
+			break;
+	}
+	
+	return this->select_phasing(candidates);
+}
+
 void VCFFillable::RecordSet::determine_phasing() {
 	if(this->record == NULL)
 		return;
 	
-	int	mat_phasing = 0;
-	int	pat_phasing = 0;
 	const vector<pair<int, int>>	phasing = record->possible_phasings();
-	double	max_ll = -std::numeric_limits<double>::max();
+//	double	max_ll = -std::numeric_limits<double>::max();
+	vector<tuple<double, int, int>>	lls;
 	for(auto p = phasing.begin(); p != phasing.end(); ++p) {
 		const double	ll = compute_phasing_likelihood(p->first, p->second);
-		if(ll > max_ll) {
-			mat_phasing = p->first;
-			pat_phasing = p->second;
-			max_ll = ll;
-		}
+		lls.push_back(make_tuple(ll, p->first, p->second));
 	}
+	
+	// 最大のllとほとんど同じllがあったとき、
+	std::sort(lls.begin(), lls.end());
+	const auto	p = this->determine_phasing_core(lls);
+	const int	mat_phasing = p.first;
+	const int	pat_phasing = p.second;
 	
 	// この処理は本当に合っているのか
 	static const string	gts[] = { "0|0", "1|0", "0|1", "1|1" };
@@ -792,6 +844,7 @@ void VCFFillable::RecordSet::impute_core() {
 		new_gts.push_back(modify_gt(i));
 	}
 	record->modify_gts(new_gts);
+	record->modify_parents_type();
 }
 
 int VCFFillable::RecordSet::select_mat(const vector<Pair>& pairs) const {
@@ -863,6 +916,8 @@ VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 
 void VCFFillable::modify() {
 	vector<Group>	groups = group_records();
+if(samples[0] == "Murcott")
+cout << samples[1] << endl;
 	for(size_t i = 0U; i < groups.size(); ++i) {
 		if(groups[i].second.front()->is_fillable_type())
 			this->phase(i, groups, true);
@@ -1084,6 +1139,11 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 	const int	from1 = f1.second;
 	const int	i2 = f2.first;
 	const int	from2 = f2.second;
+	if(from1 == 0 && from2 == 0) {
+		// 前後がないとき乱数的に決める
+		const auto	*r0 = this->fillable_records[i];
+		return r0->pos() % 2 + 1;
+	}
 	if(from1 == from2)
 		return from1;
 	else if(from2 == 0)

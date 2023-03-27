@@ -152,6 +152,8 @@ void modify_00x11(const HeHoRecords& heho_records, ImpRecords& other_records) {
 	auto	records = sort_records(heho_records, other_records);
 	
 	for(auto p = records.begin(); p != records.end(); ++p) {
+if(!p->empty() && p->front()->pos() == 2591277)
+cout << p->front()->get_samples()[1] << endl;
 		if(p->size() >= 2)
 			VCFImpFamilyRecord::modify_00x11(*p);
 	}
@@ -319,6 +321,8 @@ void fill_in_thread(void *config) {
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		auto	vcfs = c->items[i].first;
 		auto	records = c->items[i].second;
+if(vcfs[0]->get_samples()[0] == "Murcott")
+cout << vcfs[0]->get_samples()[1] << endl;
 		auto	result = VCFFillable::fill(vcfs, records, c->all_out);
 		c->filled_vcfs[i] = result;
 	}
@@ -441,7 +445,7 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 	auto	*merged_vcf = fill_and_merge_vcf(imputed_vcfs, other_records,
 											orig_vcf->get_samples(), option);
 	
-#if 0
+#if 1
 	// 両親が補完されているが子どもが少ない家系を補完する
 	// 補完できる家系がなくなるまで繰り返す
 	sample_man->add_imputed_samples(merged_vcf->get_samples());

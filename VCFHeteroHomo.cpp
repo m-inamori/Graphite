@@ -423,6 +423,8 @@ ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
 	vector<VCFHeteroHomoRecord *>	unused_records;
 	for(auto q = vcfs.begin(); q != vcfs.end(); ++q) {
 		auto	*vcf = *q;
+if(vcf->get_samples()[0] == "Murcott")
+cout << vcf->get_samples()[1] << endl;
 		auto	p = vcf->impute();
 		auto	subvcfs = p.first;
 		auto	unused = p.second;
@@ -439,13 +441,12 @@ ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
 }
 
 void VCFHeteroHomo::inverse_phases(const vector<VCFHeteroHomo *>& vcfs) {
-if(vcfs[0]->get_samples()[1] == "Mihaya" || vcfs[0]->get_samples()[0] == "Mihaya")
-cout << vcfs[0]->get_samples()[0] << endl;
+	
 	const auto	*graph = make_vcf_graph(vcfs);
 	const vector<bool>	invs = graph->optimize_inversions();
 	delete graph;
-	for(size_t i = 1; i < vcfs.size(); ++i) {
-		if(invs[i-1])
+	for(size_t i = 0; i < vcfs.size(); ++i) {
+		if(invs[i])
 			vcfs[i]->inverse_hetero_parent_phases();
 	}
 }

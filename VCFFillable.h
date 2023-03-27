@@ -72,11 +72,11 @@ public:
 	int pat_from(int c) const;
 	
 	void modify_gts();
+	void modify_parents_type();
 	int from_which_chrom(std::size_t i, bool is_mat) const;
 	void modify_gts(const STRVEC& new_prog_gts);
 	void fill_PGT();
 	void set(const STRVEC& new_v, FillType new_type);
-	void modify_parents_type();
 	
 private:
 	std::vector<std::vector<double>> make_probability_table() const;
@@ -181,6 +181,10 @@ class VCFFillable : public VCFFamily {
 								int mat_phasing, int pat_phasing) const;
 		double compute_phasing_likelihood(int mat_phasing,
 											int pat_phasing) const;
+		std::pair<int, int> select_phasing(
+						const std::vector<std::pair<int, int>>& candidates);
+		std::pair<int, int> determine_phasing_core(
+						const std::vector<std::tuple<double, int, int>>& lls);
 		void determine_phasing();
 		int select_from(int from1, int from2,
 									const VCFRecord *record1,

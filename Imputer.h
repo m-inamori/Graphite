@@ -60,6 +60,8 @@ public:
 public:
 	static std::vector<const Region *> create(const std::string& seq,
 											const std::vector<double>& cMs);
+	static std::vector<std::tuple<Color, std::size_t, std::size_t>>
+										group_by_colors(const std::string& seq);
 };
 
 
