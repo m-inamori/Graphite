@@ -99,7 +99,7 @@ vector<const Family *> PedigreeTable::make_families(
 		const Progeny	*prog = *p;
 		if(set_samples.find(prog->get_mat()) != set_samples.end() &&
 				set_samples.find(prog->get_pat()) != set_samples.end())
-			progs[prog->parents()].push_back(prog);
+			progs[prog->parents()].push_back(prog->copy());
 	}
 	
 	vector<const Family *>	families;

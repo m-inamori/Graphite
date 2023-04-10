@@ -321,8 +321,6 @@ void fill_in_thread(void *config) {
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		auto	vcfs = c->items[i].first;
 		auto	records = c->items[i].second;
-if(vcfs[0]->get_samples()[0] == "Murcott")
-cout << vcfs[0]->get_samples()[1] << endl;
 		auto	result = VCFFillable::fill(vcfs, records, c->all_out);
 		c->filled_vcfs[i] = result;
 	}
@@ -380,8 +378,10 @@ VCFSmall *fill_and_merge_vcf(
 					map<Parents, vector<VCFHeteroHomo *>>& imputed_vcfs,
 						ImpRecords& other_records,
 						const STRVEC& samples, const Option *option) {
+	// Familyごとに残りのRecordをphaseする
 	vector<VCFFillable *>	filled_vcfs = fill(imputed_vcfs,
 												other_records, option);
+	// FamilyごとのVCFを全て統合する
 	VCFSmall	*vcf_integrated = VCFFillable::merge(filled_vcfs,
 														samples, option);
 	for(auto p = filled_vcfs.begin(); p != filled_vcfs.end(); ++p)
@@ -390,7 +390,7 @@ VCFSmall *fill_and_merge_vcf(
 	return vcf_integrated;
 }
 
-VCFRecord *merge_progeny_records(vector<VCFFamily *>& vcfs,
+VCFRecord *merge_progeny_records(vector<VCFFillable *>& vcfs,
 									size_t i, const STRVEC& samples) {
 	const STRVEC&	v1 = vcfs.front()->get_records()[i]->get_v();
 	STRVEC	v(v1.begin(), v1.begin() + 9);
@@ -404,7 +404,7 @@ VCFRecord *merge_progeny_records(vector<VCFFamily *>& vcfs,
 VCFSmall *impute_vcf_by_parents(
 				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 				const vector<const Family *>& families, const Map& geno_map) {
-	vector<VCFFamily *>	vcfs;
+	vector<VCFFillable *>	vcfs;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		auto	*family_vcf = VCFHeteroHomoPP::impute_by_parents(
 												orig_vcf, merged_vcf,
@@ -455,9 +455,13 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 			break;
 		auto	*new_imputed_vcf = impute_vcf_by_parents(orig_vcf, merged_vcf,
 															families, geno_map);
+		Common::delete_all(families);
 		vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
-		merged_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+		auto	*new_merged_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+		delete merged_vcf;
+		merged_vcf = new_merged_vcf;
 		sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
+		delete new_imputed_vcf;
 	}
 	sample_man->clear_imputed_samples();
 #endif
@@ -499,6 +503,7 @@ void impute_VCF(const Option *option) {
 	}
 	
 	delete vcf;
+	delete sample_man;
 	delete materials;
 }
 

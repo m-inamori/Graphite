@@ -7,6 +7,12 @@ using namespace std;
 
 //////////////////// SampleManager ////////////////////
 
+SampleManager::~SampleManager() {
+	delete ped;
+	Common::delete_all(large_families);
+	Common::delete_all(small_families);
+}
+
 bool SampleManager::is_imputed(const string& sample) const {
 	return this->imputed_samples.find(sample) != this->imputed_samples.end();
 }
@@ -43,11 +49,46 @@ bool SampleManager::is_parents_imputed_and_progenies_not_imputed(
 	return false;
 }
 
+bool SampleManager::is_parent_imputed_and_progenies_not_imputed(
+												const Family *family) const {
+	// 片親だけimputed
+	if(!(this->is_imputed(family->get_mat()) ^
+				this->is_imputed(family->get_pat())))
+		return false;
+	
+	const vector<const Progeny *>&	progenies = family->get_progenies();
+	for(auto p = progenies.begin(); p != progenies.end(); ++p) {
+		if(!this->is_imputed((*p)->get_name()))
+			return true;
+	}
+	return false;
+}
+
 vector<const Family *> SampleManager::extract_small_families() const {
 	vector<const Family *>	families;
 	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
 		const Family	*family = *p;
 		if(!this->is_parents_imputed_and_progenies_not_imputed(family))
+			continue;
+		
+		vector<const Progeny *>	new_progenies;
+		const vector<const Progeny *>&	progenies = family->get_progenies();
+		for(auto q = progenies.begin(); q != progenies.end(); ++q) {
+			if(!this->is_imputed((*q)->get_name()))
+				new_progenies.push_back((*q)->copy());
+		}
+		families.push_back(new Family(family->get_mat(),
+										family->get_pat(), new_progenies));
+	}
+	return families;
+}
+
+vector<const Family *>
+			SampleManager::extract_single_parent_phased_families() const {
+	vector<const Family *>	families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const Family	*family = *p;
+		if(!this->is_parent_imputed_and_progenies_not_imputed(family))
 			continue;
 		
 		vector<const Progeny *>	new_progenies;
@@ -61,6 +102,7 @@ vector<const Family *> SampleManager::extract_small_families() const {
 	}
 	return families;
 }
+
 
 vector<const Family *> SampleManager::make_families(const PedigreeTable *ped,
 										const vector<string>& samples,

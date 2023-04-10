@@ -65,7 +65,6 @@ public:
 	double cM(std::size_t i) const;
 	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs);
 	void set_records_base(const std::vector<VCFHeteroHomoRecord *>& rs);
-	void clear_records();
 	
 	// haplotype1の各レコードのGenotypeが0なのか1なのか
 	std::vector<int> make_parent_haplotypes(const Graph::InvGraph& graph) const;

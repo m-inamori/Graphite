@@ -520,8 +520,6 @@ VCFRecord *VCFFillableRecord::integrate(
 			integrate_each_sample(records, *p);
 		}
 	}
-if(record->pos() == 14312784)
-cout << record->pos() << endl;
 	
 	// 交換したあとにGenotypeを集める
 	vector<string>	v(record->v.begin(), record->v.begin() + 9);
@@ -916,8 +914,6 @@ VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 
 void VCFFillable::modify() {
 	vector<Group>	groups = group_records();
-if(samples[0] == "Murcott")
-cout << samples[1] << endl;
 	for(size_t i = 0U; i < groups.size(); ++i) {
 		if(groups[i].second.front()->is_fillable_type())
 			this->phase(i, groups, true);
@@ -1304,6 +1300,7 @@ VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 	
 	const auto	q = integrate_samples(sss, orig_samples);
 	const STRVEC&	new_samples = q.first;
+	// サンプルが各Familyの何番目にあるか
 	const auto&		pos_samples = q.second;
 	
 	const vector<STRVEC>	header = vcf->create_header(new_samples);
@@ -1312,8 +1309,8 @@ VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 	const STRVEC&	samples = new_vcf->get_samples();
 	vector<VCFRecord *>	records;
 	for(auto p = rss.begin(); p != rss.end(); ++p) {
-		records.push_back(
-				VCFFillableRecord::integrate(*p, samples, pos_samples));
+		auto	*r = VCFFillableRecord::integrate(*p, samples, pos_samples);
+		records.push_back(r);
 	}
 	new_vcf->add_records(records);
 	return new_vcf;

@@ -73,6 +73,9 @@ public:
 	POSITION record_position(const VCFRecord& record) const;
 	std::string chr(int chr_id) const;
 	int find_column(const std::string& sample) const;
+	std::vector<std::size_t> extract_columns(const STRVEC& samples) const {
+		return extract_columns(samples.begin(), samples.end());
+	}
 	std::vector<std::size_t> extract_columns(STRVEC::const_iterator first,
 											STRVEC::const_iterator last) const;
 	void write_header(std::ostream& os) const;
@@ -122,6 +125,7 @@ public:
 	void add_records(std::vector<VCFRecord *>& rs) {
 		records.insert(records.end(), rs.begin(), rs.end());
 	}
+	void clear_records() { records.clear(); }
 	
 public:
 	static VCFSmall *read(const std::string& path);

@@ -42,6 +42,7 @@ public:
 	VCFFillableRecord(const STRVEC& v, const STRVEC& s,
 									int i, FillType t, ParentComb c) :
 						VCFFamilyRecord(v, s), index(i), type(t), comb(c) { }
+	~VCFFillableRecord() { }
 	
 	int get_index() const { return index; }
 	FillType get_type() const { return type; }

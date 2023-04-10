@@ -178,24 +178,21 @@ VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmall *vcf1,
 											const VCFSmall *vcf2,
 											const STRVEC& samples) {
 	// samplesは[mat, pat, prog1, ...]の前提
-	const int	mat_c = vcf1->find_column(samples[0]);
-	const int	pat_c = vcf1->find_column(samples[1]);
-	map<string, int>	sample_to_columns;
-	for(size_t i = 0; i < vcf2->get_samples().size(); ++i)
-		sample_to_columns[vcf2->get_samples()[i]] = i + 9;
-	
+	const vector<size_t>	columns1 = vcf1->extract_columns(samples);
+	const vector<size_t>	columns2 = vcf2->extract_columns(samples);
 	const auto	new_header = vcf1->create_header(samples);
-	const auto	prog_cs = vcf2->extract_columns(samples.begin() + 2,
-														samples.end());
+	
 	vector<VCFFamilyRecord *>	new_records;
 	for(size_t i = 0; i < vcf1->size(); ++i) {
 		const auto	*record1 = vcf1->get_record(i);
 		const auto	*record2 = vcf2->get_record(i);
 		STRVEC	v(record1->get_v().begin(), record1->get_v().begin() + 9);
-		v.push_back(record1->get_gt(mat_c-9));
-		v.push_back(record1->get_gt(pat_c-9));
-		for(auto p = prog_cs.begin(); p != prog_cs.end(); ++p)
-			v.push_back(record2->get_gt(*p-9));
+		for(size_t i = 0; i < samples.size(); ++i) {
+			if(columns1[i] != string::npos)
+				v.push_back(record1->get_v()[columns1[i]]);
+			else
+				v.push_back(record2->get_v()[columns2[i]]);
+		}
 		auto	*new_record = new VCFFamilyRecord(v, samples);
 		new_records.push_back(new_record);
 	}

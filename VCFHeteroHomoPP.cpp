@@ -222,7 +222,7 @@ VCFFillable *VCFHeteroHomoPP::merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 							mat_vcf->get_samples(), records);
 }
 
-VCFFamily *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
+VCFFillable *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const STRVEC& samples, const Map& gmap) {
 	VCFFamily	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
@@ -235,11 +235,19 @@ VCFFamily *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
 	auto	*pat_vcf = new VCFHeteroHomoPP(vcf->get_header(),
 											vcf->get_samples(),
 											rss[FillType::PAT], gmap);
+	delete vcf;
 	mat_vcf->impute();
 	pat_vcf->impute();
 	auto	new_vcf = VCFHeteroHomoPP::merge_vcf(mat_vcf, pat_vcf,
 													rss[FillType::FILLED],
 													rss[FillType::IMPUTABLE]);
 	new_vcf->phase_hetero_hetero();
+	
+	// Recordは使いまわししているので、空にしてVCFだけ消す
+	mat_vcf->clear_records();
+	pat_vcf->clear_records();
+	delete mat_vcf;
+	delete pat_vcf;
+	
 	return new_vcf;
 }

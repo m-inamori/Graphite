@@ -157,8 +157,13 @@ vector<size_t> VCFBase::extract_columns(STRVEC::const_iterator first,
 		dic[this->samples[i]] = i + 9;
 	
 	vector<size_t>	columns;
-	for(auto p = first; p != last; ++p)
-		columns.push_back(dic[*p]);
+	for(auto p = first; p != last; ++p) {
+		auto	q = dic.find(*p);
+		if(q != dic.end())
+			columns.push_back(q->second);
+		else
+			columns.push_back(string::npos);
+	}
 	return columns;
 }
 

@@ -49,7 +49,7 @@ public:
 								  const VCFHeteroHomoPP *pat_vcf,
 				 const std::vector<VCFFillableRecord *>& homohomo_records,
 				 const std::vector<VCFFillableRecord *>& heterohetero_records);
-	static VCFFamily *impute_by_parents(const VCFSmall *orig_vcf,
+	static VCFFillable *impute_by_parents(const VCFSmall *orig_vcf,
 										const VCFSmall *imputed_vcf,
 										const STRVEC& samples, const Map& gmap);
 	

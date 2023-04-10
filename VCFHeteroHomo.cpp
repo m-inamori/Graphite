@@ -81,10 +81,6 @@ void VCFHeteroHomo::set_records_base(const vector<VCFHeteroHomoRecord *>& rs) {
 	VCFFamily::set_records(frs);
 }
 
-void VCFHeteroHomo::clear_records() {
-	records.clear();
-}
-
 double VCFHeteroHomo::cM(size_t i) const {
 	return genetic_map.bp_to_cM(hh_records[i]->pos());
 }
@@ -423,8 +419,6 @@ ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
 	vector<VCFHeteroHomoRecord *>	unused_records;
 	for(auto q = vcfs.begin(); q != vcfs.end(); ++q) {
 		auto	*vcf = *q;
-if(vcf->get_samples()[0] == "Murcott")
-cout << vcf->get_samples()[1] << endl;
 		auto	p = vcf->impute();
 		auto	subvcfs = p.first;
 		auto	unused = p.second;
