@@ -122,6 +122,9 @@ std::string paint(const std::string& seq, const std::vector<double>& cMs,
 
 //////////////////// impute ////////////////////
 
+std::vector<char> create_states(const std::string& seq);
+std::string impute_seq(const std::string& seq,
+						const std::vector<double>& cMs, double min_c);
 Matrix compute_T(double p, const std::vector<char>& hidden_states);
 std::string impute(const std::string& seq, const std::vector<char>& hidden_seq,
 			const std::vector<char>& states, const std::vector<double>& cMs);

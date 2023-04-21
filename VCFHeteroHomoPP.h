@@ -36,7 +36,6 @@ public:
 private:
 	double cM(std::size_t i) const;
 	std::string make_seq(std::size_t i) const;
-	std::vector<char> create_states(const std::string& seq) const;
 	std::string impute_sample_seq(std::size_t i,
 								const std::vector<double>& cMs, double min_c);
 	std::string update_each(std::size_t i, std::size_t j, char c);

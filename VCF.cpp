@@ -26,9 +26,6 @@ STRVEC VCFRecord::gts() const {
 }
 
 int VCFRecord::get_int_gt(size_t i) const {
-if(i + 9 >= v.size()) {
-cout << i + 9 << " " << v.size() << endl;
-}
 	const string&	s = v[i+9];
 	try {
 		return stoi(s.substr(0U, 1U)) + stoi(s.substr(2U, 1U));

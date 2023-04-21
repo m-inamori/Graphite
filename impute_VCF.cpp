@@ -9,6 +9,7 @@
 #include "VCFHeteroHeteroLite.h"
 #include "VCFFillable.h"
 #include "VCFHeteroHomoPP.h"
+#include "VCFOneParentPhased.h"
 #include "option.h"
 #include "common.h"
 
@@ -152,8 +153,6 @@ void modify_00x11(const HeHoRecords& heho_records, ImpRecords& other_records) {
 	auto	records = sort_records(heho_records, other_records);
 	
 	for(auto p = records.begin(); p != records.end(); ++p) {
-if(!p->empty() && p->front()->pos() == 2591277)
-cout << p->front()->get_samples()[1] << endl;
 		if(p->size() >= 2)
 			VCFImpFamilyRecord::modify_00x11(*p);
 	}
@@ -273,9 +272,6 @@ pair<map<Parents, vector<VCFHeteroHomo *>>, HeHoRecords>
 			imputed_vcfs[vcf->parents()].push_back(vcf);
 		}
 		
-		if(!option->all_out)
-			continue;
-		
 		for(auto q = unused_records2.begin(); q != unused_records2.end(); ++q) {
 			VCFHeteroHomoRecord	*record = *q;
 			record->enable_modification();
@@ -291,6 +287,9 @@ void join_records(ImpRecords& records, HeHoRecords& unused_records) {
 		const auto&	rs = q->second;
 		auto&	records_ = records[parents];
 		records_.insert(records_.end(), rs.begin(), rs.end());
+		sort(records_.begin(), records_.end(),
+				[](const VCFFamilyRecord *r1, const VCFFamilyRecord *r2) {
+					return r1->pos() < r2->pos(); });
 	}
 }
 
@@ -332,7 +331,7 @@ vector<VCFFillable *> fill_parellel(vector<Item>& items, const Option *op) {
 	const int	T = min((int)items.size(), op->num_threads);
 	vector<ConfigFillThread *>	configs(T);
 	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigFillThread(items, op->all_out, i, T, results);
+		configs[i] = new ConfigFillThread(items, true, i, T, results);
 	
 #ifndef DEBUG
 	vector<pthread_t>	threads_t(T);
@@ -435,33 +434,99 @@ VCFSmall *impute_vcf_by_parents(
 	return new_vcf;
 }
 
+VCFSmall *impute_vcf_by_parent(
+				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+				const vector<const Family *>& families,
+				const Map& geno_map, const SampleManager *sample_man) {
+	vector<VCFFamily *>	vcfs;
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const Family	*family = *p;
+		const bool	is_mat_phased = sample_man->is_imputed(family->get_mat());
+		const auto&	samples = family->get_samples();
+		auto	*family_vcf = VCFOneParentPhased::impute_by_parent(
+									orig_vcf, merged_vcf,
+									samples, is_mat_phased, geno_map);
+		vcfs.push_back(family_vcf);
+	}
+	
+	STRVEC	samples;	// 今回phasingした親と子どもを集める
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		VCFFamily	*vcf = *p;
+		STRVEC	ss = vcf->get_samples();
+		if(sample_man->is_imputed(ss[0]))
+			samples.push_back(ss[1]);
+		else
+			samples.push_back(ss[0]);
+		samples.insert(samples.end(), ss.begin() + 2, ss.end());
+	}
+	
+	// samplesの所有権をnew_vcfに持たせる
+	auto	new_header = orig_vcf->create_header(samples);
+	vector<VCFRecord *>	empty_records;
+	auto	*new_vcf = new VCFSmall(new_header, samples, empty_records);
+	const auto&	samples_ = new_vcf->get_samples();
+	
+	vector<VCFRecord *>	merged_records;
+	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
+		new_vcf->add_record(VCFOneParentPhased::merge_records(
+													vcfs, i, samples_));
+	}
+	
+	Common::delete_all(vcfs);
+	
+	return new_vcf;
+}
+
 VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 								const Map& geno_map, const Option *option) {
 	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << endl;
 	
+	const auto&	all_samples = orig_vcf->get_samples();
 	auto	p = impute_hetero_homo(orig_vcf, sample_man, geno_map, option);
 	auto	imputed_vcfs = p.first;
 	auto	other_records = p.second;
 	auto	*merged_vcf = fill_and_merge_vcf(imputed_vcfs, other_records,
-											orig_vcf->get_samples(), option);
+														all_samples, option);
+	if(option->only_large_families)
+		return merged_vcf;
 	
 #if 1
 	// 両親が補完されているが子どもが少ない家系を補完する
 	// 補完できる家系がなくなるまで繰り返す
 	sample_man->add_imputed_samples(merged_vcf->get_samples());
 	while(true) {
-		auto	families = sample_man->extract_small_families();
-		if(families.empty())
+		// 両親が補完されているが子どもが少ない家系を補完する
+		auto	families1 = sample_man->extract_small_families();
+		if(!families1.empty()) {
+			auto	*new_imputed_vcf = impute_vcf_by_parents(orig_vcf,
+												merged_vcf, families1, geno_map);
+			Common::delete_all(families1);
+			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
+			delete merged_vcf;
+			merged_vcf = new_merged_vcf;
+			sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
+			delete new_imputed_vcf;
+			continue;
+		}
+		
+		// 片親が補完されている家系を補完する
+		auto	families2 = sample_man->extract_single_parent_phased_families();
+		if(!families2.empty()) {
+			auto	*new_imputed_vcf = impute_vcf_by_parent(
+											orig_vcf, merged_vcf,
+											families2, geno_map, sample_man);
+			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
+			delete merged_vcf;
+			merged_vcf = new_merged_vcf;
+			sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
+			delete new_imputed_vcf;
+			Common::delete_all(families2);
+			continue;
+		}
+		else
 			break;
-		auto	*new_imputed_vcf = impute_vcf_by_parents(orig_vcf, merged_vcf,
-															families, geno_map);
-		Common::delete_all(families);
-		vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
-		auto	*new_merged_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
-		delete merged_vcf;
-		merged_vcf = new_merged_vcf;
-		sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
-		delete new_imputed_vcf;
 	}
 	sample_man->clear_imputed_samples();
 #endif

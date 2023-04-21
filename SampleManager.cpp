@@ -95,7 +95,7 @@ vector<const Family *>
 		const vector<const Progeny *>&	progenies = family->get_progenies();
 		for(auto q = progenies.begin(); q != progenies.end(); ++q) {
 			if(!this->is_imputed((*q)->get_name()))
-				new_progenies.push_back(*q);
+				new_progenies.push_back((*q)->copy());
 		}
 		families.push_back(new Family(family->get_mat(),
 										family->get_pat(), new_progenies));

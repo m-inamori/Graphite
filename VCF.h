@@ -33,6 +33,9 @@ public:
 	ll	pos() const { return stoll(this->v[1]); }
 	const std::string	format() const { return this->v[8]; }
 	std::string	gt(const std::string& sample) const;
+	bool is_NA(std::size_t i) const {
+		return v[i+9].c_str()[0] == '.' || v[i+9].c_str()[2] == '.';
+	}
 	STRVEC gts() const;
 	std::string get_gt(std::size_t i) const { return v[i+9]; }
 	std::string get_GT(std::size_t i) const { return v[i+9].substr(0, 3); }
@@ -67,6 +70,7 @@ public:
 	const std::vector<STRVEC>& get_header() const { return header; }
 	std::vector<STRVEC> create_header(const STRVEC& samples) const;
 	const STRVEC& get_samples() const { return samples; }
+	size_t num_samples() const { return samples.size(); }
 	std::map<std::string,std::size_t>
 	number_samples(const STRVEC& samples_) const;
 	POSITION position(const std::pair<std::string,ll>& p) const;

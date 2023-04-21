@@ -90,7 +90,6 @@ public:
 private:
 	Graph::InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
-	std::vector<char> create_states(const std::string& seq) const;
 	std::string impute_each_sample_seq(int i,
 								const std::vector<double>& cMs, double min_c);
 	void impute_each(const OptionImpute *option);

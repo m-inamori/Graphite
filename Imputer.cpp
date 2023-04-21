@@ -1,6 +1,7 @@
 #include <map>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
 #include "Imputer.h"
 #include "common.h"
 
@@ -215,6 +216,32 @@ string Imputer::paint(const string& seq, const vector<double>& cMs,
 
 //////////////////// impute ////////////////////
 
+vector<char> Imputer::create_states(const string& seq) {
+	if(seq.find('N') != string::npos) {
+		vector<char>	states = { '0', '1', 'N' };
+		return states;
+	}
+	else {
+		vector<char>	states = { '0', '1' };
+		return states;
+	}
+}
+
+string Imputer::impute_seq(const string& seq,
+							const vector<double>& cMs, double min_c) {
+	if(std::all_of(seq.begin(), seq.end(), [](char c) { return c == 'N'; }))
+		return string(seq.size(), '0');
+	else if(Common::is_all_same(seq))	// あとでwithout_Nにする
+		return seq;
+	
+	const vector<char>	hidden_states = { '0', '1' };
+	const vector<char>	states = Imputer::create_states(seq);
+	const string	hidden_seq = Imputer::impute(seq,
+												hidden_states, states, cMs);
+	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);
+	return painted_seq;
+}
+
 Matrix Imputer::compute_T(double prob, const vector<char>& hidden_states) {
 	Matrix	T;
 	for(auto p = hidden_states.begin(); p != hidden_states.end(); ++p) {
@@ -227,8 +254,11 @@ Matrix Imputer::compute_T(double prob, const vector<char>& hidden_states) {
 string Imputer::impute(const string& seq, const vector<char>& hidden_states,
 						const vector<char>& states, const vector<double>& cMs) {
 	vector<double>	ps;
-	for(size_t i = 0; i < cMs.size() - 1; ++i)
-		ps.push_back((cMs[i+1] - cMs[i]) / 100);
+	for(size_t i = 0; i < cMs.size() - 1; ++i) {
+		const double	d = (cMs[i+1] - cMs[i]) / 100;
+		const double	r = (exp(d) - exp(-d)) / (exp(d) + exp(-d));
+		ps.push_back(r);
+	}
 	
 	vector<Matrix>	Ts;
 	for(auto p = ps.begin(); p != ps.end(); ++p)

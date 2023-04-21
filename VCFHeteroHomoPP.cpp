@@ -59,17 +59,6 @@ string VCFHeteroHomoPP::make_seq(size_t i) const {
 	return ss.str();
 }
 
-vector<char> VCFHeteroHomoPP::create_states(const string& seq) const {
-	if(seq.find('N') != string::npos) {
-		vector<char>	states = { '0', '1', 'N' };
-		return states;
-	}
-	else {
-		vector<char>	states = { '0', '1' };
-		return states;
-	}
-}
-
 string VCFHeteroHomoPP::impute_sample_seq(size_t i,
 								const vector<double>& cMs, double min_c) {
 	const string	seq = this->make_seq(i);
@@ -77,7 +66,7 @@ string VCFHeteroHomoPP::impute_sample_seq(size_t i,
 		return create_same_color_string(seq);
 	
 	const vector<char>	hidden_states = { '0', '1' };
-	const vector<char>	states = create_states(seq);
+	const vector<char>	states = Imputer::create_states(seq);
 	const string	hidden_seq = Imputer::impute(seq,
 												hidden_states, states, cMs);
 	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);

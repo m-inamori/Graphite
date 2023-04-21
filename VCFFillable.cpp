@@ -318,7 +318,7 @@ bool VCFFillableRecord::is_near_prog_gts(const STRVEC& gts) const {
 		if(!is_same_gts(gts[i], v[i+11]))
 			dist += 1;
 	}
-	return dist < num / 2;
+	return dist < max(1, num / 2);
 }
 
 void VCFFillableRecord::modify_gts(const STRVEC& new_prog_gts) {
@@ -940,6 +940,16 @@ void VCFFillable::phase_hetero_hetero() {
 		if(groups[i].first == FillType::IMPUTABLE)
 			this->phase(i, groups, false);
 	}
+	
+	for(size_t i = 0U; i < fillable_records.size(); ++i) {
+		auto	*record = fillable_records[i];
+		if(record->is_mat_type())
+			this->impute_NA_mat(i);
+		else if(record->is_pat_type())
+			this->impute_NA_pat(i);
+		else if(record->is_fillable_type())
+			this->impute_others(i);
+	}
 }
 
 VCFFillable *VCFFillable::create_from_header() const {
@@ -1318,26 +1328,6 @@ VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 
 VCFSmall *VCFFillable::merge(const vector<VCFFillable *>& vcfs,
 							const STRVEC& orig_samples, const Option *option) {
-	const auto	rss = collect_records(vcfs, option->all_out);
-	if(option->integrates_samples) {
-		return integrate(vcfs.front(), rss, orig_samples);
-	}
-	else {
-		STRVEC	samples;
-		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-			const STRVEC&	ss = (*p)->get_samples();
-			samples.insert(samples.end(), ss.begin(), ss.end());
-		}
-		const auto	header = vcfs.front()->create_header(samples);
-		VCFSmall	*vcf = new VCFSmall(header, samples, vector<VCFRecord *>());
-		
-		vector<VCFRecord *>	records;
-		const STRVEC&	ss = vcf->get_samples();
-		for(auto p = rss.begin(); p != rss.end(); ++p) {
-			VCFRecord	*record = VCFFillableRecord::merge(*p, ss);
-			records.push_back(record);
-		}
-		vcf->add_records(records);
-		return vcf;
-	}
+	const auto	rss = collect_records(vcfs, true);
+	return integrate(vcfs.front(), rss, orig_samples);
 }

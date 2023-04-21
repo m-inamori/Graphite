@@ -67,15 +67,21 @@ const PedigreeTable *PedigreeTable::filter_with_parents(
 vector<const Progeny *> PedigreeTable::get_progenies(const string& mat,
 													  const string& pat) const {
 	vector<const Progeny *>	children;
+	set<string>	set_children;	// for avoiding duplication
 	pair<string,string>	parents(mat, pat);
 	for(auto p = table.begin(); p != table.end(); ++p) {
-		if((*p)->parents() == parents)
-			children.push_back((*p)->copy());
+		if((*p)->parents() == parents) {
+			if(set_children.find((*p)->get_name()) == set_children.end()) {
+				children.push_back((*p)->copy());
+				set_children.insert((*p)->get_name());
+			}
+		}
 	}
 	return children;
 }
 
 vector<const Family *> PedigreeTable::extract_families() const {
+	// collect parents
 	set<pair<string,string>>	s;
 	for(auto p = this->table.begin(); p != this->table.end(); ++p)
 		s.insert((*p)->parents());
@@ -95,11 +101,15 @@ vector<const Family *> PedigreeTable::make_families(
 										const vector<string>& samples) const {
 	set<string>	set_samples(samples.begin(), samples.end());
 	map<pair<string, string>, vector<const Progeny *>>	progs;
+	set<string>	used;
 	for(auto p = this->table.begin(); p != this->table.end(); ++p) {
 		const Progeny	*prog = *p;
 		if(set_samples.find(prog->get_mat()) != set_samples.end() &&
-				set_samples.find(prog->get_pat()) != set_samples.end())
+				set_samples.find(prog->get_pat()) != set_samples.end() &&
+				used.find(prog->get_name()) == used.end()) {
 			progs[prog->parents()].push_back(prog->copy());
+			used.insert(prog->get_name());
+		}
 	}
 	
 	vector<const Family *>	families;

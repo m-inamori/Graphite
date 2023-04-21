@@ -18,18 +18,17 @@ public:
 	const std::string	path_out;
 	const double		ratio;
 	const int			lower_progs;
-	const bool			all_out;
-	const bool			integrates_samples;
+	const bool			only_large_families;
 	
 public:
 	Option(const std::string& vcf, const std::string& ped,
 			const std::string& map, const std::vector<std::size_t>& fam,
 			const std::vector<std::size_t>& chr,
-			int nt, bool ao,  bool integ, const std::string& out) :
+			int nt, bool ol, const std::string& out) :
 									path_vcf(vcf), path_ped(ped), path_map(map),
 									families(fam), chroms(chr), num_threads(nt),
 									path_out(out), ratio(0.01), lower_progs(10),
-									all_out(ao), integrates_samples(integ) { }
+									only_large_families(ol) { }
 	
 	bool is_efficient_chrom(int i) const;
 	

@@ -81,10 +81,10 @@ Option *Option::create(int argc, char **argv) {
 		const vector<size_t>	families = get_families(argc, argv);
 		const vector<size_t>	chroms = get_chroms(argc, argv);
 		const int	num_threads = get_num_threads(argc, argv);
-		const bool	all_out = exists("-a", argc, argv);
-		const bool	integ = exists("-i", argc, argv);
+		const bool	only_large_families = exists("-l", argc, argv);
 		return new Option(argv[1], argv[2], argv[3], families,
-							chroms, num_threads, all_out, integ, argv[argc-1]);
+							chroms, num_threads,
+							only_large_families, argv[argc-1]);
 	}
 	catch(std::invalid_argument& e) {
 		return NULL;
@@ -98,6 +98,5 @@ void Option::usage(char **argv) {
 	cerr << "family indices: (index|first:last)[,(index|first:last),[..]]"
 																	<< endl;
 	cerr << "chrom indices: same as family indices." << endl;
-	cerr << "-a: all records out." << endl;
-	cerr << "-i: integrate same samples." << endl;
+	cerr << "-l: all records out." << endl;
 }
