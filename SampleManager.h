@@ -33,10 +33,12 @@ public:
 												const Family *family) const;
 	bool is_parent_imputed_and_progenies_not_imputed(
 												const Family *family) const;
+	bool is_progeny_imputed(const Family *family) const;
 	// 補完されていないが両親は補完されている家系
 	std::vector<const Family *> extract_small_families() const;
 	// 補完されていないが片方の親だけ補完されている家系
 	std::vector<const Family *> extract_single_parent_phased_families() const;
+	std::vector<const Family *> extract_progenies_phased_families() const;
 	
 	void add_imputed_samples(const std::vector<std::string>& samples);
 	void clear_imputed_samples();

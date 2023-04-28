@@ -190,8 +190,10 @@ VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmall *vcf1,
 		for(size_t i = 0; i < samples.size(); ++i) {
 			if(columns1[i] != string::npos)
 				v.push_back(record1->get_v()[columns1[i]]);
-			else
+			else if(columns2[i] != string::npos)
 				v.push_back(record2->get_v()[columns2[i]]);
+			else
+				v.push_back("./.");
 		}
 		auto	*new_record = new VCFFamilyRecord(v, samples);
 		new_records.push_back(new_record);

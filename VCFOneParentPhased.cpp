@@ -143,10 +143,11 @@ VCFFamily *VCFOneParentPhased::impute_by_parent(const VCFSmall *orig_vcf,
 	auto	new_vcf = new VCFOneParentPhased(vcf->get_header(),
 							vcf->get_samples(), records, is_mat_phased, gmap);
 	new_vcf->impute();
-	vector<VCFFamilyRecord *>	new_records = new_vcf->get_family_records();
+//	vector<VCFFamilyRecord *>	new_records = new_vcf->get_family_records();
 	VCFFamily	*imputed_vcf = new VCFFamily(vcf->get_header(),
-									vcf->get_samples(), new_records);
-	new_vcf->clear_records();	// recordはそのまま使うので
+//									vcf->get_samples(), new_records);
+									vcf->get_samples(), records);
+	new_vcf->clear_records();	// As imputed_vcf uses the records as they are
 	delete new_vcf;
 	vcf->clear_records();
 	delete vcf;

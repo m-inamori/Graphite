@@ -99,25 +99,27 @@ vector<const Family *> PedigreeTable::extract_families() const {
 
 vector<const Family *> PedigreeTable::make_families(
 										const vector<string>& samples) const {
-	set<string>	set_samples(samples.begin(), samples.end());
 	map<pair<string, string>, vector<const Progeny *>>	progs;
 	set<string>	used;
 	for(auto p = this->table.begin(); p != this->table.end(); ++p) {
 		const Progeny	*prog = *p;
-		if(set_samples.find(prog->get_mat()) != set_samples.end() &&
-				set_samples.find(prog->get_pat()) != set_samples.end() &&
-				used.find(prog->get_name()) == used.end()) {
+		if(used.find(prog->get_name()) == used.end()) {
 			progs[prog->parents()].push_back(prog->copy());
 			used.insert(prog->get_name());
 		}
 	}
 	
 	vector<const Family *>	families;
+	const set<string>	set_samples(samples.begin(), samples.end());
 	for(auto p = progs.begin(); p != progs.end(); ++p) {
 		const auto	parents = p->first;
 		const auto	progenies = p->second;
-		const Family	*family = new Family(parents.first,
-												parents.second, progenies);
+		// samples(VCF)に無い親は不明扱い
+		const string	mat = set_samples.find(parents.first) !=
+									set_samples.end() ? parents.first : "0";
+		const string	pat = set_samples.find(parents.second) !=
+									set_samples.end() ? parents.second : "0";
+		const Family	*family = new Family(mat, pat, progenies);
 		families.push_back(family);
 	}
 	std::sort(families.begin(), families.end(),

@@ -10,6 +10,7 @@
 #include "VCFFillable.h"
 #include "VCFHeteroHomoPP.h"
 #include "VCFOneParentPhased.h"
+#include "VCFProgenyPhased.h"
 #include "option.h"
 #include "common.h"
 
@@ -453,11 +454,13 @@ VCFSmall *impute_vcf_by_parent(
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		VCFFamily	*vcf = *p;
 		STRVEC	ss = vcf->get_samples();
-		if(sample_man->is_imputed(ss[0]))
+		samples.insert(samples.end(), ss.begin() + 2, ss.end());
+		if(ss[0] == "0" || ss[1] == "0")
+			continue;
+		else if(sample_man->is_imputed(ss[0]))
 			samples.push_back(ss[1]);
 		else
 			samples.push_back(ss[0]);
-		samples.insert(samples.end(), ss.begin() + 2, ss.end());
 	}
 	
 	// samplesの所有権をnew_vcfに持たせる
@@ -477,6 +480,29 @@ VCFSmall *impute_vcf_by_parent(
 	return new_vcf;
 }
 
+VCFSmall *impute_vcf_by_progenies(VCFSmall *orig_vcf, VCFSmall *merged_vcf,
+									const vector<const Family *>& families,
+									SampleManager *sample_man) {
+	vector<VCFProgenyPhased *>	vcfs;
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const Family	*family = *p;
+		vector<size_t>	ppi;
+		const vector<string>&	samples = family->get_samples();
+		for(size_t i = 0; i < samples.size(); ++i) {
+			if(sample_man->is_imputed(samples[i]))
+				ppi.push_back(i);
+		}
+		auto	*vcf = VCFProgenyPhased::impute_by_progeny(orig_vcf, merged_vcf,
+													family->get_samples(), ppi);
+		vcfs.push_back(vcf);
+	}
+	
+	vector<VCFSmall *>	vcfs2(vcfs.begin(), vcfs.end());
+	VCFSmall	*new_vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
+	Common::delete_all(vcfs);
+	return new_vcf;
+}
+
 VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 								const Map& geno_map, const Option *option) {
 	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << endl;
@@ -490,7 +516,6 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 	if(option->only_large_families)
 		return merged_vcf;
 	
-#if 1
 	// 両親が補完されているが子どもが少ない家系を補完する
 	// 補完できる家系がなくなるまで繰り返す
 	sample_man->add_imputed_samples(merged_vcf->get_samples());
@@ -525,11 +550,26 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 			Common::delete_all(families2);
 			continue;
 		}
+		
+		// Impute families whose progenies have been imputed
+		auto	families3 = sample_man->extract_progenies_phased_families();
+		if(!families3.empty()) {
+			auto	*new_imputed_vcf = impute_vcf_by_progenies(
+														orig_vcf, merged_vcf,
+														families3, sample_man);
+			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
+			delete merged_vcf;
+			merged_vcf = new_merged_vcf;
+			sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
+			delete new_imputed_vcf;
+			Common::delete_all(families3);
+			continue;
+		}
 		else
 			break;
 	}
 	sample_man->clear_imputed_samples();
-#endif
 	return merged_vcf;
 }
 
