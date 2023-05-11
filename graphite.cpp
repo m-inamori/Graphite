@@ -1,6 +1,6 @@
 #include <iostream>
 #include <cassert>
-#include "impute_VCF.h"
+#include "graphite.h"
 #include "SampleManager.h"
 #include "VCFOriginal.h"
 #include "VCFHeteroHomo.h"
@@ -20,47 +20,13 @@ using namespace std;
 //////////////////// Materials ////////////////////
 
 Materials::~Materials() {
-	delete pedigree;
 	delete geno_map;
 	Common::delete_all(chr_maps);
-	Common::delete_all(families);
-}
-
-void Materials::select_families(set<pair<string,string>>& set_families) {
-	vector<const Family *>	old_families = families;
-	families.clear();
-	for(auto p = old_families.begin(); p != old_families.end(); ++p) {
-		if(set_families.find((*p)->parents()) != set_families.end())
-			families.push_back(*p);
-	}
-}
-
-vector<const Family *> Materials::make_families(
-						const PedigreeTable *pedigree, const Option *option) {
-	const vector<const Family *>	families = pedigree->extract_families();
-	if(option->families.empty())
-		return families;
-	
-	const set<int>	set_families(option->families.begin(),
-								 option->families.end());
-	vector<const Family *>	filtered_families;
-	for(int i = 0; i < (int)families.size(); ++i) {
-		if(set_families.find(i) != set_families.end())
-			filtered_families.push_back(families[i]);
-		else
-			delete families[i];
-	}
-	return filtered_families;
 }
 
 Materials *Materials::create(const Option *option) {
-	auto	*vcf = VCFOriginal::read(option->path_vcf);
-	const auto	*pedigree = PedigreeTable::create(option->path_ped,
-														vcf->get_samples());
 	const auto	*geno_map = Map::read(option->path_map);
-	auto	families = make_families(pedigree, option);
-	delete vcf;
-	return new Materials(pedigree, geno_map, families);
+	return new Materials(geno_map);
 }
 
 

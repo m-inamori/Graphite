@@ -146,32 +146,3 @@ const PedigreeTable *PedigreeTable::read(const string& path) {
 		progs.push_back(Progeny::create(*p));
 	return new PedigreeTable(progs);
 }
-
-const PedigreeTable *PedigreeTable::create(const string& path,
-												const vector<string>& samples) {
-	const PedigreeTable	*ped = PedigreeTable::read(path);
-	const PedigreeTable	*ped2 = ped->filter_with_parents(samples);
-	
-	map<pair<string,string>,int>	counter;
-	for(auto p = ped2->table.begin(); p != ped2->table.end(); ++p) {
-		const Progeny	*prog = *p;
-		counter[prog->parents()] += 1;
-	}
-	
-	set<pair<string,string>>	families;
-	for(auto p = counter.begin(); p != counter.end(); ++p) {
-		if(p->second >= 10)
-			families.insert(p->first);
-	}
-	
-	vector<const Progeny *>	progs;
-	for(auto p = ped2->table.begin(); p != ped2->table.end(); ++p) {
-		const Progeny	*prog = *p;
-		if(families.find(prog->parents()) != families.end())
-			progs.push_back(prog->copy());
-	}
-	
-	delete ped2;
-	delete ped;
-	return new PedigreeTable(progs);
-}

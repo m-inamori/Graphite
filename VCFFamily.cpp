@@ -102,9 +102,6 @@ bool VCFFamily::is_all_homo(bool is_mat) const {
 
 VCFFamily *VCFFamily::create(const VCFSmall *vcf, const STRVEC& samples) {
 	const auto	columns = VCFFamily::select_columns(samples, vcf);
-	if(columns.size() < 10)
-		return NULL;
-	
 	const auto	header = vcf->create_header(samples);
 	const vector<VCFRecord *>&	orig_records = vcf->get_records();
 	vector<VCFFamilyRecord *>	records;

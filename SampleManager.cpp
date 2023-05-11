@@ -189,7 +189,7 @@ vector<const Family *> SampleManager::make_families(const PedigreeTable *ped,
 
 SampleManager *SampleManager::create(const string& path_ped,
 									const vector<string>& samples,
-									int lower_progs,
+									size_t lower_progs,
 									const vector<size_t>& family_indices) {
 	const PedigreeTable	*ped_ = PedigreeTable::read(path_ped);
 	const PedigreeTable	*ped = ped_->limit_samples(samples);
@@ -203,7 +203,7 @@ SampleManager *SampleManager::create(const string& path_ped,
 	vector<const Family *>	small_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const Family *family	= *p;
-		if((int)family->num_progenies() >= lower_progs &&
+		if(family->num_progenies() >= lower_progs &&
 					set_samples.find(family->get_mat()) != set_samples.end() &&
 					set_samples.find(family->get_pat()) != set_samples.end())
 			large_families.push_back(family);

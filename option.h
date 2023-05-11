@@ -17,17 +17,17 @@ public:
 	const int			num_threads;
 	const std::string	path_out;
 	const double		ratio;
-	const int			lower_progs;
+	const std::size_t	lower_progs;
 	const bool			only_large_families;
 	
 public:
 	Option(const std::string& vcf, const std::string& ped,
 			const std::string& map, const std::vector<std::size_t>& fam,
 			const std::vector<std::size_t>& chr,
-			int nt, bool ol, const std::string& out) :
+			int nt, std::size_t lp, bool ol, const std::string& out) :
 									path_vcf(vcf), path_ped(ped), path_map(map),
 									families(fam), chroms(chr), num_threads(nt),
-									path_out(out), ratio(0.01), lower_progs(10),
+									path_out(out), ratio(0.01), lower_progs(lp),
 									only_large_families(ol) { }
 	
 	bool is_efficient_chrom(int i) const;
@@ -43,6 +43,7 @@ private:
 	static std::vector<std::size_t> get_families(int argc, char **argv);
 	static std::vector<std::size_t> get_chroms(int argc, char **argv);
 	static int get_num_threads(int argc, char **argv);
+	static std::size_t get_lower_progenies(int argc, char ** argv);
 };
 
 

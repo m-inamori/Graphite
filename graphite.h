@@ -17,29 +17,18 @@ class VCFHeteroHomo;
 //////////////////// Materials ////////////////////
 
 class Materials {
-	const PedigreeTable	*pedigree;
 	const Map	*geno_map;
 	const std::vector<const Map *>	chr_maps;
-	std::vector<const Family *>	families;
 	
 public:
-	Materials(const PedigreeTable *p, const Map *m,
-							const std::vector<const Family *>& f) :
-						pedigree(p), geno_map(m),
-						chr_maps(m->divide_into_chromosomes()), families(f) { }
+	Materials(const Map *m) : geno_map(m),
+						chr_maps(m->divide_into_chromosomes()) { }
 	~Materials();
 	
-	const PedigreeTable& get_ped() const { return *pedigree; }
 	const Map& get_map() const { return *geno_map; }
 	const Map *get_chr_map(int i) const { return chr_maps[i]; }
-	const std::vector<const Family *>& get_families() const { return families; }
-	
-	void select_families(
-				std::set<std::pair<std::string,std::string>>& set_families);
 	
 public:
-	static std::vector<const Family *> make_families(
-						const PedigreeTable *pedigree, const Option *option);
 	static Materials *create(const Option *option);
 };
 

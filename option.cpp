@@ -73,6 +73,14 @@ int Option::get_num_threads(int argc, char **argv) {
 		return stoi(s);
 }
 
+size_t Option::get_lower_progenies(int argc, char ** argv) {
+	const string	s = flag_value("-p", argc, argv);
+	if(s.empty())
+		return 10;
+	else
+		return stoul(s);
+}
+
 Option *Option::create(int argc, char **argv) {
 	if(argc < 5 || 13 < argc)
 		return NULL;
@@ -81,9 +89,10 @@ Option *Option::create(int argc, char **argv) {
 		const vector<size_t>	families = get_families(argc, argv);
 		const vector<size_t>	chroms = get_chroms(argc, argv);
 		const int	num_threads = get_num_threads(argc, argv);
+		const size_t	lower_progs = get_lower_progenies(argc, argv);
 		const bool	only_large_families = exists("-l", argc, argv);
 		return new Option(argv[1], argv[2], argv[3], families,
-							chroms, num_threads,
+							chroms, num_threads, lower_progs,
 							only_large_families, argv[argc-1]);
 	}
 	catch(std::invalid_argument& e) {
@@ -94,9 +103,9 @@ Option *Option::create(int argc, char **argv) {
 void Option::usage(char **argv) {
 	cerr << argv[0] << " VCF ped map [-t num_threads] "
 				<< "[-f family indices] [-c chrom indices] "
-				<< "[-a] [-i] out." << endl;
+				<< "[-p lower progenies] out." << endl;
 	cerr << "family indices: (index|first:last)[,(index|first:last),[..]]"
 																	<< endl;
 	cerr << "chrom indices: same as family indices." << endl;
-	cerr << "-l: all records out." << endl;
+	cerr << "-l: large families only." << endl;
 }

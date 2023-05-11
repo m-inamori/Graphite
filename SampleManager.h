@@ -49,7 +49,7 @@ public:
 								const std::vector<std::size_t>& family_indices);
 	static SampleManager *create(const std::string& path_ped,
 								const std::vector<std::string>& samples,
-								int lower_progs,
+								size_t lower_progs,
 								const std::vector<std::size_t>& family_indices);
 };
 #endif

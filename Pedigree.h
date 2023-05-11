@@ -87,7 +87,5 @@ public:
 	
 public:
 	static const PedigreeTable *read(const std::string& path);
-	static const PedigreeTable *create(const std::string& path,
-									const std::vector<std::string>& samples);
 };
 #endif
