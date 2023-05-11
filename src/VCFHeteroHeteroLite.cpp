@@ -1,5 +1,5 @@
-#include "common.h"
-#include "VCFHeteroHeteroLite.h"
+#include "../include/common.h"
+#include "../include/VCFHeteroHeteroLite.h"
 
 using namespace std;
 

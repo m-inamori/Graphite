@@ -1,6 +1,6 @@
 #include <algorithm>
-#include "VCFOriginal.h"
-#include "Pedigree.h"
+#include "../include/VCFOriginal.h"
+#include "../include/Pedigree.h"
 
 using namespace std;
 

@@ -2,7 +2,7 @@
 #include <queue>
 #include <algorithm>
 #include <cmath>
-#include "TypeDeterminer.h"
+#include "../include/TypeDeterminer.h"
 
 using namespace std;
 

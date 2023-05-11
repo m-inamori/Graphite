@@ -1,6 +1,6 @@
 #include <iostream>
-#include "option.h"
-#include "common.h"
+#include "../include/option.h"
+#include "../include/common.h"
 
 using namespace std;
 

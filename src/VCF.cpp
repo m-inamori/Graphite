@@ -1,6 +1,6 @@
 #include <algorithm>
-#include "VCF.h"
-#include "common.h"
+#include "../include/VCF.h"
+#include "../include/common.h"
 
 using namespace std;
 

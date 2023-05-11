@@ -2,8 +2,8 @@
 #include <sstream>
 #include <algorithm>
 #include <cmath>
-#include "Imputer.h"
-#include "common.h"
+#include "../include/Imputer.h"
+#include "../include/common.h"
 
 using namespace std;
 using namespace Imputer;

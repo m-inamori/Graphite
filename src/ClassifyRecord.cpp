@@ -1,7 +1,7 @@
 #include <numeric>
 #include <algorithm>
-#include "ClassifyRecord.h"
-#include "VCFFamily.h"
+#include "../include/ClassifyRecord.h"
+#include "../include/VCFFamily.h"
 
 using namespace std;
 

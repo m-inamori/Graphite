@@ -3,13 +3,13 @@
 #include <cmath>
 #include <random>
 #include <cassert>
-#include "common.h"
-#include "VCFHeteroHomo.h"
-#include "VCFOriginal.h"
-#include "Map.h"
-#include "Pedigree.h"
-#include "Imputer.h"
-#include "inverse_graph.h"
+#include "../include/common.h"
+#include "../include/VCFHeteroHomo.h"
+#include "../include/VCFOriginal.h"
+#include "../include/Map.h"
+#include "../include/Pedigree.h"
+#include "../include/Imputer.h"
+#include "../include/inverse_graph.h"
 
 using namespace std;
 

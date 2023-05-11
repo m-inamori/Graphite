@@ -1,6 +1,6 @@
 #include <stdexcept>
-#include "common.h"
-#include "Map.h"
+#include "../include/common.h"
+#include "../include/Map.h"
 
 using namespace std;
 

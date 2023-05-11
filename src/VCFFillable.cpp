@@ -4,10 +4,10 @@
 #include <limits>
 #include <memory>
 #include <cassert>
-#include "VCFFillable.h"
-#include "VCFHeteroHomo.h"
-#include "option.h"
-#include "common.h"
+#include "../include/VCFFillable.h"
+#include "../include/VCFHeteroHomo.h"
+#include "../include/option.h"
+#include "../include/common.h"
 
 using namespace std;
 

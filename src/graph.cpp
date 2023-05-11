@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cassert>
-#include "graph.h"
-#include "kruskal.h"
+#include "../include/graph.h"
+#include "../include/kruskal.h"
 
 using namespace std;
 

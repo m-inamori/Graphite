@@ -2,8 +2,8 @@
 #include <stack>
 #include <algorithm>
 #include <cassert>
-#include "inverse_graph.h"
-#include "random.h"
+#include "../include/inverse_graph.h"
+#include "../include/random.h"
 
 using namespace std;
 

@@ -1,7 +1,7 @@
 #include <cassert>
-#include "common.h"
-#include "Pedigree.h"
-#include "VCF.h"
+#include "../include/common.h"
+#include "../include/Pedigree.h"
+#include "../include/VCF.h"
 
 using namespace std;
 

@@ -1,8 +1,8 @@
 #include <map>
 #include <set>
 #include <cassert>
-#include "VCFImpFamily.h"
-#include "common.h"
+#include "../include/VCFImpFamily.h"
+#include "../include/common.h"
 
 using namespace std;
 

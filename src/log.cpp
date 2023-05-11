@@ -1,7 +1,7 @@
 #include <cassert>
 #include <numeric>
 #include <cmath>
-#include "log.h"
+#include "../include/log.h"
 
 using namespace std;
 

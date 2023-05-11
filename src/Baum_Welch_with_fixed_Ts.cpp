@@ -2,8 +2,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cassert>
-#include "log.h"
-#include "Baum_Welch_with_fixed_Ts.h"
+#include "../include/log.h"
+#include "../include/Baum_Welch_with_fixed_Ts.h"
 
 using namespace std;
 

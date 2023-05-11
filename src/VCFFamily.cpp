@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <cassert>
-#include "VCFFamily.h"
+#include "../include/VCFFamily.h"
 
 using namespace std;
 

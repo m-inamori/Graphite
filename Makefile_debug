@@ -1,0 +1,53 @@
+CC      = g++
+CFLAGS  = -O0 -g3 -Wall -DDEBUG
+LDFLAGS = 
+LIBS	= -lz -lpthread
+DEBUG_DIR = debug
+PROGRAM = $(DEBUG_DIR)/graphite
+
+SOURCE_DIR = src
+HEADER_DIR = include
+OUT_DIR = .
+OBJ_DIR = $(DEBUG_DIR)/obj
+DEPEND_DIR = $(DEBUG_DIR)/depend
+
+SOURCES = $(wildcard $(SOURCE_DIR)/*.cpp)
+HEADERS = $(wildcard $(HEADER_DIR)/*.h)
+
+SOURCE_NAMES = $(notdir $(SOURCES))
+OBJS = $(addprefix $(OBJ_DIR)/,$(SOURCE_NAMES:.cpp=.o))
+DEPENDS = $(addprefix $(DEPEND_DIR)/,$(SOURCE_NAMES:.cpp=.depend))
+
+.PHONY: all
+all: $(DEBUG_DIR) $(DEPEND_DIR) $(OBJ_DIR) $(DEPENDS) $(PROGRAM)
+
+$(PROGRAM): $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $(PROGRAM) $(LIBS)
+
+$(DEPEND_DIR)/%.depend: $(SOURCE_DIR)/%.cpp $(HEADERS)
+	@echo "generating $@"
+	@$(CC) $(CFLAGS) $(LIBS) -MM $< > $@
+
+$(OBJ_DIR)/%.o: $(SOURCE_DIR)/%.cpp
+	$(CC) $(CFLAGS) $(LIBS) -c $^ -o $@
+
+$(DEBUG_DIR): | $(DEPEND_DIR) $(OBJ_DIR)
+$(DEPENDS): | $(DEPEND_DIR)
+$(OBJS): | $(OBJ_DIR)
+
+$(OBJ_DIR):
+	mkdir -p -v $(OBJ_DIR)
+
+$(DEPEND_DIR):
+	mkdir -p -v $(DEPEND_DIR)
+
+$(DEBUG_DIR):
+	mkdir -p -v $(DEBUG_DIR)
+
+ifneq "$(MAKECMDGOALS)" "clean"
+-include $(DEPENDS)
+endif
+
+.PHONY : clean
+clean:
+	rm -r $(OBJ_DIR)/*.o $(PROGRAM)

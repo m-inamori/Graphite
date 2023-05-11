@@ -1,6 +1,6 @@
 #include <tuple>
 #include <algorithm>
-#include "kruskal.h"
+#include "../include/kruskal.h"
 
 using namespace std;
 

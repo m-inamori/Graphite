@@ -1,5 +1,5 @@
-#include "common.h"
-#include "VCFHomoHomo.h"
+#include "../include/common.h"
+#include "../include/VCFHomoHomo.h"
 
 using namespace std;
 

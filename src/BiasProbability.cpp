@@ -2,8 +2,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cassert>
-#include "log.h"
-#include "BiasProbability.h"
+#include "../include/log.h"
+#include "../include/BiasProbability.h"
 
 using namespace std;
 

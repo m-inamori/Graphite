@@ -4,12 +4,12 @@
 #include <cmath>
 #include <random>
 #include <cassert>
-#include "common.h"
-#include "VCFHeteroHomoPP.h"
-#include "VCFFillable.h"
-#include "Map.h"
-#include "Pedigree.h"
-#include "Imputer.h"
+#include "../include/common.h"
+#include "../include/VCFHeteroHomoPP.h"
+#include "../include/VCFFillable.h"
+#include "../include/Map.h"
+#include "../include/Pedigree.h"
+#include "../include/Imputer.h"
 
 using namespace std;
 

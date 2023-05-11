@@ -1,6 +1,6 @@
 #include <algorithm>
-#include "SampleManager.h"
-#include "common.h"
+#include "../include/SampleManager.h"
+#include "../include/common.h"
 
 using namespace std;
 

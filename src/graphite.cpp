@@ -1,18 +1,18 @@
 #include <iostream>
 #include <cassert>
-#include "graphite.h"
-#include "SampleManager.h"
-#include "VCFOriginal.h"
-#include "VCFHeteroHomo.h"
-#include "VCFJunkRecord.h"
-#include "VCFHomoHomo.h"
-#include "VCFHeteroHeteroLite.h"
-#include "VCFFillable.h"
-#include "VCFHeteroHomoPP.h"
-#include "VCFOneParentPhased.h"
-#include "VCFProgenyPhased.h"
-#include "option.h"
-#include "common.h"
+#include "../include/graphite.h"
+#include "../include/SampleManager.h"
+#include "../include/VCFOriginal.h"
+#include "../include/VCFHeteroHomo.h"
+#include "../include/VCFJunkRecord.h"
+#include "../include/VCFHomoHomo.h"
+#include "../include/VCFHeteroHeteroLite.h"
+#include "../include/VCFFillable.h"
+#include "../include/VCFHeteroHomoPP.h"
+#include "../include/VCFOneParentPhased.h"
+#include "../include/VCFProgenyPhased.h"
+#include "../include/option.h"
+#include "../include/common.h"
 
 using namespace std;
 

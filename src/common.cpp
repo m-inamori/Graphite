@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include "common.h"
+#include "../include/common.h"
 
 using namespace std;
 
