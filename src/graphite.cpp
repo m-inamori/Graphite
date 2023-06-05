@@ -11,6 +11,7 @@
 #include "../include/VCFHeteroHomoPP.h"
 #include "../include/VCFOneParentPhased.h"
 #include "../include/VCFProgenyPhased.h"
+#include "../include/VCFIsolated.h"
 #include "../include/option.h"
 #include "../include/common.h"
 
@@ -125,78 +126,6 @@ void modify_00x11(const HeHoRecords& heho_records, ImpRecords& other_records) {
 	}
 }
 
-// FamilyごとにVCFHeteroHomoを作って親ごとに格納する
-tuple<VCFHeteroHomo *, VCFHeteroHomo *, vector<VCFHeteroHomoRecord *>>
-make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
-									const Family *family,
-									const VCFSmall *vcf, const Map& geno_map) {
-	const STRVEC&	samples = family->get_samples();
-	const vector<STRVEC>	header = vcf->create_header(samples);
-	vector<VCFHeteroHomoRecord *>	heho_mat_records;
-	vector<VCFHeteroHomoRecord *>	heho_pat_records;
-	vector<VCFHeteroHomoRecord *>	unused_records;
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		VCFHeteroHomoRecord	*record = *p;
-		if(!record->is_imputable())
-			unused_records.push_back(record);
-		else if(record->is_mat_hetero())
-			heho_mat_records.push_back(record);
-		else
-			heho_pat_records.push_back(record);
-	}
-	auto	*vcf_mat = new VCFHeteroHomo(header, samples,
-											heho_mat_records, geno_map);
-	auto	*vcf_pat = new VCFHeteroHomo(header, samples,
-											heho_pat_records, geno_map);
-	return make_tuple(vcf_mat, vcf_pat, unused_records);
-}
-
-void impute_in_thread(void *config) {
-	const auto	*c = (ConfigImpThread *)config;
-	const size_t	n = c->size();
-	// 家系数が少ない場合、スレッドの内部でも並列に処理したい
-	const int	num_inner_threads = (c->option->num_threads + n - 1) / n;
-	for(size_t i = c->first; i < n; i += c->num_threads) {
-		auto	result = VCFHeteroHomo::impute_vcfs(c->vcfs_heho[i],
-												c->option, num_inner_threads);
-		c->imputed_vcfs[i] = result;
-	}
-}
-
-vector<ImpResult> impute_hetero_homo_parellel(
-						const map<string, vector<VCFHeteroHomo *>>& vcfs,
-						const Option *option) {
-	vector<ImpResult>	results(vcfs.size());
-	
-	// vectorにしたほうがマルチスレッドにしやすい
-	vector<vector<VCFHeteroHomo *>>	vcfss;
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		vcfss.push_back(p->second);
-	}
-	
-	const int	T = min((int)vcfs.size(), option->num_threads);
-	vector<ConfigImpThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigImpThread(vcfss, option, i, T, results);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		impute_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-	
-	return results;
-}
-
 pair<map<Parents, vector<VCFHeteroHomo *>>, HeHoRecords>
 		impute_hetero_homo_core(const HeHoRecords& records,
 								const VCFSmall *vcf, SampleManager *sample_man,
@@ -215,8 +144,8 @@ pair<map<Parents, vector<VCFHeteroHomo *>>, HeHoRecords>
 		const Parents&	parents = p->first;
 		const Family	*family = parents_to_family[parents];
 		const vector<VCFHeteroHomoRecord *>&	heho_records = p->second;
-		const auto	t = make_VCFHeteroHomo(heho_records,
-											family, vcf, geno_map);
+		const auto	t = VCFHeteroHomo::make_VCFHeteroHomo(heho_records,
+														family, vcf, geno_map);
 		VCFHeteroHomo	*vcf_mat = get<0>(t);
 		VCFHeteroHomo	*vcf_pat = get<1>(t);
 		// Hetero x Homoで使われなかったRecordを再利用する
@@ -227,7 +156,7 @@ pair<map<Parents, vector<VCFHeteroHomo *>>, HeHoRecords>
 		urs.insert(urs.end(), unused_records1.begin(), unused_records1.end());
 	}
 	
-	const auto	w = impute_hetero_homo_parellel(vcfs, option);
+	const auto	w = VCFHeteroHomo::impute_hetero_homo_all(vcfs, option);
 	
 	map<Parents, vector<VCFHeteroHomo *>>	imputed_vcfs;
 	for(auto p = w.begin(); p != w.end(); ++p) {
@@ -281,75 +210,17 @@ pair<map<Parents, vector<VCFHeteroHomo *>>, ImpRecords>
 	return make_pair(imputed_vcfs, other_records);
 }
 
-void fill_in_thread(void *config) {
-	const auto	*c = (ConfigFillThread *)config;
-	const size_t	n = c->size();
-	for(size_t i = c->first; i < n; i += c->num_threads) {
-		auto	vcfs = c->items[i].first;
-		auto	records = c->items[i].second;
-		auto	result = VCFFillable::fill(vcfs, records, c->all_out);
-		c->filled_vcfs[i] = result;
-	}
-}
-
-vector<VCFFillable *> fill_parellel(vector<Item>& items, const Option *op) {
-	vector<VCFFillable *>	results(items.size());
-	
-	const int	T = min((int)items.size(), op->num_threads);
-	vector<ConfigFillThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigFillThread(items, true, i, T, results);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&fill_in_thread, (void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		fill_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-	
-	return results;
-}
-
-void delete_items(const vector<Item>& items) {
-	for(auto q = items.begin(); q != items.end(); ++q) {
-		for(auto r = q->first.begin(); r != q->first.end(); ++r)
-			delete *r;
-		for(auto r = q->second.begin(); r != q->second.end(); ++r)
-			delete *r;
-	}
-}
-
-vector<VCFFillable *> fill(map<Parents, vector<VCFHeteroHomo *>>& imputed_vcfs,
-								ImpRecords& other_records, const Option *op) {
-	vector<Item>	items;
-	for(auto q = imputed_vcfs.begin(); q != imputed_vcfs.end(); ++q) {
-		const Parents&	parents = q->first;
-		vector<VCFHeteroHomo *>&	vcfs = q->second;
-		items.push_back(make_pair(vcfs, other_records[parents]));
-	}
-	vector<VCFFillable *>	filled_vcfs = fill_parellel(items, op);
-	delete_items(items);
-	return filled_vcfs;
-}
-
 VCFSmall *fill_and_merge_vcf(
-					map<Parents, vector<VCFHeteroHomo *>>& imputed_vcfs,
+						map<Parents, vector<VCFHeteroHomo *>>& imputed_vcfs,
 						ImpRecords& other_records,
 						const STRVEC& samples, const Option *option) {
 	// Familyごとに残りのRecordをphaseする
-	vector<VCFFillable *>	filled_vcfs = fill(imputed_vcfs,
-												other_records, option);
+	const auto	filled_vcfs = VCFFillable::fill_all(imputed_vcfs,
+														other_records,
+														option->num_threads);
 	// FamilyごとのVCFを全て統合する
-	VCFSmall	*vcf_integrated = VCFFillable::merge(filled_vcfs,
-														samples, option);
+	// この部分はVCFFillableでなく、切り離して別の名前空間で行いたい
+	VCFSmall	*vcf_integrated = VCFFillable::merge(filled_vcfs, samples);
 	for(auto p = filled_vcfs.begin(); p != filled_vcfs.end(); ++p)
 		delete *p;
 	
@@ -369,15 +240,12 @@ VCFRecord *merge_progeny_records(vector<VCFFillable *>& vcfs,
 
 VCFSmall *impute_vcf_by_parents(
 				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-				const vector<const Family *>& families, const Map& geno_map) {
-	vector<VCFFillable *>	vcfs;
-	for(auto p = families.begin(); p != families.end(); ++p) {
-		auto	*family_vcf = VCFHeteroHomoPP::impute_by_parents(
-												orig_vcf, merged_vcf,
-												(*p)->get_samples(), geno_map);
-		vcfs.push_back(family_vcf);
-	}
-	
+				const vector<const Family *>& families,
+				const Map& geno_map, int num_threads) {
+	vector<VCFFillable *>	vcfs = VCFHeteroHomoPP::impute_vcfs(
+														orig_vcf, merged_vcf,
+														families, geno_map,
+														num_threads);
 	STRVEC	samples;	// 子どもだけ集める
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		VCFFamily	*vcf = *p;
@@ -403,18 +271,19 @@ VCFSmall *impute_vcf_by_parents(
 
 VCFSmall *impute_vcf_by_parent(
 				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-				const vector<const Family *>& families,
-				const Map& geno_map, const SampleManager *sample_man) {
-	vector<VCFFamily *>	vcfs;
+				const vector<const Family *>& families, const Map& geno_map,
+				const SampleManager *sample_man, int num_threads) {
+	vector<pair<const Family *, bool>>	parent_imputed_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const Family	*family = *p;
 		const bool	is_mat_phased = sample_man->is_imputed(family->get_mat());
-		const auto&	samples = family->get_samples();
-		auto	*family_vcf = VCFOneParentPhased::impute_by_parent(
-									orig_vcf, merged_vcf,
-									samples, is_mat_phased, geno_map);
-		vcfs.push_back(family_vcf);
+		parent_imputed_families.push_back(make_pair(family, is_mat_phased));
 	}
+	
+	const vector<VCFFamily *>	vcfs = VCFOneParentPhased::impute_all_by_parent(
+														orig_vcf, merged_vcf,
+														parent_imputed_families,
+														geno_map, num_threads);
 	
 	STRVEC	samples;	// 今回phasingした親と子どもを集める
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
@@ -446,31 +315,48 @@ VCFSmall *impute_vcf_by_parent(
 	return new_vcf;
 }
 
-VCFSmall *impute_vcf_by_progenies(VCFSmall *orig_vcf, VCFSmall *merged_vcf,
-									const vector<const Family *>& families,
-									SampleManager *sample_man) {
-	vector<VCFProgenyPhased *>	vcfs;
+VCFSmall *impute_vcf_by_progenies(const VCFSmall *orig_vcf,
+								  const VCFSmall *merged_vcf,
+								  const vector<const Family *>& families,
+								  SampleManager *sample_man, int num_threads) {
+	vector<pair<const Family *, vector<size_t>>>	progeny_imputed_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const Family	*family = *p;
-		vector<size_t>	ppi;
+		vector<size_t>	ppi;	// phased progeny index
 		const vector<string>&	samples = family->get_samples();
 		for(size_t i = 0; i < samples.size(); ++i) {
 			if(sample_man->is_imputed(samples[i]))
 				ppi.push_back(i);
 		}
-		auto	*vcf = VCFProgenyPhased::impute_by_progeny(orig_vcf, merged_vcf,
-													family->get_samples(), ppi);
-		vcfs.push_back(vcf);
+		progeny_imputed_families.push_back(make_pair(family, ppi));
 	}
+	const auto	vcfs = VCFProgenyPhased::impute_all_by_progeny(orig_vcf,
+													merged_vcf,
+													progeny_imputed_families,
+													num_threads);
 	
-	vector<VCFSmall *>	vcfs2(vcfs.begin(), vcfs.end());
+	vector<VCFSmall *>	vcfs2(vcfs.begin(), vcfs.end());	// convert class
 	VCFSmall	*new_vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
 }
 
-VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
-								const Map& geno_map, const Option *option) {
+VCFSmall *impute_iolated_samples(
+				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+				SampleManager *sample_man, const STRVEC& samples,
+				const Map& gmap, int num_threads) {
+	const STRVEC	references = sample_man->get_large_parents();
+	// あとでマルチプロセス化するためにphasingすべきsample分割する
+	auto	vcfs = VCFIsolated::create(orig_vcf, merged_vcf,
+										samples, references, gmap, num_threads);
+	const auto	new_vcfs = VCFIsolated::impute_all(vcfs, num_threads);
+	VCFSmall	*new_vcf = VCFSmall::join(new_vcfs, orig_vcf->get_samples());
+	Common::delete_all(new_vcfs);
+	return new_vcf;
+}
+
+VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
+									const Map& geno_map, const Option *option) {
 	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << endl;
 	
 	const auto&	all_samples = orig_vcf->get_samples();
@@ -490,7 +376,8 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 		auto	families1 = sample_man->extract_small_families();
 		if(!families1.empty()) {
 			auto	*new_imputed_vcf = impute_vcf_by_parents(orig_vcf,
-												merged_vcf, families1, geno_map);
+												merged_vcf, families1,
+												geno_map, option->num_threads);
 			Common::delete_all(families1);
 			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
@@ -504,9 +391,9 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 		// 片親が補完されている家系を補完する
 		auto	families2 = sample_man->extract_single_parent_phased_families();
 		if(!families2.empty()) {
-			auto	*new_imputed_vcf = impute_vcf_by_parent(
-											orig_vcf, merged_vcf,
-											families2, geno_map, sample_man);
+			auto	*new_imputed_vcf = impute_vcf_by_parent(orig_vcf,
+											merged_vcf, families2, geno_map,
+											sample_man, option->num_threads);
 			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
 			delete merged_vcf;
@@ -522,7 +409,8 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 		if(!families3.empty()) {
 			auto	*new_imputed_vcf = impute_vcf_by_progenies(
 														orig_vcf, merged_vcf,
-														families3, sample_man);
+														families3, sample_man,
+														option->num_threads);
 			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
 			delete merged_vcf;
@@ -535,6 +423,19 @@ VCFSmall *impute_vcf_chr(VCFSmall *orig_vcf, SampleManager *sample_man,
 		else
 			break;
 	}
+	
+	// 最後に孤立したサンプルを補完する
+	const STRVEC	samples = sample_man->extract_isolated_samples();
+	if(!samples.empty()) {
+		VCFSmall	*new_imputed_vcf = impute_iolated_samples(
+												orig_vcf, merged_vcf, sample_man,
+												samples,
+												geno_map, option->num_threads);
+		vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+		merged_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+		delete new_imputed_vcf;
+	}
+	
 	sample_man->clear_imputed_samples();
 	return merged_vcf;
 }

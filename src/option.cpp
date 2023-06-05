@@ -103,7 +103,7 @@ Option *Option::create(int argc, char **argv) {
 void Option::usage(char **argv) {
 	cerr << argv[0] << " VCF ped map [-t num_threads] "
 				<< "[-f family indices] [-c chrom indices] "
-				<< "[-p lower progenies] out." << endl;
+				<< "[-p lower progenies] [-l] out." << endl;
 	cerr << "family indices: (index|first:last)[,(index|first:last),[..]]"
 																	<< endl;
 	cerr << "chrom indices: same as family indices." << endl;

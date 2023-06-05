@@ -219,10 +219,15 @@ class VCFFillable : public VCFFamily {
 								vcfs(v), first(f), num_thread(n) { }
 	};
 	
+	std::vector<VCFFillableRecord *>	fillable_records;
+	
+public:
 	using Position = std::tuple<int, ll, std::string>;
 	using Group = std::pair<FillType, std::vector<VCFFillableRecord *>>;
-	
-	std::vector<VCFFillableRecord *>	fillable_records;
+	using Item = std::pair<std::vector<VCFHeteroHomo *>,
+							std::vector<VCFImpFamilyRecord *>>;
+	using Parents = std::pair<std::string, std::string>;
+	using ImpRecords = std::map<Parents, std::vector<VCFImpFamilyRecord *>>;
 	
 public:
 	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
@@ -278,22 +283,50 @@ private:
 	void impute_others(int i);
 	
 public:
+	static VCFSmall *merge(const std::vector<VCFFillable *>& vcfs,
+											const STRVEC& orig_samples);
+	static std::vector<VCFFillable *> fill_all(
+				std::map<Parents, std::vector<VCFHeteroHomo *>>& imputed_vcfs,
+				ImpRecords& other_records, int num_threads);
 	static VCFFillable *fill(const std::vector<VCFHeteroHomo *>& vcfs,
 				const std::vector<VCFImpFamilyRecord *>& records, bool all_out);
 	static std::vector<VCFFillableRecord *> merge_records(
 							const std::vector<VCFHeteroHomo *>& vcfs,
 							const std::vector<VCFImpFamilyRecord *>& records,
 							bool all_out);
+	
+private:
 	static std::vector<std::vector<VCFFillableRecord *>>
 		collect_records(const std::vector<VCFFillable *>& vcfs, bool all_out);
 	static std::pair<STRVEC, std::vector<std::vector<std::pair<int, int>>>>
-		integrate_samples(const std::vector<STRVEC>& sss,
-										const STRVEC& orig_samples);
+			integrate_samples(const std::vector<STRVEC>& sss,
+											const STRVEC& orig_samples);
 	// 重複したサンプルが一つになるようにVCFを統合する
 	static VCFSmall *integrate(const VCFFillable *vcf,
 					const std::vector<std::vector<VCFFillableRecord *>>& rss,
 					const STRVEC& orig_samples);
-	static VCFSmall *merge(const std::vector<VCFFillable *>& vcfs,
-							const STRVEC& orig_samples, const Option *option);
+	static std::vector<VCFFillable *> fill_parellel(std::vector<Item>& items,
+															int num_threads);
+	static void delete_items(const std::vector<Item>& items);
+	static void fill_in_thread(void *config);
+};
+
+
+//////////////////// ConfigFillThread ////////////////////
+
+struct ConfigFillThread {
+	const std::vector<VCFFillable::Item>&	items;
+	const bool	all_out;
+	const std::size_t	first;
+	const int	num_threads;
+	std::vector<VCFFillable *>&	filled_vcfs;
+	
+	ConfigFillThread(const std::vector<VCFFillable::Item>& items_,
+						bool ao, int f, int n,
+						std::vector<VCFFillable *>& results) :
+									items(items_), all_out(ao), first(f),
+									num_threads(n), filled_vcfs(results) { }
+	
+	std::size_t size() const { return items.size(); }
 };
 #endif

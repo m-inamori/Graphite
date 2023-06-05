@@ -241,6 +241,23 @@ void VCFSmall::write(ostream& os, bool write_header) const {
 		(*p)->write(os);
 }
 
+VCFSmall *VCFSmall::extract_samples(const STRVEC& samples) const {
+	const auto	header = create_header(samples);
+	vector<VCFRecord *>	empty_records;
+	VCFSmall	*vcf = new VCFSmall(header, samples, empty_records);
+	const vector<size_t>	cs = extract_columns(samples);
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		const VCFRecord	*record = *p;
+		const STRVEC&	v = record->get_v();
+		STRVEC	new_v(v.begin(), v.begin() + 9);
+		for(auto q = cs.begin(); q != cs.end(); ++q)
+			new_v.push_back(v[*q]);
+		VCFRecord	*new_record = new VCFRecord(new_v, vcf->get_samples());
+		vcf->add_record(new_record);
+	}
+	return vcf;
+}
+
 VCFSmall *VCFSmall::read(const string& path) {
 	VCFReader	*reader = new VCFReader(path);
 	reader->read_header();

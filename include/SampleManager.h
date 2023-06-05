@@ -39,6 +39,9 @@ public:
 	// 補完されていないが片方の親だけ補完されている家系
 	std::vector<const Family *> extract_single_parent_phased_families() const;
 	std::vector<const Family *> extract_progenies_phased_families() const;
+	bool is_all_not_imputed(const std::vector<std::string>& samples) const;
+	std::vector<std::string> extract_isolated_samples() const;
+	std::vector<std::string> get_large_parents() const;
 	
 	void add_imputed_samples(const std::vector<std::string>& samples);
 	void clear_imputed_samples();

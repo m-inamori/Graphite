@@ -19,7 +19,7 @@ using namespace std;
 VCFOneParentPhased::VCFOneParentPhased(const vector<STRVEC>& h, const STRVEC& s,
 					vector<VCFFamilyRecord *> rs, bool mat_p, const Map& m) :
 			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			is_mat_phased(mat_p), genetic_map(m) { }
+			VCFMeasurable(m), is_mat_phased(mat_p) { }
 
 bool VCFOneParentPhased::is_mat_hetero() const {
 	return family_records.front()->is_hetero(0);
@@ -66,10 +66,6 @@ string VCFOneParentPhased::make_seq(size_t i) const {
 		ss << this->determine_which_comes_from(record, i);
 	}
 	return ss.str();
-}
-
-double VCFOneParentPhased::cM(size_t i) const {
-	return genetic_map.bp_to_cM(records[i]->pos());
 }
 
 string VCFOneParentPhased::impute_sample_seq(size_t i,
@@ -123,7 +119,7 @@ void VCFOneParentPhased::impute() {
 	vector<double>	cMs;
 	const size_t	L = this->size();
 	for(size_t i = 0; i < L; ++i) {
-		cMs.push_back(this->cM(i));
+		cMs.push_back(this->record_cM(i));
 	}
 	
 	vector<string>	imputed_seqs;
@@ -143,9 +139,7 @@ VCFFamily *VCFOneParentPhased::impute_by_parent(const VCFSmall *orig_vcf,
 	auto	new_vcf = new VCFOneParentPhased(vcf->get_header(),
 							vcf->get_samples(), records, is_mat_phased, gmap);
 	new_vcf->impute();
-//	vector<VCFFamilyRecord *>	new_records = new_vcf->get_family_records();
 	VCFFamily	*imputed_vcf = new VCFFamily(vcf->get_header(),
-//									vcf->get_samples(), new_records);
 									vcf->get_samples(), records);
 	new_vcf->clear_records();	// As imputed_vcf uses the records as they are
 	delete new_vcf;
@@ -154,8 +148,62 @@ VCFFamily *VCFOneParentPhased::impute_by_parent(const VCFSmall *orig_vcf,
 	return imputed_vcf;
 }
 
+void VCFOneParentPhased_impute_in_thread(void *config) {
+	const auto	*c = (VCFOneParentPhased::ConfigThread *)config;
+	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
+		const Family	*family = c->families[i].first;
+		const bool		is_mat_phased = c->families[i].second;
+		c->results[i] = VCFOneParentPhased::impute_by_parent(
+												c->orig_vcf, c->merged_vcf,
+												family->get_samples(),
+												is_mat_phased, c->geno_map);
+	}
+}
+
+void VCFOneParentPhased::impute_in_thread(void *config) {
+	const auto	*c = (VCFOneParentPhased::ConfigThread *)config;
+	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
+		const Family	*family = c->families[i].first;
+		const bool		is_mat_phased = c->families[i].second;
+		c->results[i] = VCFOneParentPhased::impute_by_parent(
+												c->orig_vcf, c->merged_vcf,
+												family->get_samples(),
+												is_mat_phased, c->geno_map);
+	}
+}
+
+vector<VCFFamily *> VCFOneParentPhased::impute_all_by_parent(
+						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+						const vector<pair<const Family *, bool>>& families,
+						const Map& geno_map, int num_threads) {
+	vector<VCFFamily *>	results(families.size());
+	
+	const int	T = min((int)families.size(), num_threads);
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(orig_vcf, merged_vcf, families,
+											geno_map, (size_t)i, T, results);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+						(void *(*)(void *))&impute_in_thread,
+						(void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+	return results;
+}
+
 // samplesに対応するRecordを作る
-VCFRecord *VCFOneParentPhased::merge_records(vector<VCFFamily *>& vcfs,
+VCFRecord *VCFOneParentPhased::merge_records(const vector<VCFFamily *>& vcfs,
 											size_t i, const STRVEC& samples) {
 	// sampleがどのVCFのどの位置にあるか
 	map<string, pair<const VCFFamily *, size_t>>	dic_pos;
@@ -174,3 +222,4 @@ VCFRecord *VCFOneParentPhased::merge_records(vector<VCFFamily *>& vcfs,
 	}
 	return new VCFRecord(v, samples);
 }
+

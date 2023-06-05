@@ -138,6 +138,48 @@ vector<const Family *>
 	return families;
 }
 
+bool SampleManager::is_all_not_imputed(const vector<string>& samples) const {
+	for(auto p = samples.begin(); p != samples.end(); ++p) {
+		if(is_imputed(*p))
+			return false;
+	}
+	return true;
+}
+
+vector<string> SampleManager::extract_isolated_samples() const {
+	// 繋がっているサンプルがあっても、
+	// 家系の全サンプルがphasingされていないなら孤立とみなす
+	vector<string>	samples;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const Family	*family = *p;
+		const auto&	f_samples = family->get_samples();
+		if(is_all_not_imputed(f_samples)) {
+			for(auto q = f_samples.begin(); q != f_samples.end(); ++q) {
+				if(*q != "0" && !is_imputed(*q))
+					samples.push_back(*q);
+			}
+		}
+		else if(family->get_mat() == "0" && family->get_pat() == "0") {
+			const auto&	progs = family->get_progenies();
+			for(auto q = progs.begin(); q != progs.end(); ++q) {
+				if(!is_imputed((*q)->get_name()))
+					samples.push_back((*q)->get_name());
+			}
+		}
+	}
+	return samples;
+}
+
+vector<string> SampleManager::get_large_parents() const {
+	set<string>	s;
+	for(auto p = large_families.begin(); p != large_families.end(); ++p) {
+		const Family	*family = *p;
+		s.insert(family->get_mat());
+		s.insert(family->get_pat());
+	}
+	return vector<string>(s.begin(), s.end());
+}
+
 vector<const Family *> SampleManager::make_families(const PedigreeTable *ped,
 										const vector<string>& samples,
 										const vector<size_t>& family_indices) {

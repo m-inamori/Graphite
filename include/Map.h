@@ -44,4 +44,20 @@ private:
 public:
 	static Map *read(const std::string& path);
 };
+
+
+//////////////////// Map ////////////////////
+
+class VCFMeasurable {
+	const Map&	gmap;
+	
+public:
+	VCFMeasurable(const Map& m) : gmap(m) { }
+	~VCFMeasurable() { }
+	
+	const Map& get_map() const { return gmap; }
+	double cM(long long bp) const { return gmap.bp_to_cM(bp); }
+	double total_cM() const { return gmap.total_cM(); }
+};
+
 #endif

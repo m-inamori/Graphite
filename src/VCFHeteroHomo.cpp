@@ -10,6 +10,7 @@
 #include "../include/Pedigree.h"
 #include "../include/Imputer.h"
 #include "../include/inverse_graph.h"
+#include "../include/option.h"
 
 using namespace std;
 
@@ -69,7 +70,7 @@ void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(
 VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFHeteroHomoRecord *> rs, const Map& m) :
 			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			hh_records(rs), genetic_map(m) { }
+			VCFMeasurable(m), hh_records(rs) { }
 
 void VCFHeteroHomo::set_records(const std::vector<VCFHeteroHomoRecord *>& rs) {
 	hh_records = rs;
@@ -81,10 +82,6 @@ void VCFHeteroHomo::set_records_base(const vector<VCFHeteroHomoRecord *>& rs) {
 	VCFFamily::set_records(frs);
 }
 
-double VCFHeteroHomo::cM(size_t i) const {
-	return genetic_map.bp_to_cM(hh_records[i]->pos());
-}
-
 Graph::InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 	vector<vector<int>>	gtss;
 	for(auto p = this->hh_records.begin(); p != this->hh_records.end(); ++p) {
@@ -94,7 +91,7 @@ Graph::InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 	vector<double>	cMs;
 	const size_t	L = this->size();
 	for(size_t i = 0; i < L; ++i) {
-		cMs.push_back(this->cM(i));
+		cMs.push_back(this->record_cM(i));
 	}
 	
 	Graph::InvGraph	graph;
@@ -205,7 +202,7 @@ VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const Graph::InvGraph& graph) const {
 		records.push_back(record);
 	}
 	return new VCFHeteroHomo(this->header, this->samples,
-									records, this->genetic_map);
+										records, this->get_map());
 }
 
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
@@ -313,7 +310,7 @@ void VCFHeteroHomo::impute_each(const OptionImpute *option) {
 	vector<double>	cMs;
 	const size_t	L = this->size();
 	for(size_t i = 0; i < L; ++i) {
-		cMs.push_back(this->cM(i));
+		cMs.push_back(this->record_cM(i));
 	}
 	
 	vector<string>	imputed_seqs;
@@ -334,7 +331,7 @@ void VCFHeteroHomo::impute_each(const OptionImpute *option) {
 const OptionImpute *VCFHeteroHomo::create_option() const {
 	const size_t	num = std::max(2UL, this->size());
 	const int	max_dist = std::max(4,
-						(int)(genetic_map.total_cM() * num_progenies()
+						(int)(total_cM() * num_progenies()
 										/ num * log10(num) * 2.5 * 0.01));
 	return new OptionImpute(max_dist, 20, 5, 1.0);
 }
@@ -344,7 +341,7 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 	if(this->records.empty()) {
 		// vcfを新たに作らないと、deleteしていけないvcfをdeleteしてしまう
 		VCFHeteroHomo	*empty_vcf = new VCFHeteroHomo(header, samples,
-								vector<VCFHeteroHomoRecord *>(), genetic_map);
+								vector<VCFHeteroHomoRecord *>(), get_map());
 		return make_pair(vector<VCFHeteroHomo *>(1, empty_vcf),
 									vector<VCFHeteroHomoRecord *>());
 	}
@@ -399,6 +396,53 @@ void VCFHeteroHomo::inverse_hetero_parent_phases() {
 			(*p)->set_GT(hetero_index, "0|1");
 	}
 }
+
+void VCFHeteroHomo::impute_in_thread(void *config) {
+	const auto	*c = (ConfigThread *)config;
+	const size_t	n = c->size();
+	// 家系数が少ない場合、スレッドの内部でも並列に処理したい
+	const int	num_inner_threads = (c->option->num_threads + n - 1) / n;
+	for(size_t i = c->first; i < n; i += c->num_threads) {
+		auto	result = impute_vcfs(c->vcfs_heho[i],
+											c->option, num_inner_threads);
+		c->imputed_vcfs[i] = result;
+	}
+}
+
+vector<ImpResult> VCFHeteroHomo::impute_hetero_homo_all(
+						const map<string, vector<VCFHeteroHomo *>>& vcfs,
+						const Option *option) {
+	vector<ImpResult>	results(vcfs.size());
+	
+	// vectorにしたほうがマルチスレッドにしやすい
+	vector<vector<VCFHeteroHomo *>>	vcfss;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		vcfss.push_back(p->second);
+	}
+	
+	const int	T = min((int)vcfs.size(), option->num_threads);
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(vcfss, option, i, T, results);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+	
+	return results;
+}
+
 
 // ヘテロ親が同じVCFを集めて補完する
 // ついでにphaseもなるべく同じになるように変更する
@@ -498,3 +542,30 @@ int VCFHeteroHomo::match_score(const vector<bool>& invs,
 	}
 	return num_wrong;
 }
+
+// FamilyごとにVCFHeteroHomoを作って親ごとに格納する
+tuple<VCFHeteroHomo *, VCFHeteroHomo *, vector<VCFHeteroHomoRecord *>>
+VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
+								  const Family *family,
+								  const VCFSmall *vcf, const Map& geno_map) {
+	const STRVEC&	samples = family->get_samples();
+	const vector<STRVEC>	header = vcf->create_header(samples);
+	vector<VCFHeteroHomoRecord *>	heho_mat_records;
+	vector<VCFHeteroHomoRecord *>	heho_pat_records;
+	vector<VCFHeteroHomoRecord *>	unused_records;
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		VCFHeteroHomoRecord	*record = *p;
+		if(!record->is_imputable())
+			unused_records.push_back(record);
+		else if(record->is_mat_hetero())
+			heho_mat_records.push_back(record);
+		else
+			heho_pat_records.push_back(record);
+	}
+	auto	*vcf_mat = new VCFHeteroHomo(header, samples,
+											heho_mat_records, geno_map);
+	auto	*vcf_pat = new VCFHeteroHomo(header, samples,
+											heho_pat_records, geno_map);
+	return make_tuple(vcf_mat, vcf_pat, unused_records);
+}
+

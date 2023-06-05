@@ -63,3 +63,44 @@ VCFProgenyPhased *VCFProgenyPhased::impute_by_progeny(const VCFSmall *orig_vcf,
 	delete vcf;
 	return new_vcf;
 }
+
+void VCFProgenyPhased::impute_in_thread(void *config) {
+	const auto	*c = (ConfigThread *)config;
+	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
+		const Family	*family = c->families[i].first;
+		const PPI		ppi = c->families[i].second;
+		c->results[i] = impute_by_progeny(c->orig_vcf, c->merged_vcf,
+												family->get_samples(), ppi);
+	}
+}
+
+vector<VCFProgenyPhased *> VCFProgenyPhased::impute_all_by_progeny(
+							const VCFSmall *orig_vcf,
+							const VCFSmall *merged_vcf,
+							const vector<pair<const Family *, PPI>>& families,
+							int num_threads) {
+	vector<VCFProgenyPhased *>	results(families.size());
+	
+	const int	T = min((int)families.size(), num_threads);
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(orig_vcf, merged_vcf, families,
+													(size_t)i, T, results);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+						(void *(*)(void *))&impute_in_thread,
+						(void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+	return results;
+}

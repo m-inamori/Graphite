@@ -19,7 +19,7 @@ using namespace std;
 VCFHeteroHomoPP::VCFHeteroHomoPP(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFFillableRecord *> rs, const Map& m) :
 			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			fi_records(rs), genetic_map(m) { }
+			VCFMeasurable(m), fi_records(rs) { }
 
 bool VCFHeteroHomoPP::is_mat_hetero() const {
 	return fi_records.front()->is_hetero(0);
@@ -73,10 +73,6 @@ string VCFHeteroHomoPP::impute_sample_seq(size_t i,
 	return painted_seq;
 }
 
-double VCFHeteroHomoPP::cM(size_t i) const {
-	return genetic_map.bp_to_cM(fi_records[i]->pos());
-}
-
 bool VCFHeteroHomoPP::is_all_same_without_N(const string& seq) {
 	char	c = '.';
 	for(auto p = seq.begin(); p != seq.end(); ++p) {
@@ -124,7 +120,7 @@ void VCFHeteroHomoPP::impute() {
 	vector<double>	cMs;
 	const size_t	L = this->size();
 	for(size_t i = 0; i < L; ++i) {
-		cMs.push_back(this->cM(i));
+		cMs.push_back(this->record_cM(i));
 	}
 	
 	vector<string>	imputed_seqs;
@@ -239,4 +235,43 @@ VCFFillable *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
 	delete pat_vcf;
 	
 	return new_vcf;
+}
+
+void VCFHeteroHomoPP::impute_in_thread(void *config) {
+	const auto	*c = (ConfigThread *)config;
+	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
+		const Family	*family = c->families[i];
+		c->results[i] = impute_by_parents(c->orig_vcf, c->merged_vcf,
+											family->get_samples(), c->geno_map);
+	}
+}
+
+vector<VCFFillable *> VCFHeteroHomoPP::impute_vcfs(
+						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+						const vector<const Family *>& families,
+						const Map& geno_map, int num_threads) {
+	vector<VCFFillable *>	results(families.size());
+	
+	const int	T = min((int)families.size(), num_threads);
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(orig_vcf, merged_vcf, families,
+											geno_map, (size_t)i, T, results);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+						(void *(*)(void *))&impute_in_thread,
+						(void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+	return results;
 }

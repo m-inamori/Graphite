@@ -2,17 +2,20 @@
 #define __VCFHETEROHOMO
 
 #include "VCFImpFamily.h"
-#include "option.h"
+#include "Map.h"
 #include "graph.h"
 #include "Baum_Welch_with_fixed_Ts.h"
 
 class Map;
 class BiasProbability;
 class PedigreeTable;
+class Family;
 class VCFOriginal;
 class VCFHeteroHomoRecord;
 class VCFHeteroHomo;
 class InverseGraph;
+class Option;
+class OptionImpute;
 
 typedef std::pair<std::vector<VCFHeteroHomo *>,
 						std::vector<VCFHeteroHomoRecord *>>	ImpResult;
@@ -47,13 +50,28 @@ public:
 
 //////////////////// VCFHeteroHomo ////////////////////
 
-class VCFHeteroHomo : public VCFFamily {
+class VCFHeteroHomo : public VCFFamily, VCFMeasurable {
 public:
+	struct ConfigThread {
+		const std::vector<std::vector<VCFHeteroHomo *>>&	vcfs_heho;
+		const Option *option;
+		const std::size_t	first;
+		const int	num_threads;
+		std::vector<ImpResult>&	imputed_vcfs;
+		
+		ConfigThread(const std::vector<std::vector<VCFHeteroHomo *>>& vcfs,
+											const Option *op, int f, int n,
+											std::vector<ImpResult>& results) :
+									vcfs_heho(vcfs), option(op), first(f),
+									num_threads(n), imputed_vcfs(results) { }
+		
+		std::size_t size() const { return imputed_vcfs.size(); }
+	};
+	
 	typedef std::pair<std::string,std::string>	Parents;
 	
 protected:
 	std::vector<VCFHeteroHomoRecord *>	hh_records;
-	const Map&	genetic_map;
 	
 public:
 	VCFHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
@@ -62,7 +80,6 @@ public:
 	
 	bool is_mat_hetero() const { return hh_records.front()->is_mat_hetero(); }
 	
-	double cM(std::size_t i) const;
 	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs);
 	void set_records_base(const std::vector<VCFHeteroHomoRecord *>& rs);
 	
@@ -83,11 +100,11 @@ public:
 	const std::vector<VCFHeteroHomoRecord *>& get_records() const {
 		return hh_records;
 	}
-	const Map& get_map() const { return genetic_map; }
 	std::pair<int,bool> distance(const std::vector<int>& gts1,
 							const std::vector<int>& gts2, int max_dist) const;
 	
 private:
+	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
 	Graph::InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
 	std::string impute_each_sample_seq(int i,
@@ -103,6 +120,15 @@ public:
 	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
 	static const InverseGraph *make_vcf_graph(
 										const std::vector<VCFHeteroHomo *>& vcfs);
+	static std::vector<ImpResult> impute_hetero_homo_all(
+				const std::map<std::string, std::vector<VCFHeteroHomo *>>& vcfs,
+				const Option *option);
+	// FamilyごとにVCFHeteroHomoを作って親ごとに格納する
+	static std::tuple<VCFHeteroHomo *, VCFHeteroHomo *,
+						std::vector<VCFHeteroHomoRecord *>>
+			make_VCFHeteroHomo(const std::vector<VCFHeteroHomoRecord *>& records,
+								const Family *family,
+								const VCFSmall *vcf, const Map& geno_map);
 	
 private:
 	static std::pair<double, bool> distance(const std::vector<int>& gts1,
@@ -117,5 +143,6 @@ private:
 			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
 	static std::vector<bool> optimize_phase_inversions(
 			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
+	static void impute_in_thread(void *config);
 };
 #endif

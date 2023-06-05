@@ -130,6 +130,7 @@ public:
 		records.insert(records.end(), rs.begin(), rs.end());
 	}
 	void clear_records() { records.clear(); }
+	VCFSmall *extract_samples(const STRVEC& samples) const;
 	
 public:
 	static VCFSmall *read(const std::string& path);
