@@ -18,16 +18,15 @@ using namespace std;
 
 VCFHeteroHomoPP::VCFHeteroHomoPP(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFFillableRecord *> rs, const Map& m) :
-			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			VCFMeasurable(m), fi_records(rs) { }
+			VCFFamilyBase(h, s), VCFMeasurable(m), records(rs) { }
 
 bool VCFHeteroHomoPP::is_mat_hetero() const {
-	return fi_records.front()->is_hetero(0);
+	return records.front()->is_hetero(0);
 }
 
 string VCFHeteroHomoPP::make_seq(size_t i) const {
 	stringstream	ss;
-	for(auto p = this->fi_records.begin(); p != this->fi_records.end(); ++p) {
+	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
 		VCFFillableRecord	*record = *p;
 		const string	mat_GT = record->get_GT(0);
 		const string	pat_GT = record->get_GT(1);
@@ -98,7 +97,7 @@ string VCFHeteroHomoPP::create_same_color_string(const string& seq) {
 }
 
 string VCFHeteroHomoPP::update_each(size_t i, size_t j, char c) {
-	VCFFillableRecord	*record = this->fi_records[i];
+	VCFFillableRecord	*record = this->records[i];
 	const int	k = (c - '0') * 2;
 	if(record->is_mat_hetero())
 		return record->get_GT(0).substr(k, 1) + record->get_GT(1).substr(1, 2);
@@ -109,7 +108,7 @@ string VCFHeteroHomoPP::update_each(size_t i, size_t j, char c) {
 void VCFHeteroHomoPP::update(size_t i, const STRVEC& seqs) {
 	for(size_t j = 2; j < this->samples.size(); ++j) {
 		const char	c = seqs[j-2].c_str()[i];
-		this->fi_records[i]->set_GT(j, this->update_each(i, j, c));
+		this->records[i]->set_GT(j, this->update_each(i, j, c));
 	}
 }
 
@@ -192,8 +191,8 @@ VCFFillable *VCFHeteroHomoPP::merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 			record->set_GT(c-9, GT);
 	}
 	
-	const vector<VCFFillableRecord *>&	mat_records = mat_vcf->get_fi_records();
-	const vector<VCFFillableRecord *>&	pat_records = pat_vcf->get_fi_records();
+	const vector<VCFFillableRecord *>&	mat_records = mat_vcf->get_records();
+	const vector<VCFFillableRecord *>&	pat_records = pat_vcf->get_records();
 	vector<VCFFillableRecord *>	records(mat_records.begin(), mat_records.end());
 	records.insert(records.begin(), pat_records.begin(), pat_records.end());
 	records.insert(records.begin(), homohomo_records.begin(),

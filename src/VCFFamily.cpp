@@ -55,25 +55,12 @@ void VCFFamilyRecord::impute_homohomo() {
 //////////////////// VCFFamily ////////////////////
 
 VCFFamily::VCFFamily(const vector<STRVEC>& h, const STRVEC& s,
-									vector<VCFFamilyRecord *> rs) :
-					VCFSmall(h, s, vector<VCFRecord *>(rs.begin(), rs.end())),
-					family_records(rs) {
-}
-
-void VCFFamily::set_records(const vector<VCFFamilyRecord *>& rs) {
-	family_records = rs;
-	// ここに実装を書くと、深い継承の場合、最上位まで全部書かなけらばならない
-	// 連鎖的にする
-	set_records_base(rs);
-}
-
-// 親に書くと子クラスのvectorを全て並べることになるので子に書く
-void VCFFamily::set_records_base(const vector<VCFFamilyRecord *>& rs) {
-	records.insert(records.end(), rs.begin(), rs.end());
+								vector<VCFFamilyRecord *> rs) :
+											VCFFamilyBase(h, s), records(rs) {
 }
 
 bool VCFFamily::is_all_hetero(bool is_mat) const {
-	for(auto p = family_records.begin(); p != family_records.end(); ++p) {
+	for(auto p = records.begin(); p != records.end(); ++p) {
 		if(is_mat) {
 			if((*p)->mat_int_gt() != 1)
 				return false;
@@ -87,7 +74,7 @@ bool VCFFamily::is_all_hetero(bool is_mat) const {
 }
 
 bool VCFFamily::is_all_homo(bool is_mat) const {
-	for(auto p = family_records.begin(); p != family_records.end(); ++p) {
+	for(auto p = records.begin(); p != records.end(); ++p) {
 		if(is_mat) {
 			if((*p)->mat_int_gt() == 1)
 				return false;
@@ -146,8 +133,8 @@ VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
 	size_t	k = 0U;
 	size_t	l = 0U;
 	while(k < vcf1->size() && l < vcf2->size()) {
-		VCFFamilyRecord	*record1 = vcf1->get_record(k);
-		VCFFamilyRecord	*record2 = vcf2->get_record(l);
+		VCFFamilyRecord	*record1 = vcf1->get_family_record(k);
+		VCFFamilyRecord	*record2 = vcf2->get_family_record(l);
 		POSITION	pos1 = vcf1->record_position(*record1);
 		POSITION	pos2 = vcf2->record_position(*record2);
 		assert(pos1 != pos2);
@@ -162,9 +149,9 @@ VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
 	}
 	
 	for(size_t i = k; i < vcf1->size(); ++i)
-		records.push_back(vcf1->get_record(i)->copy());
+		records.push_back(vcf1->get_family_record(i)->copy());
 	for(size_t i = l; i < vcf2->size(); ++i)
-		records.push_back(vcf2->get_record(i)->copy());
+		records.push_back(vcf2->get_family_record(i)->copy());
 	
 	vcf->set_records(records);
 	return vcf;
@@ -203,7 +190,7 @@ VCFFamily *VCFFamily::join(const vector<VCFFamily *>& vcfs) {
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		VCFFamily	*vcf = *p;
 		for(size_t i = 0U; i < vcf->size(); ++i) {
-			VCFFamilyRecord	*record = vcf->get_record(i);
+			VCFFamilyRecord	*record = vcf->get_family_record(i);
 			records.push_back(record->copy());	// for memory leak
 		}
 	}

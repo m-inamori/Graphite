@@ -41,32 +41,51 @@ public:
 };
 
 
-//////////////////// VCFFamily ////////////////////
+//////////////////// VCFFamilyBase ////////////////////
 
-class VCFFamily : public VCFSmall {
-protected:
-	std::vector<VCFFamilyRecord *>	family_records;
-	
+class VCFFamilyBase : public VCFSmallBase {
 public:
-	VCFFamily(const std::vector<STRVEC>& h, const STRVEC& s,
-									std::vector<VCFFamilyRecord *> rs);
-	~VCFFamily() { }
+	VCFFamilyBase(const std::vector<STRVEC>& h, const STRVEC& s) :
+												VCFSmallBase(h, s) { }
+	virtual ~VCFFamilyBase() { };
 	
-	void set_records(const std::vector<VCFFamilyRecord *>& rs);
-	void set_records_base(const std::vector<VCFFamilyRecord *>& rs);
+	virtual VCFFamilyRecord *get_family_record(std::size_t i) const = 0;
 	
 	const std::string& mat() const { return samples[0]; }
 	const std::string& pat() const { return samples[1]; }
 	const std::pair<std::string, std::string> parents() const {
 		return std::pair<std::string, std::string>(mat(), pat());
 	}
-	VCFFamilyRecord *get_record(std::size_t i) const {
-		return family_records[i];
-	}
-	const std::vector<VCFFamilyRecord *>& get_family_records() const {
-		return family_records;
-	}
 	std::size_t num_progenies() const { return samples.size() - 2U; }
+};
+
+
+//////////////////// VCFFamily ////////////////////
+
+class VCFFamily : public VCFFamilyBase {
+protected:
+	std::vector<VCFFamilyRecord *>	records;
+	
+public:
+	VCFFamily(const std::vector<STRVEC>& h, const STRVEC& s,
+									std::vector<VCFFamilyRecord *> rs);
+	~VCFFamily() { }
+	
+	///// virtual methods /////
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const {
+		return records[i];
+	}
+	
+	///// non-virtual methods /////
+	const std::vector<VCFFamilyRecord *>& get_family_records() const {
+		return records;
+	}
+	void set_records(const std::vector<VCFFamilyRecord *>& rs) { records = rs; }
+	void clear_records() { records.clear(); }
 	
 	bool is_all_hetero(bool is_mat) const;
 	bool is_all_homo(bool is_mat) const;

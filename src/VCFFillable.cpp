@@ -908,9 +908,8 @@ void VCFFillable::RecordSet::impute_NA_pat_each(size_t i) const {
 //////////////////// VCFFillable ////////////////////
 
 VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-									std::vector<VCFFillableRecord *> rs) :
-			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			fillable_records(rs) { }
+								std::vector<VCFFillableRecord *> rs) :
+											VCFFamilyBase(h, s), records(rs) { }
 
 void VCFFillable::modify() {
 	vector<Group>	groups = group_records();
@@ -919,8 +918,8 @@ void VCFFillable::modify() {
 			this->phase(i, groups, true);
 	}
 	
-	for(size_t i = 0U; i < fillable_records.size(); ++i) {
-		auto	*record = fillable_records[i];
+	for(size_t i = 0U; i < records.size(); ++i) {
+		auto	*record = records[i];
 		if(record->is_mat_type())
 			this->impute_NA_mat(i);
 		else if(record->is_pat_type())
@@ -929,7 +928,7 @@ void VCFFillable::modify() {
 			this->impute_others(i);
 	}
 	
-	for(auto p = fillable_records.begin(); p != fillable_records.end(); ++p)
+	for(auto p = records.begin(); p != records.end(); ++p)
 		(*p)->fill_PGT();
 }
 
@@ -941,8 +940,8 @@ void VCFFillable::phase_hetero_hetero() {
 			this->phase(i, groups, false);
 	}
 	
-	for(size_t i = 0U; i < fillable_records.size(); ++i) {
-		auto	*record = fillable_records[i];
+	for(size_t i = 0U; i < records.size(); ++i) {
+		auto	*record = records[i];
 		if(record->is_mat_type())
 			this->impute_NA_mat(i);
 		else if(record->is_pat_type())
@@ -959,22 +958,11 @@ VCFFillable *VCFFillable::create_from_header() const {
 	return vcf;
 }
 
-void VCFFillable::set_records(const vector<VCFFillableRecord *>& rs) {
-	fillable_records = rs;
-	set_records_base(rs);
-}
-
-// 親に書くと子クラスのvectorを全て並べることになるので子に書く
-void VCFFillable::set_records_base(const vector<VCFFillableRecord *>& rs) {
-	records.insert(records.end(), rs.begin(), rs.end());
-}
-
 vector<VCFFillable::Group> VCFFillable::group_records() const {
 	vector<Group>	groups;
-	auto	current_type = fillable_records.front()->get_type();
-	vector<VCFFillableRecord *>	group(1U, fillable_records.front());
-	for(auto p = fillable_records.begin() + 1;
-							p != fillable_records.end(); ++p) {
+	auto	current_type = records.front()->get_type();
+	vector<VCFFillableRecord *>	group(1U, records.front());
+	for(auto p = records.begin() + 1; p != records.end(); ++p) {
 		auto	*record = *p;
 		if(record->get_type() != current_type) {
 			groups.push_back(Group(current_type, group));
@@ -1033,8 +1021,8 @@ void VCFFillable::phase(int i, const vector<Group>& groups,
 template<typename Iter>
 VCFFillableRecord *VCFFillable::find_neighbor_same_type_record(
 							size_t i, size_t c, Iter first, Iter last) const {
-	const FillType	type = fillable_records[i]->get_type();
-	const string&	chromosome = fillable_records[i]->chrom();
+	const FillType	type = records[i]->get_type();
+	const string&	chromosome = records[i]->chrom();
 	for(auto p = first; p != last; ++p) {
 		auto	*record = *p;
 		if(record->chrom() != chromosome)
@@ -1050,23 +1038,23 @@ VCFFillableRecord *VCFFillable::find_prev_same_type_record(
 	if(i == 0U)
 		return NULL;
 	
-	return find_neighbor_same_type_record(i, c, fillable_records.rend() - i + 1,
-													fillable_records.rend());
+	return find_neighbor_same_type_record(i, c, records.rend() - i + 1,
+																records.rend());
 }
 
 VCFFillableRecord *VCFFillable::find_next_same_type_record(
 													size_t i, size_t c) const {
-	if(i == fillable_records.size() - 1)
+	if(i == records.size() - 1)
 		return NULL;
 	
-	const auto	first = fillable_records.begin() + i + 1;
-	const auto	last = fillable_records.end();
+	const auto	first = records.begin() + i + 1;
+	const auto	last = records.end();
 	return find_neighbor_same_type_record(i, c, first, last);
 }
 
 const VCFFillable::RecordSet *VCFFillable::create_recordset(
 										size_t i, size_t c, bool is_mat) const {
-	auto	*record = fillable_records[i];
+	auto	*record = records[i];
 	auto	*prev_record = find_prev_same_type_record(i, c);
 	auto	*next_record = find_next_same_type_record(i, c);
 	if(is_mat)
@@ -1082,7 +1070,7 @@ void VCFFillable::impute_NA_mat_each(size_t i, size_t c) {
 }
 
 void VCFFillable::impute_NA_mat(size_t i) {
-	auto	*record = this->fillable_records[i];
+	auto	*record = this->records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
 		if(record->get_GT(c-9) == "./.")
 			impute_NA_mat_each(i, c);
@@ -1096,7 +1084,7 @@ void VCFFillable::impute_NA_pat_each(size_t i, size_t c) {
 }
 
 void VCFFillable::impute_NA_pat(size_t i) {
-	auto	*record = this->fillable_records[i];
+	auto	*record = this->records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
 		if(record->get_GT(c-9) == "./.")
 			impute_NA_pat_each(i, c);
@@ -1105,7 +1093,7 @@ void VCFFillable::impute_NA_pat(size_t i) {
 
 pair<int, int> VCFFillable::find_prev_mat_from(int i, int c) const {
 	for(int k = i - 1; k >= 0; --k) {
-		const int	from1 = this->fillable_records[k]->mat_from(c);
+		const int	from1 = this->records[k]->mat_from(c);
 		if(from1 != 0)
 			return pair<int, int>(k, from1);
 	}
@@ -1114,7 +1102,7 @@ pair<int, int> VCFFillable::find_prev_mat_from(int i, int c) const {
 
 pair<int, int> VCFFillable::find_next_mat_from(int i, int c) const {
 	for(int k = i + 1; k < (int)this->size(); ++k) {
-		const int	from2 = this->fillable_records[k]->mat_from(c);
+		const int	from2 = this->records[k]->mat_from(c);
 		if(from2 != 0)
 			return pair<int, int>(k, from2);
 	}
@@ -1123,7 +1111,7 @@ pair<int, int> VCFFillable::find_next_mat_from(int i, int c) const {
 
 pair<int, int> VCFFillable::find_prev_pat_from(int i, int c) const {
 	for(int k = i - 1; k >= 0; --k) {
-		const int	from1 = this->fillable_records[k]->pat_from(c);
+		const int	from1 = this->records[k]->pat_from(c);
 		if(from1 != 0)
 			return pair<int, int>(k, from1);
 	}
@@ -1132,7 +1120,7 @@ pair<int, int> VCFFillable::find_prev_pat_from(int i, int c) const {
 
 pair<int, int> VCFFillable::find_next_pat_from(int i, int c) const {
 	for(int k = i + 1; k < (int)this->size(); ++k) {
-		const int	from2 = this->fillable_records[k]->pat_from(c);
+		const int	from2 = this->records[k]->pat_from(c);
 		if(from2 != 0)
 			return pair<int, int>(k, from2);
 	}
@@ -1147,7 +1135,7 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 	const int	from2 = f2.second;
 	if(from1 == 0 && from2 == 0) {
 		// 前後がないとき乱数的に決める
-		const auto	*r0 = this->fillable_records[i];
+		const auto	*r0 = this->records[i];
 		return r0->pos() % 2 + 1;
 	}
 	if(from1 == from2)
@@ -1158,9 +1146,9 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 		return from2;
 	else {
 		// 最後は物理距離で決める
-		const auto	*r0 = this->fillable_records[i];
-		const auto	*r1 = this->fillable_records[i1];
-		const auto	*r2 = this->fillable_records[i2];
+		const auto	*r0 = this->records[i];
+		const auto	*r1 = this->records[i1];
+		const auto	*r2 = this->records[i2];
 		if(r0->pos() * 2 <= r1->pos() + r2->pos())
 			return from1;
 		else
@@ -1179,7 +1167,7 @@ int VCFFillable::find_pat_from(int i, int c) const {
 }
 
 void VCFFillable::impute_others(int i) {
-	auto	*record = this->fillable_records[i];
+	auto	*record = this->records[i];
 	const bool	mat_homo = record->is_homo(0);
 	const bool	pat_homo = record->is_homo(1);
 	for(size_t c = 11; c != record->get_v().size(); ++c) {
@@ -1241,7 +1229,7 @@ vector<vector<VCFFillableRecord *>> VCFFillable::collect_records(
 		for(size_t i = 0; i < vcfs.front()->size(); ++i) {
 			vector<VCFFillableRecord *>	rs;
 			for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
-				rs.push_back((*p)->get_record(i));
+				rs.push_back((*p)->get_fillable_record(i));
 			rss.push_back(rs);
 		}
 	}
@@ -1259,7 +1247,7 @@ vector<vector<VCFFillableRecord *>> VCFFillable::collect_records(
 				VCFFillable	*vcf = vcfs[k];
 				if(js[k] == vcf->size())
 					continue;
-				VCFFillableRecord	*record = vcf->get_record(js[k]);
+				VCFFillableRecord	*record = vcf->get_fillable_record(js[k]);
 				if(record->get_index() == i) {
 					rs[k] = record;
 					js[k] += 1;

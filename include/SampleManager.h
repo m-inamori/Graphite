@@ -11,12 +11,15 @@ class SampleManager {
 	const PedigreeTable	*ped;
 	const std::vector<const Family *>	large_families;
 	const std::vector<const Family *>	small_families;
+	const std::size_t	lower_progs;
 	std::set<std::string>	imputed_samples;
 	
 public:
 	SampleManager(const PedigreeTable *p, const std::vector<const Family *>& f1,
-										const std::vector<const Family *>& f2):
-							ped(p), large_families(f1), small_families(f2) { }
+										const std::vector<const Family *>& f2,
+										std::size_t lower_p):
+								ped(p), large_families(f1),
+								small_families(f2), lower_progs(lower_p) { }
 	~SampleManager();
 	
 	const std::vector<const Family *>& get_large_families() const {
@@ -45,6 +48,7 @@ public:
 	
 	void add_imputed_samples(const std::vector<std::string>& samples);
 	void clear_imputed_samples();
+	void display_info() const;
 	
 public:
 	static std::vector<const Family *> make_families(const PedigreeTable *ped,

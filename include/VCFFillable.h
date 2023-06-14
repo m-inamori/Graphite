@@ -129,7 +129,7 @@ public:
 
 //////////////////// VCFFillable ////////////////////
 
-class VCFFillable : public VCFFamily {
+class VCFFillable : public VCFFamilyBase {
 	using Pair = std::pair<int,int>;
 	using PosWithChr = std::tuple<int,ll,std::string>;
 	
@@ -219,7 +219,7 @@ class VCFFillable : public VCFFamily {
 								vcfs(v), first(f), num_thread(n) { }
 	};
 	
-	std::vector<VCFFillableRecord *>	fillable_records;
+	std::vector<VCFFillableRecord *>	records;
 	
 public:
 	using Position = std::tuple<int, ll, std::string>;
@@ -234,17 +234,28 @@ public:
 									std::vector<VCFFillableRecord *> rs);
 	~VCFFillable() { }
 	
+	///// virtual methods /////
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const {
+		return records[i];
+	}
+	
+	///// non-virtual methods /////
+	VCFFillableRecord *get_fillable_record(std::size_t i) const {
+		return records[i];
+	}
+	const std::vector<VCFFillableRecord *>& get_records() const {
+		return records;
+	}
+	
 	void modify();
 	void phase_hetero_hetero();
 	VCFFillable *create_from_header() const;
-	void set_records(const std::vector<VCFFillableRecord *>& rs);
-	void set_records_base(const std::vector<VCFFillableRecord *>& rs);
-	
-	VCFFillableRecord *get_record(std::size_t i) const {
-		return fillable_records[i];
-	}
-	const std::vector<VCFFillableRecord *>& get_records() const {
-		return fillable_records;
+	void set_records(const std::vector<VCFFillableRecord *>& rs) {
+		records = rs;
 	}
 
 private:

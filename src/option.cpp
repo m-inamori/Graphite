@@ -15,7 +15,7 @@ bool Option::is_efficient_chrom(int i) const {
 }
 
 string Option::flag_value(const string& s, int argc, char **argv) {
-	for(size_t i = 4U; i < (size_t)(argc - 1); ++i) {
+	for(size_t i = 3U; i < (size_t)(argc - 1); ++i) {
 		if(argv[i] == s)
 			return argv[i+1];
 	}
@@ -23,7 +23,7 @@ string Option::flag_value(const string& s, int argc, char **argv) {
 }
 
 bool Option::exists(const string& s, int argc, char **argv) {
-	for(size_t i = 4U; i < (size_t)(argc - 1); ++i) {
+	for(size_t i = 3U; i < (size_t)(argc - 1); ++i) {
 		if(argv[i] == s)
 			return true;
 	}
@@ -82,16 +82,17 @@ size_t Option::get_lower_progenies(int argc, char ** argv) {
 }
 
 Option *Option::create(int argc, char **argv) {
-	if(argc < 5 || 13 < argc)
+	if(argc < 4)
 		return NULL;
 	
 	try {
+		const string	map_path = flag_value("-m", argc, argv);
 		const vector<size_t>	families = get_families(argc, argv);
 		const vector<size_t>	chroms = get_chroms(argc, argv);
 		const int	num_threads = get_num_threads(argc, argv);
 		const size_t	lower_progs = get_lower_progenies(argc, argv);
 		const bool	only_large_families = exists("-l", argc, argv);
-		return new Option(argv[1], argv[2], argv[3], families,
+		return new Option(argv[1], argv[2], map_path, families,
 							chroms, num_threads, lower_progs,
 							only_large_families, argv[argc-1]);
 	}
@@ -101,10 +102,10 @@ Option *Option::create(int argc, char **argv) {
 };
 
 void Option::usage(char **argv) {
-	cerr << argv[0] << " VCF ped map [-t num_threads] "
+	cerr << argv[0] << " VCF ped [-m map] [-t num_threads] "
 				<< "[-f family indices] [-c chrom indices] "
 				<< "[-p lower progenies] [-l] out." << endl;
-	cerr << "family indices: (index|first:last)[,(index|first:last),[..]]"
+	cerr << "family indices: (index|first:last)[,(index|first:last)[,..]]"
 																	<< endl;
 	cerr << "chrom indices: same as family indices." << endl;
 	cerr << "-l: large families only." << endl;

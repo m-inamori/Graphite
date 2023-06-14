@@ -20,9 +20,37 @@ using namespace std;
 
 //////////////////// Materials ////////////////////
 
+Materials::Materials(const Map *m) : geno_map(m),
+										chr_maps(Map::create_chr_maps(m)) { }
+
 Materials::~Materials() {
 	delete geno_map;
 	Common::delete_all(chr_maps);
+}
+
+const Map *Materials::get_chr_map(int i) const {
+	if(geno_map->is_empty())
+		return chr_maps[0];
+	else
+		return chr_maps[i];
+}
+
+double Materials::total_cM() const {
+	double	length = 0.0;
+	for(auto p = chr_maps.begin(); p != chr_maps.end(); ++p)
+		length += (*p)->total_cM();
+	return length;
+}
+
+void Materials::display_map_info() const {
+	cerr << "Genetic Map : ";
+	if(geno_map->is_empty()) {
+		cerr << "default map(1Mbp=1cM)." << endl;
+	}
+	else {
+		cerr << chr_maps.size() << " chrmosomes "
+								<< total_cM() << " cM." << endl;
+	}
 }
 
 Materials *Materials::create(const Option *option) {
@@ -51,7 +79,7 @@ pair<HeHoRecords, ImpRecords> classify_records(const VCFSmall *vcf,
 		auto	*vcf_family = VCFFamily::create(vcf, samples);
 		const auto	*td = CR->get_TypeDeterminer(family->num_progenies(), p);
 		for(size_t i = 0; i < vcf_family->size(); ++i) {
-			VCFFamilyRecord	*record = vcf_family->get_record(i);
+			VCFFamilyRecord	*record = vcf_family->get_family_record(i);
 			const auto	pair1 = CR->classify(record, td);
 			const ParentComb	pc = pair1.first;
 			const WrongType	wrong_type = pair1.second;
@@ -248,7 +276,7 @@ VCFSmall *impute_vcf_by_parents(
 														num_threads);
 	STRVEC	samples;	// 子どもだけ集める
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		VCFFamily	*vcf = *p;
+		VCFFillable	*vcf = *p;
 		STRVEC	ss = vcf->get_samples();
 		samples.insert(samples.end(), ss.begin() + 2, ss.end());
 	}
@@ -335,7 +363,7 @@ VCFSmall *impute_vcf_by_progenies(const VCFSmall *orig_vcf,
 													progeny_imputed_families,
 													num_threads);
 	
-	vector<VCFSmall *>	vcfs2(vcfs.begin(), vcfs.end());	// convert class
+	vector<VCFSmallBase *>	vcfs2(vcfs.begin(), vcfs.end());	// convert class
 	VCFSmall	*new_vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
@@ -355,9 +383,19 @@ VCFSmall *impute_iolated_samples(
 	return new_vcf;
 }
 
+void display_chromosome_info(const VCFSmall *orig_vcf) {
+	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << endl;
+	if(orig_vcf->size() == 1) {
+		cerr << "1 record." << endl;
+	}
+	else {
+		cerr << orig_vcf->size() << " records." << endl;
+	}
+}
+
 VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 									const Map& geno_map, const Option *option) {
-	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << endl;
+	display_chromosome_info(orig_vcf);
 	
 	const auto&	all_samples = orig_vcf->get_samples();
 	auto	p = impute_hetero_homo(orig_vcf, sample_man, geno_map, option);
@@ -379,7 +417,7 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 												merged_vcf, families1,
 												geno_map, option->num_threads);
 			Common::delete_all(families1);
-			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+			vector<VCFSmallBase *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
 			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
@@ -394,7 +432,7 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 			auto	*new_imputed_vcf = impute_vcf_by_parent(orig_vcf,
 											merged_vcf, families2, geno_map,
 											sample_man, option->num_threads);
-			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+			vector<VCFSmallBase *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
 			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
@@ -411,7 +449,7 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 														orig_vcf, merged_vcf,
 														families3, sample_man,
 														option->num_threads);
-			vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+			vector<VCFSmallBase *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);
 			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
@@ -424,15 +462,17 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 			break;
 	}
 	
-	// 最後に孤立したサンプルを補完する
+	// At last, impute isolated samples
 	const STRVEC	samples = sample_man->extract_isolated_samples();
 	if(!samples.empty()) {
 		VCFSmall	*new_imputed_vcf = impute_iolated_samples(
 												orig_vcf, merged_vcf, sample_man,
 												samples,
 												geno_map, option->num_threads);
-		vector<VCFSmall *>	vcfs{ merged_vcf, new_imputed_vcf };
+		vector<VCFSmallBase *>	vcfs{ merged_vcf, new_imputed_vcf };
+		VCFSmall	*vcf = merged_vcf;
 		merged_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+		delete vcf;
 		delete new_imputed_vcf;
 	}
 	
@@ -441,15 +481,20 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 }
 
 void impute_VCF(const Option *option) {
-	// chromosomeごとに処理する
 	Materials	*materials = Materials::create(option);
+	materials->display_map_info();
+	
 	VCFHuge	*vcf = VCFHuge::read(option->path_vcf);
 	SampleManager	*sample_man = SampleManager::create(
 										option->path_ped, vcf->get_samples(),
 										option->lower_progs, option->families);
+	sample_man->display_info();
+	
+	// process chromosome by chromosome
 	VCFHuge::ChromDivisor	divisor(vcf);
-	bool	first = true;
+	bool	first_chromosome = true;
 	for(int	chrom_index = 0; ; ++chrom_index) {
+		// chrom_index is required only for because they can skip chromosomes
 		VCFSmall	*vcf_chrom = divisor.next();
 		if(vcf_chrom == NULL)
 			break;
@@ -462,15 +507,15 @@ void impute_VCF(const Option *option) {
 		const VCFSmall	*vcf_imputed = impute_vcf_chr(vcf_chrom, sample_man,
 																*gmap, option);
 		delete vcf_chrom;
-		if(first) {
+		if(first_chromosome) {
 			ofstream	ofs(option->path_out);
-			vcf_imputed->write(ofs, true);
+			vcf_imputed->write(ofs, true);	// write header
 		}
 		else {
 			ofstream	ofs(option->path_out, ios_base::app);
-			vcf_imputed->write(ofs, false);		// headerを書かない
+			vcf_imputed->write(ofs, false);
 		}
-		first = false;
+		first_chromosome = false;
 		delete vcf_imputed;
 	}
 	

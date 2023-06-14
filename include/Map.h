@@ -33,7 +33,8 @@ public:
 	Map(const std::vector<const Record *>& rs) : records(rs) { }
 	~Map();
 	
-	double total_cM() const { return records.back()->cM - records.front()->cM; }
+	bool is_empty() const { return records.empty(); }
+	double total_cM() const { return records.back()->cM; }
 	const std::vector<const Map *> divide_into_chromosomes() const;
 	
 	double bp_to_cM(long long bp) const;
@@ -43,6 +44,8 @@ private:
 	
 public:
 	static Map *read(const std::string& path);
+	static Map *default_map();
+	static std::vector<const Map *> create_chr_maps(const Map *m);
 };
 
 

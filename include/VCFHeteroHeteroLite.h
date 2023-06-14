@@ -21,11 +21,21 @@ public:
 
 //////////////////// VCFHeteroHeteroLite ////////////////////
 
-class VCFHeteroHeteroLite: public VCFFamily {
-	const std::vector<VCFHeteroHeteroLiteRecord *>	hehe_records;
+class VCFHeteroHeteroLite: public VCFFamilyBase {
+	const std::vector<VCFHeteroHeteroLiteRecord *>	records;
 	
 public:
 	VCFHeteroHeteroLite(const std::vector<STRVEC>& h, const STRVEC& s,
 								std::vector<VCFHeteroHeteroLiteRecord *> rs);
+	~VCFHeteroHeteroLite() { }
+	
+	///// virtual methods /////
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const {
+		return records[i];
+	}
 };
 #endif

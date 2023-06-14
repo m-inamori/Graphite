@@ -31,7 +31,7 @@ protected:
 public:
 	VCFIsolated(const std::vector<STRVEC>& h, const STRVEC& s,
 				std::vector<VCFRecord *> rs, std::size_t nis, const Map& m);
-	~VCFIsolated() { }
+	virtual ~VCFIsolated() { }
 	
 	void impute();
 	VCFSmall *extract_isolated_samples() const;
@@ -64,7 +64,7 @@ public:
 					const std::vector<std::string>& samples,
 					const std::vector<std::string>& references,
 					const Map& gmap, int num_threads);
-	static std::vector<VCFSmall *> impute_all(
+	static std::vector<VCFSmallBase *> impute_all(
 										const std::vector<VCFIsolated *>& vcfs,
 										int num_threads);
 	

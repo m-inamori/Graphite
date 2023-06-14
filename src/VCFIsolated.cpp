@@ -229,11 +229,12 @@ vector<vector<size_t>> VCFIsolated::divide_columns(
 	return css;
 }
 
-vector<VCFSmall *> VCFIsolated::impute_all(const vector<VCFIsolated *>& vcfs,
-															int num_threads) {
+vector<VCFSmallBase *> VCFIsolated::impute_all(
+									const vector<VCFIsolated *>& vcfs,
+									int num_threads) {
 	impute_parellel(vcfs, num_threads);
 	
-	vector<VCFSmall *>	new_vcfs;
+	vector<VCFSmallBase *>	new_vcfs;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		new_vcfs.push_back((*p)->extract_isolated_samples());
 		delete *p;

@@ -11,5 +11,4 @@ using namespace std;
 
 VCFHeteroHeteroLite::VCFHeteroHeteroLite(const vector<STRVEC>& h,
 					const STRVEC& s, vector<VCFHeteroHeteroLiteRecord *> rs) :
-			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			hehe_records(rs) { }
+											VCFFamilyBase(h, s), records(rs) { }

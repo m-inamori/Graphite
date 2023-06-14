@@ -28,7 +28,7 @@ void VCFProgenyPhased::determine_parent(bool is_mat) {
 	const size_t	j = is_mat ? 0 : 2;
 	const size_t	k = is_mat ? 0 : 1;
 	for(size_t l = 0; l < this->size(); ++l) {
-		auto	*record = family_records[l];
+		auto	*record = records[l];
 		const string	prog_GT = record->get_GT(i);
 		const int	int_gt = record->get_int_gt(k);
 		const int	remain = int_gt - (int)(prog_GT.c_str()[j] - '0');

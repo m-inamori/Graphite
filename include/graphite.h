@@ -21,12 +21,13 @@ class Materials {
 	const std::vector<const Map *>	chr_maps;
 	
 public:
-	Materials(const Map *m) : geno_map(m),
-						chr_maps(m->divide_into_chromosomes()) { }
+	Materials(const Map *m);
 	~Materials();
 	
 	const Map& get_map() const { return *geno_map; }
-	const Map *get_chr_map(int i) const { return chr_maps[i]; }
+	const Map *get_chr_map(int i) const;
+	double total_cM() const;
+	void display_map_info() const;
 	
 public:
 	static Materials *create(const Option *option);

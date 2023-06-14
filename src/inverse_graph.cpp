@@ -202,9 +202,13 @@ void InverseGraph::join(BoolGraph& graph1, const BoolGraph& graph2) {
 
 map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 	const vector<pair<double, Edge>>	sorted_edges = this->sort_edges();
+	// [ { node: [(index, inv?)] } ]
 	vector<map<size_t, vector<pair<size_t, bool>>>>	subgraphs;
-	for(auto p = g.begin(); p != g.end(); ++p)
-		subgraphs[p->first];
+	for(auto p = g.begin(); p != g.end(); ++p) {
+		map<size_t, vector<pair<size_t, bool>>>	m;
+		m[p->first];
+		subgraphs.push_back(m);
+	}
 	
 	// 偏りが大きいエッジから追加していく
 	for(auto p = sorted_edges.begin(); p != sorted_edges.end(); ++p) {
@@ -226,17 +230,18 @@ map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 		}
 		if(k1 == k2) {
 			auto	subg1 = subgraphs[k1];
-			subg1[i].push_back(make_pair(j, n1 >= n2));
-			subg1[j].push_back(make_pair(i, n1 >= n2));
+			subg1[i].push_back(make_pair(j, n1 < n2));
+			subg1[j].push_back(make_pair(i, n1 < n2));
 			if(!InverseGraph::is_consistent(subgraphs[k1]))
 				return map<size_t, bool>();
 		}
 		else {
-			auto	subg1 = subgraphs[k1];
-			auto	subg2 = subgraphs[k2];
+			auto&	subg1 = subgraphs[k1];
+			auto&	subg2 = subgraphs[k2];
 			join(subg1, subg2);
-			subg1[i].push_back(make_pair(j, n1 >= n2));
-			subg1[j].push_back(make_pair(i, n1 >= n2));
+			subg1[i].push_back(make_pair(j, n1 < n2));
+			subg1[j].push_back(make_pair(i, n1 < n2));
+			subgraphs.erase(subgraphs.begin() + k2);
 			if(subgraphs.size() == 1)
 				return InverseGraph::invs(subgraphs[0]);
 		}
@@ -292,6 +297,7 @@ map<InverseGraph::Node, bool> InverseGraph::invs(
 	while(!stk.empty()) {
 		const Node	v = stk.top().first;
 		const bool	b = stk.top().second;
+		stk.pop();
 		auto	iter = graph.find(v);
 		for(auto p = iter->second.begin(); p != iter->second.end(); ++p) {
 			const Node	v1 = p->first;

@@ -108,21 +108,36 @@ public:
 };
 
 
+//////////////////// VCFSmallBase ////////////////////
+
+class VCFSmallBase : public VCFBase {
+public:
+	VCFSmallBase(const std::vector<STRVEC>& header, const STRVEC& samples) :
+													VCFBase(header, samples) { }
+	virtual ~VCFSmallBase() { }
+	
+	virtual std::size_t size() const = 0;
+	virtual VCFRecord *get_record(std::size_t i) const = 0;
+};
+
 //////////////////// VCFSmall ////////////////////
 
-class VCFSmall : public VCFBase {
+class VCFSmall : public VCFSmallBase {
 protected:
 	std::vector<VCFRecord *>	records;
 	
 public:
 	VCFSmall(const std::vector<STRVEC>& header, const STRVEC& samples,
 											std::vector<VCFRecord *> rs);
-	~VCFSmall();
+	virtual ~VCFSmall();
 	
-	const std::vector<VCFRecord *>& get_records() const { return records; }
-	bool empty() const { return records.empty(); }
+	///// virtual methods /////
 	std::size_t size() const { return records.size(); }
 	VCFRecord *get_record(std::size_t i) const { return records[i]; }
+	
+	///// non-virtual methods /////
+	const std::vector<VCFRecord *>& get_records() const { return records; }
+	bool empty() const { return records.empty(); }
 	void write(std::ostream& os, bool write_header=true) const;
 	
 	void add_record(VCFRecord *record) { records.push_back(record); }
@@ -134,8 +149,8 @@ public:
 	
 public:
 	static VCFSmall *read(const std::string& path);
-	// samplesの順番で結合
-	static VCFSmall *join(const std::vector<VCFSmall *>& vcfs,
+	// join VCFs in order of given samples
+	static VCFSmall *join(const std::vector<VCFSmallBase *>& vcfs,
 												const STRVEC& samples);
 };
 

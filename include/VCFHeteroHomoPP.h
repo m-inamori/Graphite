@@ -2,6 +2,7 @@
 #define __VCFHETEROHOMOPP
 
 #include "VCFImpFamily.h"
+#include "VCFFillable.h"
 #include "Map.h"
 #include "option.h"
 #include "graph.h"
@@ -11,13 +12,11 @@ class Map;
 class Family;
 class PedigreeTable;
 class VCFOriginal;
-class VCFFillableRecord;
-class VCFFillable;
 
 
 //////////////////// VCFHeteroHomoPP ////////////////////
 
-class VCFHeteroHomoPP : public VCFFamily, VCFMeasurable {
+class VCFHeteroHomoPP : public VCFFamilyBase, VCFMeasurable {
 public:
 	struct ConfigThread {
 		const VCFSmall	*orig_vcf;
@@ -40,19 +39,30 @@ public:
 	};
 
 protected:
-	std::vector<VCFFillableRecord *>	fi_records;
+	std::vector<VCFFillableRecord *>	records;
 	
 public:
 	VCFHeteroHomoPP(const std::vector<STRVEC>& h, const STRVEC& s,
 						std::vector<VCFFillableRecord *> rs, const Map& m);
 	~VCFHeteroHomoPP() { }
 	
+	///// virtual methods /////
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const {
+		return records[i];
+	}
+	
+	///// non-virtual methods /////
 	bool is_mat_hetero() const;
-	const std::vector<VCFFillableRecord *>& get_fi_records() const {
-		return fi_records;
+	const std::vector<VCFFillableRecord *>& get_records() const {
+		return records;
 	}
 	
 	void impute();
+	void clear_records() { records.clear(); }
 	
 private:
 	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }

@@ -53,12 +53,11 @@ VCFHomoHomoRecord *VCFHomoHomoRecord::impute() const {
 
 VCFHomoHomo::VCFHomoHomo(const vector<STRVEC>& h, const STRVEC& s,
 								vector<VCFHomoHomoRecord *> rs) :
-			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			hoho_records(rs) { }
+										VCFFamilyBase(h, s), records(rs) { }
 
 vector<VCFHomoHomo *> VCFHomoHomo::impute() const {
 	vector<VCFHomoHomoRecord *>	records;
-	for(auto p = hoho_records.begin(); p != hoho_records.end(); ++p)
+	for(auto p = records.begin(); p != records.end(); ++p)
 		records.push_back((*p)->impute());
 	// HeteroHeteroがvectorを返すのでそれに合わせる
 	return vector<VCFHomoHomo *>(1U,

@@ -69,22 +69,16 @@ void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(
 
 VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFHeteroHomoRecord *> rs, const Map& m) :
-			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			VCFMeasurable(m), hh_records(rs) { }
+						VCFFamilyBase(h, s), VCFMeasurable(m), records(rs) { }
 
-void VCFHeteroHomo::set_records(const std::vector<VCFHeteroHomoRecord *>& rs) {
-	hh_records = rs;
-	set_records_base(rs);
-}
-
-void VCFHeteroHomo::set_records_base(const vector<VCFHeteroHomoRecord *>& rs) {
-	vector<VCFFamilyRecord *>	frs(rs.begin(), rs.end());
-	VCFFamily::set_records(frs);
+VCFHeteroHomo::~VCFHeteroHomo() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
 }
 
 Graph::InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 	vector<vector<int>>	gtss;
-	for(auto p = this->hh_records.begin(); p != this->hh_records.end(); ++p) {
+	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
 		gtss.push_back((*p)->genotypes_from_hetero_parent());
 	}
 	
@@ -197,7 +191,7 @@ VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const Graph::InvGraph& graph) const {
 	std::sort(indices.begin(), indices.end());
 	vector<VCFHeteroHomoRecord *>	records;
 	for(size_t i = 0; i < haplo.size(); ++i) {
-		VCFHeteroHomoRecord	*record = this->hh_records[indices[i]];
+		VCFHeteroHomoRecord	*record = this->records[indices[i]];
 		record->set_haplo(haplo[i]);
 		records.push_back(record);
 	}
@@ -231,7 +225,7 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 		for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
 			if(p != max_g) {
 				for(auto q = p->begin(); q != p->end(); ++q) {
-					unused_records.push_back(this->hh_records[q->first]);
+					unused_records.push_back(this->records[q->first]);
 				}
 			}
 		}
@@ -240,7 +234,7 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 		for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
 			if((int)p->size() < option->min_graph) {
 				for(auto q = p->begin(); q != p->end(); ++q) {
-					unused_records.push_back(this->hh_records[q->first]);
+					unused_records.push_back(this->records[q->first]);
 				}
 			}
 		}
@@ -255,7 +249,7 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 
 string VCFHeteroHomo::make_seq(size_t i) const {
 	string	seq;
-	for(auto p = hh_records.begin(); p != hh_records.end(); ++p) {
+	for(auto p = records.begin(); p != records.end(); ++p) {
 		const auto	*record = *p;
 		const int	gt = record->get_which_comes_from(i);
 		if(gt == 0)
@@ -320,7 +314,7 @@ void VCFHeteroHomo::impute_each(const OptionImpute *option) {
 	}
 	
 	for(size_t k = 0; k < this->size(); ++k) {
-		VCFHeteroHomoRecord	*record = this->hh_records[k];
+		VCFHeteroHomoRecord	*record = this->records[k];
 		vector<int>	ws;
 		for(auto p = imputed_seqs.begin(); p != imputed_seqs.end(); ++p)
 			ws.push_back(p->c_str()[k] - '0');
@@ -330,8 +324,9 @@ void VCFHeteroHomo::impute_each(const OptionImpute *option) {
 
 const OptionImpute *VCFHeteroHomo::create_option() const {
 	const size_t	num = std::max(2UL, this->size());
+	const double	cM_length = this->record_cM(records.size()-1);
 	const int	max_dist = std::max(4,
-						(int)(total_cM() * num_progenies()
+						(int)(cM_length * num_progenies()
 										/ num * log10(num) * 2.5 * 0.01));
 	return new OptionImpute(max_dist, 20, 5, 1.0);
 }
@@ -361,8 +356,8 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 	if(this->records.empty() || other->records.empty())
 		return pair<int, int>(0, 0);
 	
-	const string	mat_GT1 = this->hh_records.front()->get_GT(0);
-	const string	mat_GT2 = other->hh_records.front()->get_GT(0);
+	const string	mat_GT1 = this->records.front()->get_GT(0);
+	const string	mat_GT2 = other->records.front()->get_GT(0);
 	const int	hetero_col1 = mat_GT1.c_str()[0] != mat_GT1.c_str()[2] ? 9 : 10;
 	const int	hetero_col2 = mat_GT2.c_str()[0] != mat_GT2.c_str()[2] ? 9 : 10;
 	int	num_match = 0;
@@ -370,8 +365,8 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 	size_t	k = 0;
 	size_t	l = 0;
 	while(k < this->size() && l < other->size()) {
-		const VCFHeteroHomoRecord	*record1 = this->hh_records[k];
-		const VCFHeteroHomoRecord	*record2 = other->hh_records[l];
+		const VCFHeteroHomoRecord	*record1 = this->records[k];
+		const VCFHeteroHomoRecord	*record2 = other->records[l];
 		if(record1->pos() == record2->pos()) {
 			if(record1->get_v()[hetero_col1] == record2->get_v()[hetero_col2])
 				num_match += 1;
@@ -389,7 +384,7 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 
 void VCFHeteroHomo::inverse_hetero_parent_phases() {
 	const int	hetero_index = this->is_mat_hetero() ? 0 : 1;
-	for(auto p = this->hh_records.begin(); p != this->hh_records.end(); ++p) {
+	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
 		if((*p)->get_GT(hetero_index) == "0|1")
 			(*p)->set_GT(hetero_index, "1|0");
 		else
@@ -460,7 +455,7 @@ ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
 										unused.begin(), unused.end());
 		// 元のVCFは消したいが、Recordsは使いまわししているので、
 		// 元のVCFのRecordsを消してからVCFのdeleteをする
-		vcf->clear_records();
+		vcf->records.clear();
 		delete vcf;
 	}
 	inverse_phases(imputed_vcfs);

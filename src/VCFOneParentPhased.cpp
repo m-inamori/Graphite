@@ -18,11 +18,10 @@ using namespace std;
 
 VCFOneParentPhased::VCFOneParentPhased(const vector<STRVEC>& h, const STRVEC& s,
 					vector<VCFFamilyRecord *> rs, bool mat_p, const Map& m) :
-			VCFFamily(h, s, vector<VCFFamilyRecord *>(rs.begin(), rs.end())),
-			VCFMeasurable(m), is_mat_phased(mat_p) { }
+				VCFFamily(h, s, rs), VCFMeasurable(m), is_mat_phased(mat_p) { }
 
 bool VCFOneParentPhased::is_mat_hetero() const {
-	return family_records.front()->is_hetero(0);
+	return records.front()->is_hetero(0);
 }
 
 char VCFOneParentPhased::determine_which_comes_from(
@@ -61,7 +60,7 @@ char VCFOneParentPhased::determine_which_comes_from(
 
 string VCFOneParentPhased::make_seq(size_t i) const {
 	stringstream	ss;
-	for(auto p = family_records.begin(); p != family_records.end(); ++p) {
+	for(auto p = records.begin(); p != records.end(); ++p) {
 		VCFFamilyRecord	*record = *p;
 		ss << this->determine_which_comes_from(record, i);
 	}
@@ -214,11 +213,11 @@ VCFRecord *VCFOneParentPhased::merge_records(const vector<VCFFamily *>& vcfs,
 	}
 	
 	// 上の辞書を元にRecordを作る
-	const STRVEC&	v1 = vcfs.front()->get_records()[i]->get_v();
+	const STRVEC&	v1 = vcfs.front()->get_record(i)->get_v();
 	STRVEC	v(v1.begin(), v1.begin() + 9);
 	for(auto p = samples.begin(); p != samples.end(); ++p) {
 		auto	q = dic_pos[*p];
-		v.push_back(q.first->get_records()[i]->get_v()[q.second]);
+		v.push_back(q.first->get_record(i)->get_v()[q.second]);
 	}
 	return new VCFRecord(v, samples);
 }

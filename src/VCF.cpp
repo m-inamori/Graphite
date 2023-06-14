@@ -223,8 +223,8 @@ STRVEC VCFReader::get_samples() const {
 //////////////////// VCFSmall ////////////////////
 
 VCFSmall::VCFSmall(const vector<STRVEC>& h, const STRVEC& s,
-											vector<VCFRecord *> rs) :
-												VCFBase(h, s), records(rs) {
+										vector<VCFRecord *> rs) :
+											VCFSmallBase(h, s), records(rs) {
 	for(auto p = records.begin(); p != records.end(); ++p)
 		this->record_position(**p);
 }
@@ -277,18 +277,18 @@ VCFSmall *VCFSmall::read(const string& path) {
 	return new VCFSmall(header, samples, records);
 }
 
-// samplesの順番で結合
-VCFSmall *VCFSmall::join(const vector<VCFSmall *>& vcfs,
+// join VCFs in order of given samples
+VCFSmall *VCFSmall::join(const vector<VCFSmallBase *>& vcfs,
 										const STRVEC& samples) {
-	map<string, pair<VCFSmall *, size_t>>	dic;
+	map<string, pair<VCFSmallBase *, size_t>>	dic;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		VCFSmall	*vcf = *p;
+		VCFSmallBase	*vcf = *p;
 		const STRVEC&	ss = vcf->get_samples();
 		for(size_t i = 0; i < ss.size(); ++i)
 			dic[ss[i]] = make_pair(vcf, i + 9);
 	}
 	
-	vector<tuple<string, VCFSmall *, size_t>>	cols;
+	vector<tuple<string, VCFSmallBase *, size_t>>	cols;
 	for(auto p = samples.begin(); p != samples.end(); ++p) {
 		auto	q = dic.find(*p);
 		if(q != dic.end())
@@ -299,13 +299,13 @@ VCFSmall *VCFSmall::join(const vector<VCFSmall *>& vcfs,
 	for(auto p = cols.begin(); p != cols.end(); ++p)
 		new_samples.push_back(get<0>(*p));
 	
-	// new_vcfがsamplesを持つ
+	// new_vcf owns samples
 	auto	new_header = vcfs.front()->create_header(new_samples);
 	vector<VCFRecord *>	empty_records;
 	VCFSmall	*new_vcf = new VCFSmall(new_header, new_samples, empty_records);
 	const STRVEC&	samples_ = new_vcf->get_samples();
 	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
-		VCFSmall	*vcf = vcfs[0];
+		VCFSmallBase	*vcf = vcfs[0];
 		const STRVEC&	orig_v = vcf->get_record(i)->get_v();
 		STRVEC	v(orig_v.begin(), orig_v.begin() + 9);
 		for(auto p = cols.begin(); p != cols.end(); ++p)

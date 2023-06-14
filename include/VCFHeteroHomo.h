@@ -50,7 +50,7 @@ public:
 
 //////////////////// VCFHeteroHomo ////////////////////
 
-class VCFHeteroHomo : public VCFFamily, VCFMeasurable {
+class VCFHeteroHomo : public VCFFamilyBase, VCFMeasurable {
 public:
 	struct ConfigThread {
 		const std::vector<std::vector<VCFHeteroHomo *>>&	vcfs_heho;
@@ -71,17 +71,31 @@ public:
 	typedef std::pair<std::string,std::string>	Parents;
 	
 protected:
-	std::vector<VCFHeteroHomoRecord *>	hh_records;
+	std::vector<VCFHeteroHomoRecord *>	records;
 	
 public:
 	VCFHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
 						std::vector<VCFHeteroHomoRecord *> rs, const Map& m);
-	~VCFHeteroHomo() { }
+	~VCFHeteroHomo();
 	
-	bool is_mat_hetero() const { return hh_records.front()->is_mat_hetero(); }
+	///// virtual methods /////
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const {
+		return records[i];
+	}
 	
-	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs);
-	void set_records_base(const std::vector<VCFHeteroHomoRecord *>& rs);
+	///// non-virtual methods /////
+	const std::vector<VCFHeteroHomoRecord *>& get_records() const {
+		return records;
+	}
+	bool is_mat_hetero() const { return records.front()->is_mat_hetero(); }
+	
+	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs) {
+		records = rs;
+	}
 	
 	// haplotype1の各レコードのGenotypeが0なのか1なのか
 	std::vector<int> make_parent_haplotypes(const Graph::InvGraph& graph) const;
@@ -94,12 +108,6 @@ public:
 	std::pair<int, int> match(const VCFHeteroHomo *other) const;
 	void inverse_hetero_parent_phases();
 	
-	VCFHeteroHomoRecord *get_record(std::size_t i) const {
-		return hh_records[i];
-	}
-	const std::vector<VCFHeteroHomoRecord *>& get_records() const {
-		return hh_records;
-	}
 	std::pair<int,bool> distance(const std::vector<int>& gts1,
 							const std::vector<int>& gts2, int max_dist) const;
 	

@@ -1,3 +1,4 @@
+#include <iostream>
 #include <algorithm>
 #include "../include/SampleManager.h"
 #include "../include/common.h"
@@ -180,6 +181,25 @@ vector<string> SampleManager::get_large_parents() const {
 	return vector<string>(s.begin(), s.end());
 }
 
+void SampleManager::display_info() const {
+	cerr << ped->size() << " samples" << endl;
+	
+	if(large_families.size() == 1) {
+		cerr << "1 large family";
+	}
+	else {
+		cerr << large_families.size() << " large families";
+	}
+	cerr << " (number of progenies >= " << lower_progs << ")" << endl;
+	
+	if(small_families.size() == 1) {
+		cerr << "1 small family" << endl;
+	}
+	else {
+		cerr << small_families.size() << " small families";
+	}
+}
+
 vector<const Family *> SampleManager::make_families(const PedigreeTable *ped,
 										const vector<string>& samples,
 										const vector<size_t>& family_indices) {
@@ -253,5 +273,5 @@ SampleManager *SampleManager::create(const string& path_ped,
 			small_families.push_back(family);
 	}
 	
-	return new SampleManager(ped, large_families, small_families);
+	return new SampleManager(ped, large_families, small_families, lower_progs);
 }

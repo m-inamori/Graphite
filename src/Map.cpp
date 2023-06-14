@@ -30,6 +30,15 @@ Map::~Map() {
 		delete *p;
 }
 
+vector<const Map *> Map::create_chr_maps(const Map *m) {
+	if(m->is_empty())
+		// Make one map and use it for every chromosome.
+		// That makes it easier to delete.
+		return vector<const Map *>(1, Map::default_map());
+	else
+		return m->divide_into_chromosomes();
+}
+
 double Map::bp_to_cM(long long bp) const {
 	const double	Mbp = bp * 1e-6;
 	RIT	p = binary_search(records.begin(), records.end()-1, Mbp);
@@ -73,9 +82,19 @@ Map::RIT Map::binary_search(RIT first, RIT last, double Mbp) const {
 
 Map *Map::read(const string& path) {
 	vector<const Record *>	records;
+	if(path.empty())
+		return new Map(records);
+	
 	const auto	table = Common::read_csv(path);
 	for(auto p = table.begin(); p != table.end(); ++p) {
 		records.push_back(Record::create(*p));
 	}
 	return new Map(records);
+}
+
+Map *Map::default_map() {
+	const Record	*r1 = new Record("1", 0.0, 0.0);
+	const Record	*r2 = new Record("1", 1.0, 1.0);
+	const vector<const Record *>	rs = { r1, r2 };
+	return new Map(rs);
 }
