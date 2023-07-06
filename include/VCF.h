@@ -37,7 +37,8 @@ public:
 		return v[i+9].c_str()[0] == '.' || v[i+9].c_str()[2] == '.';
 	}
 	STRVEC gts() const;
-	std::string get_gt(std::size_t i) const { return v[i+9]; }
+	const std::string& get_gt(std::size_t i) const { return v[i+9]; }
+	std::string& get_mut_gt(std::size_t i) { return v[i+9]; }
 	std::string get_GT(std::size_t i) const { return v[i+9].substr(0, 3); }
 	int get_int_gt(std::size_t i) const;
 	std::vector<int> get_int_gts() const;
@@ -77,11 +78,6 @@ public:
 	POSITION record_position(const VCFRecord& record) const;
 	std::string chr(int chr_id) const;
 	int find_column(const std::string& sample) const;
-	std::vector<std::size_t> extract_columns(const STRVEC& samples) const {
-		return extract_columns(samples.begin(), samples.end());
-	}
-	std::vector<std::size_t> extract_columns(STRVEC::const_iterator first,
-											STRVEC::const_iterator last) const;
 	void write_header(std::ostream& os) const;
 	
 	void copy_chrs(VCFBase *vcf) const { vcf->chrs = chrs; }
@@ -110,19 +106,31 @@ public:
 
 //////////////////// VCFSmallBase ////////////////////
 
-class VCFSmallBase : public VCFBase {
+class VCFSmall;
+
+class VCFSmallBase {
 public:
-	VCFSmallBase(const std::vector<STRVEC>& header, const STRVEC& samples) :
-													VCFBase(header, samples) { }
+	VCFSmallBase() { }
 	virtual ~VCFSmallBase() { }
 	
+	virtual const std::vector<STRVEC>& get_header() const = 0;
+	virtual const STRVEC& get_samples() const = 0;
 	virtual std::size_t size() const = 0;
 	virtual VCFRecord *get_record(std::size_t i) const = 0;
+	
+	std::vector<STRVEC> trim_header(const STRVEC& samples) const;
+	std::vector<int> clip_raw_haplotype(std::size_t sample_id, int i) const;
+	std::vector<std::size_t> extract_columns(const STRVEC& samples) const {
+		return extract_columns(samples.begin(), samples.end());
+	}
+	std::vector<std::size_t> extract_columns(STRVEC::const_iterator first,
+											STRVEC::const_iterator last) const;
+	VCFSmall *extract_samples(const STRVEC& samples) const;
 };
 
 //////////////////// VCFSmall ////////////////////
 
-class VCFSmall : public VCFSmallBase {
+class VCFSmall : public VCFBase, public VCFSmallBase {
 protected:
 	std::vector<VCFRecord *>	records;
 	
@@ -132,6 +140,10 @@ public:
 	virtual ~VCFSmall();
 	
 	///// virtual methods /////
+	const std::vector<STRVEC>& get_header() const {
+		return VCFBase::get_header();
+	}
+	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
 	std::size_t size() const { return records.size(); }
 	VCFRecord *get_record(std::size_t i) const { return records[i]; }
 	
@@ -145,7 +157,6 @@ public:
 		records.insert(records.end(), rs.begin(), rs.end());
 	}
 	void clear_records() { records.clear(); }
-	VCFSmall *extract_samples(const STRVEC& samples) const;
 	
 public:
 	static VCFSmall *read(const std::string& path);

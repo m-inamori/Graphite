@@ -105,6 +105,12 @@ class VCFBase(object):
 		for v in self.header:
 			write_tsv(v, out)
 	
+	def get_header(self) -> list[list[str]]:
+		return self.header
+	
+	def get_samples(self) -> list[str]:
+		return self.samples
+	
 	def record_position(self, record: VCFRecord) -> tuple[int, int]:
 		return self.position(record.position())
 	
@@ -119,13 +125,6 @@ class VCFBase(object):
 			if id == chr_id:
 				return chr
 		return ''
-	
-	def extract_columns(self, samples: list[str]) -> list[int]:
-		dic = dict(zip(self.samples, count(9)))
-		return [ dic.get(sample, -1) for sample in samples ]
-	
-	def trim_header(self, samples: list[str]) -> list[list[str]]:
-		return self.header[:-1] + [self.header[-1][:9] + samples]
 	
 	def num_samples(self) -> int:
 		return len(self.samples)
@@ -165,9 +164,12 @@ class VCFHuge(VCFBase):
 	def close(self):
 		self.g.close()
 	
+	def get_header(self):
+		return self.header
+	
 	def divide_into_chromosomes(self) -> Generator[VCFSmall, None, None]:
 		for chr, v in groupby(self, key=VCFRecord.chrom):
-			yield VCFSmall(self.header, list(v))
+			yield VCFSmall(self.get_header(), list(v))
 	
 	@staticmethod
 	def read(path) -> VCFHuge:
@@ -183,7 +185,18 @@ class VCFHuge(VCFBase):
 
 #################### VCFSmallBase ####################
 
-class VCFSmallBase(VCFBase, ABC):
+class VCFSmallBase(ABC):
+	def __init__(self):
+		pass
+	
+	@abstractmethod
+	def get_header(self) -> list[list[str]]:
+		pass
+	
+	@abstractmethod
+	def get_samples(self) -> list[str]:
+		pass
+	
 	@abstractmethod
 	def __len__(self) -> int:
 		pass
@@ -191,11 +204,40 @@ class VCFSmallBase(VCFBase, ABC):
 	@abstractmethod
 	def get_record(self, i: int) -> VCFRecord:
 		pass
+	
+	def trim_header(self, samples: list[str]) -> list[list[str]]:
+		header = self.get_header()
+		return header[:-1] + [header[-1][:9] + samples]
+	
+	def extract_columns(self, samples: list[str]) -> list[int]:
+		dic = dict(zip(self.get_samples(), count(9)))
+		return [ dic.get(sample, -1) for sample in samples ]
+	
+	def extract_samples(self, samples) -> VCFSmall:
+		header = self.trim_header(samples)
+		cs = self.extract_columns(samples)
+		new_records: list[VCFRecord] = []
+		for i in range(len(self)):
+			record = self.get_record(i)
+			v = record.v
+			new_v = v[:9] + [ v[c] for c in cs ]
+			new_record = VCFRecord(new_v, samples)
+			new_records.append(new_record)
+		return VCFSmall(header, new_records)
+	
+	def clip_raw_haplotype(self, sample_index: int, side: int) -> list[int]:
+		hap: list[int] = []
+		for j in range(len(self)):
+			record = self.get_record(j)
+			gt = record.get_GT(sample_index)
+			c = gt[side*2]
+			hap.append(-1 if c == '.' else int(c))
+		return hap
 
 
 #################### VCFSmall ####################
 
-class VCFSmall(VCFSmallBase):
+class VCFSmall(VCFBase, VCFSmallBase):
 	def __init__(self, header: list[list[str]], records: list[VCFRecord]):
 		super().__init__(header)
 		self.records: list[VCFRecord] = records
@@ -222,17 +264,6 @@ class VCFSmall(VCFSmallBase):
 			self.write_header(out)
 		for record in self.records:
 			record.write(out)
-	
-	def extract_samples(self, samples) -> VCFSmall:
-		header = self.trim_header(samples)
-		cs = self.extract_columns(samples)
-		new_records: list[VCFRecord] = []
-		for record in self.records:
-			v = record.v
-			new_v = v[:9] + [ v[c] for c in cs ]
-			new_record = VCFRecord(v, samples)
-			new_records.append(new_record)
-		return VCFSmall(header, new_records)
 	
 	@staticmethod
 	def read(path: str) -> VCFSmall:
@@ -269,7 +300,7 @@ class VCFSmall(VCFSmallBase):
 	def convert(vcf: VCFSmallBase) -> VCFSmall:
 		records: list[VCFRecord] = [ vcf.get_record(i)
 											for i in range(len(vcf)) ]
-		return VCFSmall(vcf.header, records)
+		return VCFSmall(vcf.get_header(), records)
 
 A = TypeVar('A', bound=VCFSmall)
 

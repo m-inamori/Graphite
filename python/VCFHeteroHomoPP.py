@@ -16,10 +16,12 @@ from option import *
 
 #################### VCFHeteroHomoPP ####################
 
-class VCFHeteroHomoPP(VCFFamilyBase, VCFMeasurable):
+class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def __init__(self, header: list[list[str]],
 						records: list[VCFFillableRecord], map_: Map):
-		VCFFamilyBase.__init__(self, header)
+		VCFBase.__init__(self, header)
+		VCFSmallBase.__init__(self)
+		VCFFamilyBase.__init__(self)
 		VCFMeasurable.__init__(self, map_)
 		self.records: list[VCFFillableRecord] = records
 	

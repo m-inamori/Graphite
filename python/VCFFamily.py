@@ -48,32 +48,46 @@ class VCFFamilyRecord(VCFRecord):
 #################### VCFFamilyBase ####################
 
 # Inherite this not VCFFamily for A family VCF
-class VCFFamilyBase(VCFSmallBase, ABC):
-	def __init__(self, header: list[list[str]]):
-		super().__init__(header)
+class VCFFamilyBase(ABC):
+	def __init__(self):
+		pass
+	
+	@abstractmethod
+	def get_header(self) -> list[list[str]]:
+		pass
+	
+	@abstractmethod
+	def get_samples(self) -> list[str]:
+		pass
+	
+	@abstractmethod
+	def __len__(self) -> int:
+		pass
+	
+	@abstractmethod
+	def get_family_record(self, i: int) -> VCFFamilyRecord:
+		pass
 	
 	def mat(self) -> str:
-		return self.samples[0]
+		return self.get_samples()[0]
 	
 	def pat(self) -> str:
-		return self.samples[1]
+		return self.get_samples()[1]
 	
 	def parents(self) -> tuple[str, str]:
 		return (self.mat(), self.pat())
 	
 	def num_progenies(self) -> int:
-		return len(self.samples) - 2
-	
-	@abstractmethod
-	def get_family_record(self, i: int) -> VCFFamilyRecord:
-		pass
+		return len(self.get_samples()) - 2
 
 
 #################### VCFFamily ####################
 
-class VCFFamily(VCFFamilyBase):
+class VCFFamily(VCFBase, VCFSmallBase, VCFFamilyBase):
 	def __init__(self, header: list[list[str]], records: list[VCFFamilyRecord]):
-		super().__init__(header)
+		VCFBase.__init__(self, header)
+		VCFSmallBase.__init__(self)
+		VCFFamilyBase.__init__(self)
 		self.records = records
 	
 	def __len__(self) -> int:
@@ -88,9 +102,6 @@ class VCFFamily(VCFFamilyBase):
 	@staticmethod
 	def create(vcf: VCFSmall, samples: list[str]):
 		columns = vcf.extract_columns(samples)
-		if len(columns) < 10:
-			return None
-		
 		h = vcf.header[-1]
 		header = vcf.header[:-1] + [h[:9] + [ h[c] for c in columns ]]
 		# [VCFFamilyRecord]
@@ -138,5 +149,5 @@ class VCFFamily(VCFFamilyBase):
 	def convert(vcf: VCFFamilyBase) -> VCFFamily:
 		records: list[VCFFamilyRecord] = [ vcf.get_family_record(i)
 													for i in range(len(vcf)) ]
-		return VCFFamily(vcf.header, records)
+		return VCFFamily(vcf.get_header(), records)
 

@@ -55,37 +55,8 @@ void VCFFamilyRecord::impute_homohomo() {
 //////////////////// VCFFamily ////////////////////
 
 VCFFamily::VCFFamily(const vector<STRVEC>& h, const STRVEC& s,
-								vector<VCFFamilyRecord *> rs) :
-											VCFFamilyBase(h, s), records(rs) {
-}
-
-bool VCFFamily::is_all_hetero(bool is_mat) const {
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		if(is_mat) {
-			if((*p)->mat_int_gt() != 1)
-				return false;
-		}
-		else {
-			if((*p)->pat_int_gt() != 1)
-				return false;
-		}
-	}
-	return true;
-}
-
-bool VCFFamily::is_all_homo(bool is_mat) const {
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		if(is_mat) {
-			if((*p)->mat_int_gt() == 1)
-				return false;
-		}
-		else {
-			if((*p)->pat_int_gt() == 1)
-				return false;
-		}
-	}
-	return true;
-}
+										vector<VCFFamilyRecord *> rs) :
+				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
 
 VCFFamily *VCFFamily::create(const VCFSmall *vcf, const STRVEC& samples) {
 	const auto	columns = VCFFamily::select_columns(samples, vcf);

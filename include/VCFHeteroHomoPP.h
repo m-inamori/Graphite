@@ -16,7 +16,8 @@ class VCFOriginal;
 
 //////////////////// VCFHeteroHomoPP ////////////////////
 
-class VCFHeteroHomoPP : public VCFFamilyBase, VCFMeasurable {
+class VCFHeteroHomoPP : public VCFBase, public VCFSmallBase,
+						public VCFFamilyBase, public VCFMeasurable {
 public:
 	struct ConfigThread {
 		const VCFSmall	*orig_vcf;
@@ -46,11 +47,17 @@ public:
 						std::vector<VCFFillableRecord *> rs, const Map& m);
 	~VCFHeteroHomoPP() { }
 	
-	///// virtual methods /////
+	///// virtual methods for VCFSmallBase /////
 	std::size_t size() const { return records.size(); }
 	VCFRecord *get_record(std::size_t i) const {
 		return records[i];
 	}
+	
+	///// virtual methods for VCFFamilyBase /////
+	const std::vector<STRVEC>& get_header() const {
+		return VCFBase::get_header();
+	}
+	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
 	VCFFamilyRecord *get_family_record(std::size_t i) const {
 		return records[i];
 	}

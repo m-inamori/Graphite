@@ -29,7 +29,10 @@ const Family *SampleManager::get_large_family(
 }
 
 void SampleManager::add_imputed_samples(const vector<string>& samples) {
-	this->imputed_samples.insert(samples.begin(), samples.end());
+	for(auto p = samples.begin(); p != samples.end(); ++p) {
+		if(*p != "0")
+			this->imputed_samples.insert(*p);
+	}
 }
 
 void SampleManager::clear_imputed_samples() {
@@ -66,7 +69,7 @@ bool SampleManager::is_parent_imputed_and_progenies_not_imputed(
 }
 
 bool SampleManager::is_progeny_imputed(const Family *family) const {
-	if(family->get_mat() == "0" && family->get_pat() == "0")
+	if(is_unknown(family->get_mat()) && is_unknown(family->get_pat()))
 		return false;
 	
 	if(this->is_imputed(family->get_mat()) ||
@@ -105,7 +108,32 @@ vector<const Family *>
 	vector<const Family *>	families;
 	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
 		const Family	*family = *p;
-		if(!this->is_parent_imputed_and_progenies_not_imputed(family))
+		if(!this->is_parent_imputed_and_progenies_not_imputed(family) ||
+									this->is_unknown(family->get_mat()) ||
+									this->is_unknown(family->get_pat()))
+			continue;
+		
+		vector<const Progeny *>	new_progenies;
+		const vector<const Progeny *>&	progenies = family->get_progenies();
+		for(auto q = progenies.begin(); q != progenies.end(); ++q) {
+			if(!this->is_imputed((*q)->get_name()))
+				new_progenies.push_back((*q)->copy());
+		}
+		families.push_back(new Family(family->get_mat(),
+										family->get_pat(), new_progenies));
+	}
+	return families;
+}
+
+// family in which one parent is phased and the other is unknown
+vector<const Family *>
+			SampleManager::extract_phased_and_unknown_parents_family() const {
+	vector<const Family *>	families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const Family	*family = *p;
+		if(!this->is_parent_imputed_and_progenies_not_imputed(family) ||
+									(this->is_known(family->get_mat()) &&
+									 this->is_known(family->get_pat())))
 			continue;
 		
 		vector<const Progeny *>	new_progenies;
@@ -156,11 +184,12 @@ vector<string> SampleManager::extract_isolated_samples() const {
 		const auto&	f_samples = family->get_samples();
 		if(is_all_not_imputed(f_samples)) {
 			for(auto q = f_samples.begin(); q != f_samples.end(); ++q) {
-				if(*q != "0" && !is_imputed(*q))
+				if(is_known(*q) && !is_imputed(*q))
 					samples.push_back(*q);
 			}
 		}
-		else if(family->get_mat() == "0" && family->get_pat() == "0") {
+		else if(is_unknown(family->get_mat()) &&
+							is_unknown(family->get_pat())) {
 			const auto&	progs = family->get_progenies();
 			for(auto q = progs.begin(); q != progs.end(); ++q) {
 				if(!is_imputed((*q)->get_name()))
@@ -181,6 +210,15 @@ vector<string> SampleManager::get_large_parents() const {
 	return vector<string>(s.begin(), s.end());
 }
 
+vector<string> SampleManager::collect_large_family_parents() const {
+	set<string>	samples;
+	for(auto p = large_families.begin(); p != large_families.end(); ++p) {
+		samples.insert((*p)->get_mat());
+		samples.insert((*p)->get_pat());
+	}
+	return vector<string>(samples.begin(), samples.end());
+}
+
 void SampleManager::display_info() const {
 	cerr << ped->size() << " samples" << endl;
 	
@@ -196,7 +234,7 @@ void SampleManager::display_info() const {
 		cerr << "1 small family" << endl;
 	}
 	else {
-		cerr << small_families.size() << " small families";
+		cerr << small_families.size() << " small families" << endl;
 	}
 }
 

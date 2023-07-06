@@ -43,26 +43,28 @@ public:
 
 //////////////////// VCFFamilyBase ////////////////////
 
-class VCFFamilyBase : public VCFSmallBase {
+class VCFFamilyBase {
 public:
-	VCFFamilyBase(const std::vector<STRVEC>& h, const STRVEC& s) :
-												VCFSmallBase(h, s) { }
+	VCFFamilyBase() { }
 	virtual ~VCFFamilyBase() { };
 	
+	virtual const std::vector<STRVEC>& get_header() const = 0;
+	virtual const STRVEC& get_samples() const = 0;
+	virtual std::size_t size() const = 0;
 	virtual VCFFamilyRecord *get_family_record(std::size_t i) const = 0;
 	
-	const std::string& mat() const { return samples[0]; }
-	const std::string& pat() const { return samples[1]; }
+	const std::string& mat() const { return get_samples()[0]; }
+	const std::string& pat() const { return get_samples()[1]; }
 	const std::pair<std::string, std::string> parents() const {
 		return std::pair<std::string, std::string>(mat(), pat());
 	}
-	std::size_t num_progenies() const { return samples.size() - 2U; }
+	std::size_t num_progenies() const { return get_samples().size() - 2U; }
 };
 
 
 //////////////////// VCFFamily ////////////////////
 
-class VCFFamily : public VCFFamilyBase {
+class VCFFamily : public VCFBase, public VCFSmallBase, public VCFFamilyBase {
 protected:
 	std::vector<VCFFamilyRecord *>	records;
 	
@@ -72,6 +74,10 @@ public:
 	~VCFFamily() { }
 	
 	///// virtual methods /////
+	const std::vector<STRVEC>& get_header() const {
+		return VCFBase::get_header();
+	}
+	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
 	std::size_t size() const { return records.size(); }
 	VCFRecord *get_record(std::size_t i) const {
 		return records[i];
@@ -86,9 +92,6 @@ public:
 	}
 	void set_records(const std::vector<VCFFamilyRecord *>& rs) { records = rs; }
 	void clear_records() { records.clear(); }
-	
-	bool is_all_hetero(bool is_mat) const;
-	bool is_all_homo(bool is_mat) const;
 	
 public:
 	static VCFFamily *create(const VCFSmall *vcf, const STRVEC& samples);

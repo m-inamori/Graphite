@@ -17,13 +17,15 @@ class VCFHeteroHomo;
 //////////////////// Materials ////////////////////
 
 class Materials {
+	const std::string	path_map;
 	const Map	*geno_map;
 	const std::vector<const Map *>	chr_maps;
 	
 public:
-	Materials(const Map *m);
+	Materials(const std::string& path, const Map *m);
 	~Materials();
 	
+	const std::string& get_path_map() const { return path_map; }
 	const Map& get_map() const { return *geno_map; }
 	const Map *get_chr_map(int i) const;
 	double total_cM() const;
@@ -59,6 +61,10 @@ void join_records(ImpRecords& records, HeHoRecords& unused_records);
 std::vector<VCFFillable *> fill(
 				std::map<Parents, std::vector<VCFHeteroHomo *>>& imputed_vcfs,
 				ImpRecords& other_records, const Option *op);
+VCFSmall *impute_iolated_samples(
+				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+				SampleManager *sample_man, const STRVEC& samples,
+				const Map& gmap, int num_threads);
 
 HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option);
 VCFFamily *impute_each(const Parents& parents, const Map& gmap,

@@ -32,23 +32,33 @@ public:
 				const std::pair<std::string, std::string>& parents) const;
 	
 	bool is_imputed(const std::string& sample) const;
+	bool is_known(const std::string& sample) const {
+		return sample != "0";
+	}
+	bool is_unknown(const std::string& sample) const {
+		return sample == "0";
+	}
 	bool is_parents_imputed_and_progenies_not_imputed(
 												const Family *family) const;
 	bool is_parent_imputed_and_progenies_not_imputed(
 												const Family *family) const;
 	bool is_progeny_imputed(const Family *family) const;
-	// 補完されていないが両親は補完されている家系
+	// families in which parents are phased and progenies are not phased
 	std::vector<const Family *> extract_small_families() const;
-	// 補完されていないが片方の親だけ補完されている家系
+	// families in which one parent is phased and the other is not
 	std::vector<const Family *> extract_single_parent_phased_families() const;
+	// families in which one parent is phased and the other is unknown
+	std::vector<const Family *>
+			extract_phased_and_unknown_parents_family() const;
 	std::vector<const Family *> extract_progenies_phased_families() const;
 	bool is_all_not_imputed(const std::vector<std::string>& samples) const;
 	std::vector<std::string> extract_isolated_samples() const;
 	std::vector<std::string> get_large_parents() const;
+	std::vector<std::string> collect_large_family_parents() const;
+	void display_info() const;
 	
 	void add_imputed_samples(const std::vector<std::string>& samples);
 	void clear_imputed_samples();
-	void display_info() const;
 	
 public:
 	static std::vector<const Family *> make_families(const PedigreeTable *ped,

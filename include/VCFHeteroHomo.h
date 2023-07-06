@@ -50,7 +50,8 @@ public:
 
 //////////////////// VCFHeteroHomo ////////////////////
 
-class VCFHeteroHomo : public VCFFamilyBase, VCFMeasurable {
+class VCFHeteroHomo : public VCFBase, public VCFSmallBase, 
+						public VCFFamilyBase, public VCFMeasurable {
 public:
 	struct ConfigThread {
 		const std::vector<std::vector<VCFHeteroHomo *>>&	vcfs_heho;
@@ -79,6 +80,10 @@ public:
 	~VCFHeteroHomo();
 	
 	///// virtual methods /////
+	const std::vector<STRVEC>& get_header() const {
+		return VCFBase::get_header();
+	}
+	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
 	std::size_t size() const { return records.size(); }
 	VCFRecord *get_record(std::size_t i) const {
 		return records[i];

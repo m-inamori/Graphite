@@ -69,7 +69,8 @@ void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(
 
 VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFHeteroHomoRecord *> rs, const Map& m) :
-						VCFFamilyBase(h, s), VCFMeasurable(m), records(rs) { }
+						VCFBase(h, s), VCFSmallBase(),
+						VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
 
 VCFHeteroHomo::~VCFHeteroHomo() {
 	for(auto p = records.begin(); p != records.end(); ++p)

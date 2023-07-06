@@ -10,144 +10,34 @@ using namespace std;
 
 VCFIsolated::VCFIsolated(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFRecord *> rs, size_t nis, const Map& m) :
-										VCFSmall(h, s, rs), VCFMeasurable(m),
-										num_imputed_samples(nis) { }
+									VCFBase(h, s), VCFImputable(m),
+									records(rs), num_imputed_samples(nis)  { }
 
-bool VCFIsolated::is_block(const VCFRecord *record,
-							const vector<VCFRecord *>& rs) const {
-	const double	length = cM(record->pos()) - cM(rs[0]->pos());
-	return length < 1.0 || (rs.size() < 10 && length < 10.0);
-}
-
-vector<VCFIsolated *> VCFIsolated::divide_by_cM() const {
-	// 1cMを超えても10個以内で10cM以内なら塊とみなす
-	vector<VCFIsolated *>	rss;
-	vector<VCFRecord *>	rs(1, this->records[0]);
-	for(auto p = records.begin() + 1; p != records.end(); ++p) {
-		VCFRecord	*record = *p;
-		if(!this->is_block(record, rs)) {
-			rss.push_back(new VCFIsolated(header, samples, rs,
-										num_imputed_samples, get_map()));
-			rs.clear();
-		}
-		rs.push_back(record);
+vector<Haplotype> VCFIsolated::collect_haplotype_from_refs() const {
+	vector<Haplotype>	haps;
+	for(size_t i = num_imputed_samples; i < num_samples(); ++i) {
+		haps.push_back(clip_haplotype(i, 0));
+		haps.push_back(clip_haplotype(i, 1));
 	}
-	rss.push_back(new VCFIsolated(header, samples, rs,
-								num_imputed_samples, get_map()));
-	return rss;
+	return haps;
 }
 
-int VCFIsolated::get_single_gt(const VCFRecord *record, Haplotype hap) const {
-	const size_t	i = hap.first;
-	const size_t	j = hap.second;
-	return record->get_gt(i).c_str()[j*2] - '0';
+vector<Haplotype> VCFIsolated::collect_haplotypes_mat() const {
+	return collect_haplotype_from_refs();
 }
 
-int VCFIsolated::score_each(Haplotype hap1, Haplotype hap2,
-									size_t i, VCFRecord *record) const {
-	if(record->is_NA(i))
-		return 0;
-	
-	const int	h1 = get_single_gt(record, hap1);
-	const int	h2 = get_single_gt(record, hap2);
-	const int	int_gt = record->get_int_gt(i);
-	return int_gt == h1 + h2 ? 1 : 0;
+vector<Haplotype> VCFIsolated::collect_haplotypes_pat() const {
+	return collect_haplotype_from_refs();
 }
 
-int VCFIsolated::score(Haplotype hap1, Haplotype hap2, size_t i) const {
-	int	total_score = 0;
-	for(auto p = records.begin(); p != records.end(); ++p)
-		total_score += this->score_each(hap1, hap2, i, *p);
-	return total_score;
+VCFIsolated *VCFIsolated::divide_by_positions(size_t first, size_t last) const {
+	vector<VCFRecord *>	sub_records(records.begin() + first,
+									records.begin() + last);
+	return new VCFIsolated(get_header(), get_samples(),
+							sub_records, num_imputed_samples, get_map());
 }
 
-vector<VCFIsolated::HaplotypePair>
-VCFIsolated::collect_optimal_haplotype_pairs(size_t i) const {
-	int	max_score = 0;
-	vector<HaplotypePair>	max_combs;
-	for(size_t i1 = num_imputed_samples; i1 < samples.size(); ++i1) {
-		for(size_t i2 = num_imputed_samples; i2 < samples.size(); ++i2) {
-			if(i1 == i2)
-				continue;
-			for(size_t k = 0; k < 4; ++k) {
-				const int	j1 = k >> 1;
-				const int	j2 = k & 1;
-				const Haplotype	hap1 = make_pair(i1, j1);
-				const Haplotype	hap2 = make_pair(i2, j2);
-				const int	s = this->score(hap1, hap2, i);
-				if(s > max_score) {
-					max_score = s;
-					max_combs.clear();
-					max_combs.push_back(make_pair(hap1, hap2));
-				}
-				else if(s == max_score) {
-					max_combs.push_back(make_pair(hap1, hap2));
-				}
-			}
-		}
-	}
-	return max_combs;
-}
-
-void VCFIsolated::set_haplotype(HaplotypePair hap, size_t i) {
-	const Haplotype	hap1 = hap.first;
-	const Haplotype	hap2 = hap.second;
-	const size_t	i1 = hap1.first;
-	const size_t	j1 = hap1.second;
-	const size_t	i2 = hap2.first;
-	const size_t	j2 = hap2.second;
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		VCFRecord	*record = *p;
-		const char	gt1 = record->get_v()[i1+9].c_str()[j1*2];
-		const char	gt2 = record->get_v()[i2+9].c_str()[j2*2];
-		char	GT[] = { gt1, '|', gt2, '\0' };
-		record->set_GT(i, GT);
-	}
-}
-
-int VCFIsolated::match_score(HaplotypePair prev_hap, HaplotypePair hap) const {
-	const Haplotype	prev_hap1 = prev_hap.first;
-	const Haplotype	prev_hap2 = prev_hap.second;
-	const Haplotype	hap1 = hap.first;
-	const Haplotype	hap2 = hap.second;
-	return (prev_hap1 == hap1 ? 1 : 0) + (prev_hap2 == hap2 ? 1 : 0);
-}
-
-vector<VCFIsolated::HaplotypePair> VCFIsolated::collect_max_score(
-											const vector<HaplotypePair>& combs,
-											HaplotypePair prev_hap) const {
-	int	max_score = 0;
-	vector<HaplotypePair>	max_combs;
-	for(auto p = combs.begin(); p != combs.end(); ++p) {
-		const int	score = match_score(prev_hap, *p);
-		if(score == max_score) {
-			max_combs.push_back(*p);
-		}
-		else if(score > max_score) {
-			max_score = score;
-			max_combs.clear();
-			max_combs.push_back(*p);
-		}
-	}
-	return max_combs;
-}
-
-VCFIsolated::HaplotypePair VCFIsolated::impute_cM_each_sample(
-											HaplotypePair prev_hap, size_t i) {
-	// とりあえず、総当たりにしてみる
-	const auto	combs = this->collect_optimal_haplotype_pairs(i);
-	
-	// 前との一致度が高い組み合わせを集める
-	const auto	filtered_combs = collect_max_score(combs, prev_hap);
-	
-	// 乱数っぽく決める
-	const int	j = records[0]->pos() % filtered_combs.size();
-	const HaplotypePair	hap = filtered_combs[j];
-	this->set_haplotype(hap, i);
-	return hap;
-}
-
-vector<VCFIsolated::HaplotypePair> VCFIsolated::impute_cM(
+vector<HaplotypePair> VCFIsolated::impute_cM(
 									const vector<HaplotypePair>& prev_haps) {
 	vector<HaplotypePair>	haps;
 	for(size_t i = 0; i < prev_haps.size(); ++i) {
@@ -159,9 +49,9 @@ vector<VCFIsolated::HaplotypePair> VCFIsolated::impute_cM(
 }
 
 void VCFIsolated::impute() {
-	const Haplotype	h(0, 2);
+	const Haplotype	h = Haplotype::default_value();
 	vector<HaplotypePair>	haps(num_imputed_samples, make_pair(h, h));
-	vector<VCFIsolated *>	vcf_cMs = this->divide_by_cM();
+	vector<VCFIsolated *>	vcf_cMs = VCFImputable::divide_by_cM(this);
 	for(auto p = vcf_cMs.begin(); p != vcf_cMs.end(); ++p) {
 		VCFIsolated	*vcf_cM = *p;
 		haps = vcf_cM->impute_cM(haps);
@@ -178,8 +68,8 @@ VCFSmall *VCFIsolated::extract_isolated_samples() const {
 
 vector<VCFIsolated *> VCFIsolated::create(const VCFSmall *orig_vcf,
 											const VCFSmall *imputed_vcf,
-											const vector<string>& samples,
-											const vector<string>& references,
+											const STRVEC& samples,
+											const STRVEC& references,
 											const Map& gmap, int num_threads) {
 	const auto	sample_columns = orig_vcf->extract_columns(samples);
 	const auto	ref_columns = imputed_vcf->extract_columns(references);

@@ -80,11 +80,13 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 
 #################### VCFHeteroHomo ####################
 
-class VCFHeteroHomo(VCFFamilyBase, VCFMeasurable):
+class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def __init__(self, header: list[list[str]],
 					records: list[VCFHeteroHomoRecord], map_: Map):
 		self.records = records
-		VCFFamilyBase.__init__(self, header)
+		VCFBase.__init__(self, header)
+		VCFSmallBase.__init__(self)
+		VCFFamilyBase.__init__(self)
 		VCFMeasurable.__init__(self, map_)
 	
 	def __len__(self) -> int:

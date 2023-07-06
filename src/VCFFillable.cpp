@@ -909,7 +909,7 @@ void VCFFillable::RecordSet::impute_NA_pat_each(size_t i) const {
 
 VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 								std::vector<VCFFillableRecord *> rs) :
-											VCFFamilyBase(h, s), records(rs) { }
+				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
 
 void VCFFillable::modify() {
 	vector<Group>	groups = group_records();

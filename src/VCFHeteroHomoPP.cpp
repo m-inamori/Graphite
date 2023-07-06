@@ -18,7 +18,8 @@ using namespace std;
 
 VCFHeteroHomoPP::VCFHeteroHomoPP(const vector<STRVEC>& h, const STRVEC& s,
 							vector<VCFFillableRecord *> rs, const Map& m) :
-			VCFFamilyBase(h, s), VCFMeasurable(m), records(rs) { }
+						VCFBase(h, s), VCFSmallBase(),
+						VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
 
 bool VCFHeteroHomoPP::is_mat_hetero() const {
 	return records.front()->is_hetero(0);

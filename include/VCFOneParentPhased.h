@@ -3,6 +3,7 @@
 
 #include "VCFFamily.h"
 #include "Map.h"
+#include "VCFImputable.h"
 #include "option.h"
 #include "graph.h"
 
@@ -13,63 +14,78 @@ class VCFOriginal;
 
 //////////////////// VCFOneParentPhased ////////////////////
 
-class VCFOneParentPhased : public VCFFamily, VCFMeasurable {
+class VCFOneParentPhased : public VCFBase, public VCFFamilyBase,
+											public VCFImputable {
 public:
 	struct ConfigThread {
-		const VCFSmall	*orig_vcf;
-		const VCFSmall	*merged_vcf;
-		const std::vector<std::pair<const Family *, bool>>&	families;
-		const Map& geno_map;
+		const std::vector<VCFOneParentPhased *>	vcfs;
 		const std::size_t	first;
 		const int	num_threads;
-		std::vector<VCFFamily *>&	results;
 		
-		ConfigThread(const VCFSmall *o, const VCFSmall *m,
-					 const std::vector<std::pair<const Family *, bool>>& fs,
-					 const Map& gmap, std::size_t f,
-					 int T, std::vector<VCFFamily *>& rs) :
-			 						orig_vcf(o), merged_vcf(m),
-			 						families(fs), geno_map(gmap),
-			 						first(f), num_threads(T), results(rs) { }
+		ConfigThread(const std::vector<VCFOneParentPhased *>& vcfs_,
+												std::size_t f, int T) :
+			 						vcfs(vcfs_), first(f), num_threads(T) { }
 		
-		std::size_t size() const { return families.size(); }
+		std::size_t size() const { return vcfs.size(); }
 	};
 	
 private:
-	const bool	is_mat_phased;
+	std::vector<VCFFamilyRecord *>	records;
+	const bool		is_mat_phased;
+	const VCFSmall	*ref_vcf;
 	
 public:
 	VCFOneParentPhased(const std::vector<STRVEC>& h, const STRVEC& s,
 										std::vector<VCFFamilyRecord *> rs,
-										bool is_mat_phased, const Map& m);
+										bool is_mat_phased, const Map& m,
+										const VCFSmall *ref);
 	~VCFOneParentPhased() { }
 	
+	///// virtual methods for VCFSmallBase /////
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	
+	///// virtual methods for VCFFamilyBase /////
+	VCFFamilyRecord *get_family_record(std::size_t i) const {
+		return records[i];
+	}
+	
+	///// virtual methods for VCFImputable /////
+	const std::vector<STRVEC>& get_header() const {
+		return VCFBase::get_header();
+	}
+	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
+	std::vector<Haplotype> collect_haplotypes_mat() const;
+	std::vector<Haplotype> collect_haplotypes_pat() const;
+	
+	///// non-virtual methods /////
 	bool is_mat_hetero() const;
+	VCFOneParentPhased *divide_by_positions(
+								std::size_t first, std::size_t last) const;
 	
 	void impute();
 	
 private:
-	char determine_which_comes_from(VCFFamilyRecord *record,
-												std::size_t i) const;
-	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
-	std::string make_seq(std::size_t i) const;
-	std::string impute_sample_seq(std::size_t i,
-							const std::vector<double>& cMs, double min_c) const;
-	void update_each(std::size_t i, std::size_t j, char c);
-	void update(std::size_t i, const std::string& seq);
-	static void impute_in_thread(void *config);
+	Haplotype clip_haplotype(std::size_t sample_id, int i) const;
+	Haplotype clip_ref_haplotype(std::size_t sample_id, int i) const;
+	std::vector<Haplotype> collect_haplotypes_from_parents() const;
+	std::vector<Haplotype> collect_haplotype_from_refs() const;
+	std::vector<HaplotypePair> impute_cM(
+								const std::vector<HaplotypePair>& prev_haps);
 	
 public:
-	static VCFFamily *impute_by_parent(const VCFSmall *orig_vcf,
-										const VCFSmall *parent_imputed_vcf,
-										const STRVEC& samples,
-										bool is_mat_phased, const Map& gmap);
-	static std::vector<VCFFamily *> impute_all_by_parent(
-				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-				const std::vector<std::pair<const Family *, bool>>& families,
-				const Map& geno_map, int num_threads);
-	// samplesに対応するRecordを作る
-	static VCFRecord *merge_records(const std::vector<VCFFamily *>& vcfs,
-										std::size_t i, const STRVEC& samples);
+	static VCFOneParentPhased *create(const STRVEC& samples, bool is_mat_phased,
+						const VCFSmall *merged_vcf, const VCFSmall *orig_vcf,
+						const Map& gmap, const VCFSmall *ref_vcf);
+	static void impute_in_thread(void *config);
+	static void impute_in_parallel(
+				const std::vector<VCFOneParentPhased *>& vcfs, int num_threads);
+	static STRVEC collect_samples(
+						const std::vector<VCFOneParentPhased *>& vcfs);
+	static VCFSmall *merge(const std::vector<VCFOneParentPhased *>& vcfs);
+	static VCFSmall *impute_all(
+				const std::vector<VCFOneParentPhased *>& vcfs, int num_threads);
 };
 #endif

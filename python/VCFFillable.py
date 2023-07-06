@@ -372,10 +372,11 @@ class RecordSet:
 
 #################### VCFFillable ####################
 
-class VCFFillable(VCFFamilyBase):
+class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 	def __init__(self, header: list[list[str]],
 							records: list[VCFFillableRecord]):
-		super().__init__(header)
+		VCFBase.__init__(self, header)
+		VCFFamilyBase.__init__(self)
 		self.records: list[VCFFillableRecord] = records
 	
 	def __len__(self) -> int:

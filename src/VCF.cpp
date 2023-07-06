@@ -147,23 +147,6 @@ int VCFBase::find_column(const string& sample) const {
 	return -1;
 }
 
-vector<size_t> VCFBase::extract_columns(STRVEC::const_iterator first,
-										STRVEC::const_iterator last) const {
-	map<string, size_t>	dic;
-	for(size_t i = 0; i < this->samples.size(); ++i)
-		dic[this->samples[i]] = i + 9;
-	
-	vector<size_t>	columns;
-	for(auto p = first; p != last; ++p) {
-		auto	q = dic.find(*p);
-		if(q != dic.end())
-			columns.push_back(q->second);
-		else
-			columns.push_back(string::npos);
-	}
-	return columns;
-}
-
 void VCFBase::write_header(ostream& os) const {
 	for(auto p = header.begin(); p != header.end(); ++p)
 		Common::write_tsv(*p, os);
@@ -220,11 +203,68 @@ STRVEC VCFReader::get_samples() const {
 }
 
 
+//////////////////// VCFSmallBase ////////////////////
+
+vector<STRVEC> VCFSmallBase::trim_header(const STRVEC& samples) const {
+	vector<STRVEC>	header = this->get_header();
+	STRVEC	v(header.back().begin(), header.back().begin() + 9);
+	v.insert(v.end(), samples.begin(), samples.end());
+	header.back() = v;
+	return header;
+}
+
+vector<int> VCFSmallBase::clip_raw_haplotype(size_t sample_id, int i) const {
+	vector<int>	hap;
+	for(size_t j = 0; j < size(); ++j) {
+		const VCFRecord	*record = get_record(j);
+		const string&	gt = record->get_gt(sample_id);
+		const char	c = gt.c_str()[i*2];
+		hap.push_back(c == '.' ? -1 : (int)(c - '0'));
+	}
+	return hap;
+}
+
+vector<size_t> VCFSmallBase::extract_columns(STRVEC::const_iterator first,
+											STRVEC::const_iterator last) const {
+	const STRVEC&	samples = this->get_samples();
+	map<string, size_t>	dic;
+	for(size_t i = 0; i < samples.size(); ++i)
+		dic[samples[i]] = i + 9;
+	
+	vector<size_t>	columns;
+	for(auto p = first; p != last; ++p) {
+		auto	q = dic.find(*p);
+		if(q != dic.end())
+			columns.push_back(q->second);
+		else
+			columns.push_back(string::npos);
+	}
+	return columns;
+}
+
+VCFSmall *VCFSmallBase::extract_samples(const STRVEC& samples) const {
+	const auto	header = trim_header(samples);
+	vector<VCFRecord *>	empty_records;
+	VCFSmall	*vcf = new VCFSmall(header, samples, empty_records);
+	const vector<size_t>	cs = extract_columns(samples);
+	for(size_t i = 0; i < size(); ++i) {
+		const VCFRecord	*record = get_record(i);
+		const STRVEC&	v = record->get_v();
+		STRVEC	new_v(v.begin(), v.begin() + 9);
+		for(auto q = cs.begin(); q != cs.end(); ++q)
+			new_v.push_back(v[*q]);
+		VCFRecord	*new_record = new VCFRecord(new_v, vcf->get_samples());
+		vcf->add_record(new_record);
+	}
+	return vcf;
+}
+
+
 //////////////////// VCFSmall ////////////////////
 
 VCFSmall::VCFSmall(const vector<STRVEC>& h, const STRVEC& s,
 										vector<VCFRecord *> rs) :
-											VCFSmallBase(h, s), records(rs) {
+							VCFBase(h, s), VCFSmallBase(), records(rs) {
 	for(auto p = records.begin(); p != records.end(); ++p)
 		this->record_position(**p);
 }
@@ -239,23 +279,6 @@ void VCFSmall::write(ostream& os, bool write_header) const {
 		this->write_header(os);
 	for(auto p = records.begin(); p != records.end(); ++p)
 		(*p)->write(os);
-}
-
-VCFSmall *VCFSmall::extract_samples(const STRVEC& samples) const {
-	const auto	header = create_header(samples);
-	vector<VCFRecord *>	empty_records;
-	VCFSmall	*vcf = new VCFSmall(header, samples, empty_records);
-	const vector<size_t>	cs = extract_columns(samples);
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		const VCFRecord	*record = *p;
-		const STRVEC&	v = record->get_v();
-		STRVEC	new_v(v.begin(), v.begin() + 9);
-		for(auto q = cs.begin(); q != cs.end(); ++q)
-			new_v.push_back(v[*q]);
-		VCFRecord	*new_record = new VCFRecord(new_v, vcf->get_samples());
-		vcf->add_record(new_record);
-	}
-	return vcf;
 }
 
 VCFSmall *VCFSmall::read(const string& path) {
@@ -300,7 +323,7 @@ VCFSmall *VCFSmall::join(const vector<VCFSmallBase *>& vcfs,
 		new_samples.push_back(get<0>(*p));
 	
 	// new_vcf owns samples
-	auto	new_header = vcfs.front()->create_header(new_samples);
+	auto	new_header = vcfs.front()->trim_header(new_samples);
 	vector<VCFRecord *>	empty_records;
 	VCFSmall	*new_vcf = new VCFSmall(new_header, new_samples, empty_records);
 	const STRVEC&	samples_ = new_vcf->get_samples();

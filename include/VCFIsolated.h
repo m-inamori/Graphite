@@ -3,16 +3,14 @@
 
 #include "VCF.h"
 #include "Map.h"
+#include "VCFImputable.h"
 
 
 //////////////////// VCFIsolated ////////////////////
 
 // imputed samples at the beginning, followed by reference samples
-class VCFIsolated : public VCFSmall, VCFMeasurable {
+class VCFIsolated : public VCFBase, public VCFImputable {
 public:
-	typedef std::pair<std::size_t, std::size_t>	Haplotype;
-	typedef std::pair<Haplotype, Haplotype>	HaplotypePair;
-	
 	struct ConfigThread {
 		const std::vector<VCFIsolated *>&	vcfs;
 		const std::size_t	first;
@@ -25,7 +23,8 @@ public:
 		std::size_t size() const { return vcfs.size(); }
 	};
 	
-protected:
+private:
+	std::vector<VCFRecord *>	records;
 	const std::size_t	num_imputed_samples;
 	
 public:
@@ -33,36 +32,37 @@ public:
 				std::vector<VCFRecord *> rs, std::size_t nis, const Map& m);
 	virtual ~VCFIsolated() { }
 	
+	///// virtual methods for VFSmallBase /////
+	const std::vector<STRVEC>& get_header() const {
+		return VCFBase::get_header();
+	}
+	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
+	std::size_t size() const { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const {
+		return records[i];
+	}
+	
+	///// virtual methods for VCFImputable /////
+	std::vector<Haplotype> collect_haplotypes_mat() const;
+	std::vector<Haplotype> collect_haplotypes_pat() const;
+	void set_gts(const std::vector<std::string>& gts, std::size_t sample_index);
+	
+	///// non-virtual methods /////
+	VCFIsolated *divide_by_positions(std::size_t first, std::size_t last) const;
 	void impute();
 	VCFSmall *extract_isolated_samples() const;
+	void add_record(VCFRecord *record) { records.push_back(record); }
+	
+	std::vector<Haplotype> collect_haplotype_from_refs() const;
 	
 private:
-	bool is_block(const VCFRecord *record,
-					const std::vector<VCFRecord *>& rs) const;
-	
-	// divide VCF by 1 cM
-	std::vector<VCFIsolated *> divide_by_cM() const;
-	
-	int get_single_gt(const VCFRecord *record, Haplotype hap) const;
-	int score_each(Haplotype hap1, Haplotype hap2,
-							std::size_t i, VCFRecord *record) const;
-	int score(Haplotype hap1, Haplotype hap2, std::size_t i) const;
-	std::vector<std::pair<Haplotype, Haplotype>>
-				collect_optimal_haplotype_pairs(std::size_t i) const;
-	void set_haplotype(HaplotypePair hap, std::size_t i);
-	int match_score(HaplotypePair prev_hap, HaplotypePair hap) const;
-	std::vector<HaplotypePair> collect_max_score(
-									const std::vector<HaplotypePair>& combs,
-									HaplotypePair prev_hap) const;
-	HaplotypePair impute_cM_each_sample(HaplotypePair prev_hap, std::size_t i);
 	std::vector<HaplotypePair> impute_cM(
 								const std::vector<HaplotypePair>& prev_haps);
 	
 public:
-	static std::vector<VCFIsolated *>
-			create(const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-					const std::vector<std::string>& samples,
-					const std::vector<std::string>& references,
+	static std::vector<VCFIsolated *> create(const VCFSmall *orig_vcf,
+					const VCFSmall *merged_vcf,
+					const STRVEC& samples, const STRVEC& references,
 					const Map& gmap, int num_threads);
 	static std::vector<VCFSmallBase *> impute_all(
 										const std::vector<VCFIsolated *>& vcfs,

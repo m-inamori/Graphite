@@ -21,7 +21,8 @@ public:
 
 //////////////////// VCFHeteroHeteroLite ////////////////////
 
-class VCFHeteroHeteroLite: public VCFFamilyBase {
+class VCFHeteroHeteroLite: public VCFBase, public VCFSmallBase,
+											public VCFFamilyBase {
 	const std::vector<VCFHeteroHeteroLiteRecord *>	records;
 	
 public:

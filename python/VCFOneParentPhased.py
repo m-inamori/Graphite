@@ -5,10 +5,10 @@ from __future__ import annotations
 # 片方の親だけがphasingされた家系
 
 from collections import defaultdict, Counter
-from typing import List, Tuple, Optional, IO, Dict, Iterator
+from typing import List, Tuple, Optional, IO, Dict, Iterator, Final
 
 from VCFFamily import *
-from VCFFillable import *
+from VCFImputable import *
 from Map import *
 import Imputer
 from option import *
@@ -16,13 +16,22 @@ from option import *
 
 #################### VCFHOneParentPhased ####################
 
-class VCFOneParentPhased(VCFFamilyBase, VCFMeasurable):
+class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 	def __init__(self, header: list[list[str]],
-						records: list[VCFFamilyRecord], mat_p: bool, map_: Map):
-		VCFFamilyBase.__init__(self, header)
-		VCFMeasurable.__init__(self, map_)
+						records: list[VCFFamilyRecord],
+						mat_p: bool, map_: Map, ref_vcf):
+		VCFBase.__init__(self, header)
+		VCFFamilyBase.__init__(self)
+		VCFImputable.__init__(self, map_)
 		self.records: list[VCFFamilyRecord] = records
 		self.is_mat_phased: bool = mat_p
+		self.ref_vcf: Final[VCFSmall] = ref_vcf
+	
+	def get_header(self) -> list[list[str]]:
+		return self.header
+	
+	def get_samples(self) -> list[str]:
+		return self.samples
 	
 	def __len__(self) -> int:
 		return len(self.records)
@@ -33,131 +42,86 @@ class VCFOneParentPhased(VCFFamilyBase, VCFMeasurable):
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
-	def determine_which_comes_from(self, record: VCFFamilyRecord,
-														i: int) -> str:
-		if record.is_NA(0) or record.is_NA(1) or record.is_NA(i):
-			return 'N'
+	def clip_ref_haplotype(self, sample_id: int, side: int) -> Haplotype:
+		hap = self.ref_vcf.clip_raw_haplotype(sample_id, side)
+		return Haplotype(hap, sample_id, side)
+	
+	# divide VCF by 1 cM
+	def divide_by_cM(self) -> Iterator[VCFOneParentPhased]:
+		# 1cMを超えても10個以内で10cM以内なら塊とみなす
+		rs = self.records[:1]
+		ref_rs = self.ref_vcf.records[:1]
+		for i in range(1, len(self)):
+			record = self.records[i]
+			ref_record = self.ref_vcf.records[i]
+			if self.is_block(record, rs):
+				rs.append(record)
+				ref_rs.append(ref_record)
+			else:
+				ref_vcf_cM = VCFSmall(self.ref_vcf.header, ref_rs)
+				yield VCFOneParentPhased(self.header, rs, self.is_mat_phased,
+														self.map, ref_vcf_cM)
+				rs = [record]
+				ref_rs = [ref_record]
 		
-		mat_GT = record.get_GT(0)
-		pat_GT = record.get_GT(1)
-		prog_gt = record.get_int_gt(i)
-		mat1 = int(mat_GT[0])
-		mat2 = int(mat_GT[2])
-		pat1 = int(pat_GT[0])
-		pat2 = int(pat_GT[2])
+		ref_vcf_cM = VCFSmall(self.ref_vcf.header, ref_rs)
+		yield VCFOneParentPhased(self.header, rs, self.is_mat_phased,
+														self.map, ref_vcf_cM)
+	
+	def collect_haplotypes_from_parents(self) -> list[Haplotype]:
+		i = 0 if self.is_mat_phased else 1
+		return [ self.clip_haplotype(i, j) for j in (0, 1) ]
+	
+	def collect_haplotype_from_refs(self) -> list[Haplotype]:
+		return [ self.clip_ref_haplotype(i, j)
+					for i in range(self.ref_vcf.num_samples())
+					for j in (0, 1) ]
+	
+	def collect_haplotypes_mat(self) -> list[Haplotype]:
 		if self.is_mat_phased:
-			if not (mat1 != mat2 and pat1 == pat2):
-				return 'N'
-			
-			diff = prog_gt - pat1
-			if diff == -1 or diff == 2:
-				return 'N'
-			else:
-				return '0' if diff == mat1 else '1'
-		else:	# pat is phased
-			if not (mat1 == mat2 and pat1 != pat2):
-				return 'N'
-			
-			diff = prog_gt - mat1
-			if diff == -1 or diff == 2:
-				return 'N'
-			else:
-				return '0' if diff == pat1 else '1'
-	
-	def make_seq(self, i: int) -> str:
-		cs = []
-		for record in self.records:
-			cs.append(self.determine_which_comes_from(record, i))
-		
-		return ''.join(cs)
-	
-	def impute_sample_seq(self, i: int, cMs: list[float], min_c: float):
-		seq = self.make_seq(i)
-		if all(c == 'N' for c in seq):
-			# 全部同じなら意味がない
-			return '0' * len(seq)
-		elif is_all_same(seq):
-			return seq
-		
-		hidden_states = ['0', '1']
-		states = [ s for s in ['0', '1', 'N'] if s in seq ]
-		hidden_seq = Imputer.impute(seq, hidden_states, states, cMs)
-		painted_seq = Imputer.paint(hidden_seq, cMs, min_c)
-		return painted_seq
-	
-	def update_each(self, i: int, k: int, c: str):
-		record = self.records[k]
-		v = record.v
-		j = int(c) * 2
-		if self.is_mat_phased:
-			mat_gt = v[9][j]
-			remain = record.get_int_gt(i) - int(mat_gt)
-			if remain <= 0:
-				record.set_GT(i, mat_gt + '|0')
-			else:
-				record.set_GT(i, mat_gt + '|1')
+			return self.collect_haplotypes_from_parents()
 		else:
-			pat_gt = v[10][j]
-			remain = record.get_int_gt(i) - int(pat_gt)
-			if remain <= 0:
-				record.set_GT(i, '0|' + pat_gt)
-			else:
-				record.set_GT(i, '1|' + pat_gt)
-		
-		if '0' in self.samples:
-			return
-		
-		if self.is_mat_phased:
-			mat_gt = v[9][j]
-			remain = record.get_int_gt(i) - int(mat_gt)
-			if remain <= 0:
-				record.set_GT(1, '0|0' if record.get_int_gt(1) == 0 else '0|1')
-			else:
-				record.set_GT(1, '1|1' if record.get_int_gt(1) == 2 else '1|0')
-		else:
-			pat_gt = v[10][j]
-			remain = record.get_int_gt(i) - int(pat_gt)
-			if remain <= 0:
-				record.set_GT(0, '0|0' if record.get_int_gt(0) == 0 else '0|1')
-			else:
-				record.set_GT(0, '1|1' if record.get_int_gt(0) == 2 else '1|0')
+			return self.collect_haplotype_from_refs()
 	
-	def update(self, i: int, seqs: str):
-		for k in range(len(self)):
-			self.update_each(i, k, seqs[k])
+	def collect_haplotypes_pat(self) -> list[Haplotype]:
+		if self.is_mat_phased:
+			return self.collect_haplotype_from_refs()
+		else:
+			return self.collect_haplotypes_from_parents()
+	
+	def impute_cM(self, prev_haps: list[HaplotypePair]) -> list[HaplotypePair]:
+		haps: list[HaplotypePair] = []
+		for sample_index, prev_hap in enumerate(prev_haps, 2):
+			hap = self.impute_cM_each_sample(prev_hap, sample_index)
+			haps.append(hap)
+		return haps
 	
 	def impute(self):
 		if not self.records:
 			return
 		
-		cMs = [ self.cM(record.pos()) for record in self.records ]
-		for i in range(2, self.num_samples()):
-			imputed_seq = self.impute_sample_seq(i, cMs, 1.0)
-			self.update(i, imputed_seq)
+		h = Haplotype.default_value()
+		haps = [(h, h)] * (self.num_progenies())
+		for vcf_cM in self.divide_by_cM():
+			haps = vcf_cM.impute_cM(haps)
 	
 	@staticmethod
-	def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
-										samples: list[str], is_mat_phased: bool,
-										gmap: Map) -> VCFOneParentPhased:
+	def create(samples: list[str], is_mat_phased: bool,
+				imputed_vcf: VCFSmall, orig_vcf: VCFSmall,
+				gmap: Map, ref_vcf: VCFSmall) -> VCFOneParentPhased:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
 		new_vcf = VCFOneParentPhased(vcf.header, vcf.records,
-														is_mat_phased, gmap)
-		new_vcf.impute()
+											is_mat_phased, gmap, ref_vcf)
 		return new_vcf
 	
 	# samplesに対応するRecordを作る
 	@staticmethod
-	def merge_records(vcfs: list[VCFFamily], i: int,
-									samples: list[str]) -> VCFRecord:
-		dic_pos: dict[str, tuple[VCFFamily, int]] = { }
-		for vcf in vcfs:
-			for k, sample in enumerate(vcf.samples):
-				dic_pos[sample] = (vcf, k + 9)
-		
-		v = vcfs[0].records[i].v[:9]
+	def merge_records(vcfs: list[VCFFamilyBase], i: int, samples: list[str],
+					dic_pos: Dict[str, tuple[VCFFamilyBase, int]]) -> VCFRecord:
+		v = vcfs[0].get_family_record(i).v[:9]
 		for sample in samples:
-			vcf, k = dic_pos[sample]
-			v.append(vcf.records[i].v[k])
+			vcf, c = dic_pos[sample]
+			v.append(vcf.get_family_record(i).v[c])
 		return VCFRecord(v, samples)
 
 __all__ = ['VCFOneParentPhased']
