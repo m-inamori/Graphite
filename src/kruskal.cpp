@@ -48,20 +48,20 @@ Kruskal::GRAPH Kruskal::Kruskal(const GRAPH& graph) {
 	
 	UnionFind	tree(nodes);
 	
-	vector<tuple<size_t,size_t,int>>	edges;
+	vector<tuple<size_t,size_t,double>>	edges;
 	for(auto p = graph.begin(); p != graph.end(); ++p) {
 		const size_t&	v1 = p->first;
 		const vector<pair<size_t,double>>&	vec = p->second;
 		for(auto q = vec.begin(); q != vec.end(); ++q) {
 			const size_t&	v2 = q->first;
-			const int		w = q->second;
+			const double		w = q->second;
 			if(v1 < v2)
-				edges.push_back(tuple<size_t,size_t,int>(v1, v2, w));
+				edges.push_back(tuple<size_t,size_t,double>(v1, v2, w));
 		}
 	}
 	std::stable_sort(edges.begin(), edges.end(),
-					[](const tuple<size_t,size_t,int>& a,
-					   const tuple<size_t,size_t,int>& b) {
+					[](const tuple<size_t,size_t,double>& a,
+					   const tuple<size_t,size_t,double>& b) {
 								return get<2>(a) < get<2>(b);
 						});
 	

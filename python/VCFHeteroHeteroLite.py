@@ -24,8 +24,18 @@ class VCFHeteroHeteroLiteRecord(VCFImpFamilyRecord):
 
 #################### VCFHeteroHeteroLite ####################
 
-class VCFHeteroHeteroLite(VCFFamilyBase):
+class VCFHeteroHeteroLite(VCFBase, VCFFamilyBase):
 	def __init__(self, header: list[list[str]],
 						records: list[VCFHeteroHeteroLiteRecord]):
+		VCFBase.__init__(self, header)
+		VCFFamilyBase.__init__(self)
 		self.records = records
-		VCFFamilyBase.__init__(self, header)
+	
+	def __len__(self) -> int:
+		return len(self.records)
+	
+	def get_record(self, i: int) -> VCFRecord:
+		return self.records[i]
+	
+	def get_family_record(self, i: int) -> VCFFamilyRecord:
+		return self.records[i]

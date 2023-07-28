@@ -21,6 +21,11 @@ VCFHeteroHomoPP::VCFHeteroHomoPP(const vector<STRVEC>& h, const STRVEC& s,
 						VCFBase(h, s), VCFSmallBase(),
 						VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
 
+VCFHeteroHomoPP::~VCFHeteroHomoPP() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
+}
+
 bool VCFHeteroHomoPP::is_mat_hetero() const {
 	return records.front()->is_hetero(0);
 }

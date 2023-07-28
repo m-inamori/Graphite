@@ -46,7 +46,7 @@ class SampleManager:
 		self.imputed_samples: set[str]		= set()
 	
 	def set(self, samples: list[str]):
-		self.imputed_samples.update(samples)
+		self.imputed_samples.update([ s for s in samples if s != '0' ])
 	
 	def clear(self):
 		self.imputed_samples.clear()
@@ -59,6 +59,9 @@ class SampleManager:
 	
 	def is_unknown(self, sample):
 		return sample == '0'
+	
+	def collet_references(self):
+		return sorted(set(p for f in self.large_families for p in f.parents()))
 	
 	# 補完されていないが両親は補完されている家系
 	def extract_small_families(self):
@@ -355,9 +358,9 @@ def fill_and_merge_vcf(imputed_vcfs: Dict[Family, list[VCFHeteroHomo]],
 	vcfs_complemented: list[VCFFillable] = fill(items)
 	return VCFFillable.merge(vcfs_complemented, samples)
 
-def impute_vcf_by_parents(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
+def impute_vcf_by_parents(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 								families: list[Family], gmap: Map) -> VCFSmall:
-	vcfs: list[VCFSmall] = []
+	vcfs: list[VCFSmallBase] = []
 	for family in families:
 		family_vcf = VCFHeteroHomoPP.impute_by_parents(
 								orig_vcf, merged_vcf, family.samples(), gmap)
@@ -393,11 +396,10 @@ def impute_one_parent_vcf(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 								families: list[Family], gmap: Map,
 								sample_man: SampleManager,
 								num_threads: int) -> VCFSmall:
-	references = sorted(set(p for f in sample_man.large_families
-												for p in f.parents()))
+	references = sample_man.collet_references()
 	ref_vcf = merged_vcf.extract_samples(references)
 	
-	vcfs: list[VCFFamilyBase] = []
+	vcfs: list[VCFSmallBase] = []
 	for family in families:
 		is_mat_phased = sample_man.is_imputed(family.mat)
 		opp_vcf = VCFOneParentPhased.create(family.samples(), is_mat_phased,
@@ -405,48 +407,58 @@ def impute_one_parent_vcf(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 		opp_vcf.impute()
 		vcfs.append(opp_vcf)
 	
-	samples = []	# 今回phasingした子どもを集める
+	samples = []	# 今回phasingしたsampleを集める
 	for family in families:
-		samples.extend(family.progenies)
+		ss = [ s for s in family.samples()
+					if not sample_man.is_imputed(s) and s != '0' ]
+		samples.extend(ss)
+		sample_man.set(ss)
 	
-	dic_pos: dict[str, tuple[VCFFamilyBase, int]] = {
-									sample: (vcf, k+9)
-									for vcf in vcfs
-									for k, sample in enumerate(vcf.samples) }
-	
-	merged_records: list[VCFRecord] = []
-	for i in range(len(vcfs[0])):
-		merged_records.append(VCFOneParentPhased.merge_records(
-												vcfs, i, samples, dic_pos))
-	new_header = orig_vcf.trim_header(samples)
-	new_vcf = VCFSmall(new_header, merged_records)
-	return new_vcf
+	return VCFSmall.join(vcfs, samples)
 
 def impute_vcf_by_progenies(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
-									families: list[Family],
+									families: list[Family], gmap: Map,
 									sample_man: SampleManager) -> VCFSmall:
-	vcfs: list[VCFSmall] = []
+	references = sample_man.collet_references()
+	ref_vcf = merged_vcf.extract_samples(references)
+	vcfs: list[VCFSmallBase] = []
 	for family in families:
-		ppi = [ i for i, sample in enumerate(family.samples())
-								if sample_man.is_imputed(sample) ]
-		pp_vcf = VCFProgenyPhased.impute_by_progeny(
-								orig_vcf, merged_vcf, family.samples(), ppi)
-		family_vcf = VCFSmall.convert(pp_vcf)
-		vcfs.append(family_vcf)
+		ppi = next(i for i, sample in enumerate(family.samples())
+								if sample_man.is_imputed(sample))
+		pp_vcf = VCFProgenyPhased.create(orig_vcf, merged_vcf,
+									family.samples(), ppi, gmap, ref_vcf)
+		pp_vcf.impute()		# impute only parents
+		if pp_vcf.num_progenies() == 1:
+			vcf4 = pp_vcf	# all imputed
+		elif family.mat != '0' and family.pat != '0':
+			vcf2 = impute_vcf_by_parents(orig_vcf, pp_vcf, families, gmap)
+			vcf4 = VCFSmall.join([pp_vcf, vcf2], family.samples())
+		else:
+			is_mat_phased = family.mat != '0'
+			vcf3 = VCFOneParentPhased.create(family.samples(), is_mat_phased,
+												pp_vcf, orig_vcf, gmap, ref_vcf)
+			vcf3.impute()
+			vcf4 = VCFSmall.join([pp_vcf, vcf3], family.samples())
+		vcfs.append(vcf4)
 	
-	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
-	return new_vcf
+	samples = []	# collect phased samples
+	for family in families:
+		ss = [ s for s in family.samples()
+							if not sample_man.is_imputed(s) ]
+		samples.extend(ss)
+		sample_man.set(ss)
+	
+	return VCFSmall.join(vcfs, samples)
 
 def impute_iolated_samples(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 									sample_man: SampleManager,
 									samples: list[str],
 									gmap: Map, num_threads: int) -> VCFSmall:
-	references = sorted(set(p for f in sample_man.large_families
-												for p in f.parents()))
+	references = sample_man.collet_references()
 	# あとでマルチプロセス化するためにphasingすべきsample分割する
 	vcfs = VCFIsolated.create(orig_vcf, merged_vcf,
 								samples, references, gmap, num_threads)
-	new_vcfs: list[VCFSmall] = []
+	new_vcfs: list[VCFSmallBase] = []
 	for vcf in vcfs:
 		vcf.impute()
 		new_vcfs.append(vcf.extract_isolated_samples())
@@ -456,7 +468,8 @@ def impute_iolated_samples(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 
 def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 						geno_map: Map, option: Option) -> VCFSmall:
-	print("chr : ", orig_vcf.records[0].chrom())
+	print('chr: %s %d records' % (orig_vcf.records[0].chrom(), len(orig_vcf)))
+	sys.stdout.flush()
 	imputed_vcfs, other_records = impute_hetero_homo(orig_vcf, sample_man,
 															geno_map, option)
 	merged_vcf = fill_and_merge_vcf(imputed_vcfs,
@@ -503,7 +516,8 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 		families = sample_man.extract_progenies_phased_families()
 		if families:
 			new_imputed_vcf = impute_vcf_by_progenies(orig_vcf, merged_vcf, 
-														families, sample_man)
+														families, geno_map,
+														sample_man)
 			merged_vcf = VCFSmall.join([merged_vcf, new_imputed_vcf],
 														orig_vcf.samples)
 			sample_man.set(new_imputed_vcf.samples)
@@ -516,7 +530,7 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 	if samples:
 		new_imputed_vcf = impute_iolated_samples(orig_vcf, merged_vcf,
 							sample_man, samples, geno_map, option.num_threads)
-		vcfs = [merged_vcf, new_imputed_vcf]
+		vcfs: list[VCFSmallBase] = [merged_vcf, new_imputed_vcf]
 		merged_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	
 	sample_man.clear()

@@ -39,7 +39,7 @@ public:
 										std::vector<VCFFamilyRecord *> rs,
 										bool is_mat_phased, const Map& m,
 										const VCFSmall *ref);
-	~VCFOneParentPhased() { }
+	~VCFOneParentPhased();
 	
 	///// virtual methods for VCFSmallBase /////
 	std::size_t size() const { return records.size(); }
@@ -57,8 +57,10 @@ public:
 		return VCFBase::get_header();
 	}
 	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	std::vector<Haplotype> collect_haplotypes_mat() const;
-	std::vector<Haplotype> collect_haplotypes_pat() const;
+	std::vector<Haplotype> collect_haplotypes_mat(
+									std::size_t sample_index) const;
+	std::vector<Haplotype> collect_haplotypes_pat(
+									std::size_t sample_index) const;
 	
 	///// non-virtual methods /////
 	bool is_mat_hetero() const;

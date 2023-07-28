@@ -164,7 +164,7 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		return VCFFillable(mat_vcf.header, records)
 	
 	@staticmethod
-	def impute_by_parents(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
+	def impute_by_parents(orig_vcf: VCFSmall, imputed_vcf: VCFSmallBase,
 								samples: list[str], gmap: Map) -> VCFFillable:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
 		# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ

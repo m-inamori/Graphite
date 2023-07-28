@@ -284,7 +284,7 @@ VCFSmall *impute_vcf_by_parents(
 	}
 	
 	// samplesの所有権をnew_vcfに持たせる
-	auto	new_header = orig_vcf->create_header(samples);
+	auto	new_header = orig_vcf->trim_header(samples);
 	vector<VCFRecord *>	empty_records;
 	auto	*new_vcf = new VCFSmall(new_header, samples, empty_records);
 	const auto&	samples_ = new_vcf->get_samples();
@@ -325,10 +325,14 @@ VCFSmall *impute_vcf_by_parent(
 	// impute progenies
 	VCFSmall	*new_vcf = impute_vcf_by_parents(orig_vcf, new_merged_vcf,
 											families, geno_map, num_threads);
+	delete new_merged_vcf;
 	
 	// join
 	vector<VCFSmallBase *>	vcfs2{ parents_vcf, new_vcf };
-	return VCFSmall::join(vcfs2, orig_vcf->get_samples());
+	VCFSmall	*vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
+	delete parents_vcf;
+	delete new_vcf;
+	return vcf;
 }
 
 VCFSmall *impute_one_parent_vcf(const VCFSmall *orig_vcf,
@@ -349,32 +353,42 @@ VCFSmall *impute_one_parent_vcf(const VCFSmall *orig_vcf,
 		vcfs.push_back(vcf);
 	}
 	
-	return VCFOneParentPhased::impute_all(vcfs, num_threads);
+	VCFSmall	*vcf = VCFOneParentPhased::impute_all(vcfs, num_threads);
+	Common::delete_all(vcfs);
+	delete ref_vcf;
+	return vcf;
 }
 
 VCFSmall *impute_vcf_by_progenies(const VCFSmall *orig_vcf,
 								  const VCFSmall *merged_vcf,
 								  const vector<const Family *>& families,
+								  const Map& geno_map,
 								  SampleManager *sample_man, int num_threads) {
-	vector<pair<const Family *, vector<size_t>>>	progeny_imputed_families;
+	STRVEC	references = sample_man->collect_large_family_parents();
+	VCFSmall	*ref_vcf = merged_vcf->extract_samples(references);
+	
+	vector<pair<const Family *, size_t>>	progeny_imputed_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const Family	*family = *p;
-		vector<size_t>	ppi;	// phased progeny index
-		const vector<string>&	samples = family->get_samples();
-		for(size_t i = 0; i < samples.size(); ++i) {
-			if(sample_man->is_imputed(samples[i]))
-				ppi.push_back(i);
+		size_t	ppi;	// phased progeny index
+		for(size_t i = 2; ; ++i) {
+			if(sample_man->is_imputed(family->get_samples()[i])) {
+				ppi = i;
+				break;
+			}
 		}
+		
 		progeny_imputed_families.push_back(make_pair(family, ppi));
 	}
-	const auto	vcfs = VCFProgenyPhased::impute_all_by_progeny(orig_vcf,
-													merged_vcf,
-													progeny_imputed_families,
-													num_threads);
+	const auto	vcfs = VCFProgenyPhased::impute_all_by_progeny(
+												orig_vcf, merged_vcf,
+												progeny_imputed_families,
+												geno_map, ref_vcf, num_threads);
 	
 	vector<VCFSmallBase *>	vcfs2(vcfs.begin(), vcfs.end());	// convert class
 	VCFSmall	*new_vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
+	delete ref_vcf;
 	return new_vcf;
 }
 
@@ -462,7 +476,7 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 			merged_vcf = new_merged_vcf;
 			sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
 			delete new_imputed_vcf;
-			Common::delete_all(families2);
+			Common::delete_all(families3);
 			continue;
 		}
 		
@@ -471,7 +485,8 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 		if(!families4.empty()) {
 			auto	*new_imputed_vcf = impute_vcf_by_progenies(
 														orig_vcf, merged_vcf,
-														families4, sample_man,
+														families4, geno_map,
+														sample_man,
 														option->num_threads);
 			vector<VCFSmallBase *>	vcfs{ merged_vcf, new_imputed_vcf };
 			auto	*new_merged_vcf = VCFSmall::join(vcfs, all_samples);

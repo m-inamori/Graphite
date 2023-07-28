@@ -69,7 +69,6 @@ public:
 	~VCFBase() { }
 	
 	const std::vector<STRVEC>& get_header() const { return header; }
-	std::vector<STRVEC> create_header(const STRVEC& samples) const;
 	const STRVEC& get_samples() const { return samples; }
 	size_t num_samples() const { return samples.size(); }
 	std::map<std::string,std::size_t>
@@ -133,10 +132,11 @@ public:
 class VCFSmall : public VCFBase, public VCFSmallBase {
 protected:
 	std::vector<VCFRecord *>	records;
+	bool	reuses_records;
 	
 public:
 	VCFSmall(const std::vector<STRVEC>& header, const STRVEC& samples,
-											std::vector<VCFRecord *> rs);
+								std::vector<VCFRecord *> rs, bool rr=false);
 	virtual ~VCFSmall();
 	
 	///// virtual methods /////
@@ -149,7 +149,7 @@ public:
 	
 	///// non-virtual methods /////
 	const std::vector<VCFRecord *>& get_records() const { return records; }
-	bool empty() const { return records.empty(); }
+	bool is_empty() const { return records.empty(); }
 	void write(std::ostream& os, bool write_header=true) const;
 	
 	void add_record(VCFRecord *record) { records.push_back(record); }

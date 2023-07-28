@@ -35,7 +35,7 @@ Graph::WeightedGraph Graph::trim_inverse(const InvGraph& graph) {
 		const auto&	v = p->second;
 		for(auto q = v.begin(); q != v.end(); ++q)
 			weighted_graph[p->first].push_back(
-								pair<size_t,int>(get<0>(*q), get<1>(*q)));
+								pair<size_t,double>(get<0>(*q), get<1>(*q)));
 	}
 	return weighted_graph;
 }

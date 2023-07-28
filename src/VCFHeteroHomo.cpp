@@ -545,7 +545,7 @@ VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
 								  const Family *family,
 								  const VCFSmall *vcf, const Map& geno_map) {
 	const STRVEC&	samples = family->get_samples();
-	const vector<STRVEC>	header = vcf->create_header(samples);
+	const vector<STRVEC>	header = vcf->trim_header(samples);
 	vector<VCFHeteroHomoRecord *>	heho_mat_records;
 	vector<VCFHeteroHomoRecord *>	heho_pat_records;
 	vector<VCFHeteroHomoRecord *>	unused_records;

@@ -232,7 +232,7 @@ public:
 public:
 	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFillableRecord *> rs);
-	~VCFFillable() { }
+	~VCFFillable();
 	
 	///// virtual methods for VCFSmallBase /////
 	std::size_t size() const { return records.size(); }

@@ -21,11 +21,11 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 		VCFMeasurable.__init__(self, map_)
 	
 	@abstractmethod
-	def collect_haplotypes_mat(self) -> list[Haplotype]:
+	def collect_haplotypes_mat(self, sample_index: int) -> list[Haplotype]:
 		pass
 	
 	@abstractmethod
-	def collect_haplotypes_pat(self) -> list[Haplotype]:
+	def collect_haplotypes_pat(self, sample_index: int) -> list[Haplotype]:
 		pass
 	
 	def get_int_gts(self, sample_index: int) -> list[int]:
@@ -47,13 +47,14 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 			return False
 	
 	def impute_cM_each_sample(self, prev_hap: HaplotypePair,
-									sample_index: int) -> HaplotypePair:
+								sample_index: int, exec: bool) -> HaplotypePair:
 		int_gts: Final[list[int]] = self.get_int_gts(sample_index)
-		haps_mat: Final[list[Haplotype]] = self.collect_haplotypes_mat()
-		haps_pat: Final[list[Haplotype]] = self.collect_haplotypes_pat()
+		haps_mat: Final[list[Haplotype]] = self.collect_haplotypes_mat(sample_index)
+		haps_pat: Final[list[Haplotype]] = self.collect_haplotypes_pat(sample_index)
 		seed: Final[int] = self.get_record(0).pos()
 		hap = Haplotype.impute(int_gts, haps_mat, haps_pat, prev_hap, seed)
-		self.set_haplotype(hap, sample_index)
+		if exec:	# actually impute?
+			self.set_haplotype(hap, sample_index)
 		return hap
 	
 	def set_haplotype(self, hap: HaplotypePair, sample_index: int):

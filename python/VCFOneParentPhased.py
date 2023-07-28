@@ -19,7 +19,7 @@ from option import *
 class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 	def __init__(self, header: list[list[str]],
 						records: list[VCFFamilyRecord],
-						mat_p: bool, map_: Map, ref_vcf):
+						mat_p: bool, map_: Map, ref_vcf: VCFSmall):
 		VCFBase.__init__(self, header)
 		VCFFamilyBase.__init__(self)
 		VCFImputable.__init__(self, map_)
@@ -77,13 +77,13 @@ class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 					for i in range(self.ref_vcf.num_samples())
 					for j in (0, 1) ]
 	
-	def collect_haplotypes_mat(self) -> list[Haplotype]:
+	def collect_haplotypes_mat(self, sample_index: int) -> list[Haplotype]:
 		if self.is_mat_phased:
 			return self.collect_haplotypes_from_parents()
 		else:
 			return self.collect_haplotype_from_refs()
 	
-	def collect_haplotypes_pat(self) -> list[Haplotype]:
+	def collect_haplotypes_pat(self, sample_index: int) -> list[Haplotype]:
 		if self.is_mat_phased:
 			return self.collect_haplotype_from_refs()
 		else:
@@ -92,7 +92,7 @@ class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 	def impute_cM(self, prev_haps: list[HaplotypePair]) -> list[HaplotypePair]:
 		haps: list[HaplotypePair] = []
 		for sample_index, prev_hap in enumerate(prev_haps, 2):
-			hap = self.impute_cM_each_sample(prev_hap, sample_index)
+			hap = self.impute_cM_each_sample(prev_hap, sample_index, True)
 			haps.append(hap)
 		return haps
 	
@@ -107,7 +107,7 @@ class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 	
 	@staticmethod
 	def create(samples: list[str], is_mat_phased: bool,
-				imputed_vcf: VCFSmall, orig_vcf: VCFSmall,
+				imputed_vcf: VCFSmallBase, orig_vcf: VCFSmallBase,
 				gmap: Map, ref_vcf: VCFSmall) -> VCFOneParentPhased:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
 		new_vcf = VCFOneParentPhased(vcf.header, vcf.records,

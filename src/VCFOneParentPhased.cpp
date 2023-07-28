@@ -22,6 +22,11 @@ VCFOneParentPhased::VCFOneParentPhased(const vector<STRVEC>& h, const STRVEC& s,
 						VCFBase(h, s), VCFFamilyBase(), VCFImputable(m),
 						records(rs), is_mat_phased(mat_p), ref_vcf(ref) { }
 
+VCFOneParentPhased::~VCFOneParentPhased() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
+}
+
 bool VCFOneParentPhased::is_mat_hetero() const {
 	return records.front()->is_hetero(0);
 }
@@ -45,7 +50,8 @@ VCFOneParentPhased *VCFOneParentPhased::divide_by_positions(
 	vector<VCFRecord *>	ref_rs(ref_vcf->get_records().begin() + first,
 							   ref_vcf->get_records().begin() + last);
 	const VCFSmall	*ref_vcf_divided = new VCFSmall(ref_vcf->get_header(),
-												ref_vcf->get_samples(), ref_rs);
+													ref_vcf->get_samples(),
+													ref_rs, true);
 	return new VCFOneParentPhased(header, samples, rs, is_mat_phased, get_map(),
 															ref_vcf_divided);
 }
@@ -65,14 +71,16 @@ vector<Haplotype> VCFOneParentPhased::collect_haplotype_from_refs() const {
 	return haps;
 }
 
-vector<Haplotype> VCFOneParentPhased::collect_haplotypes_mat() const {
+vector<Haplotype> VCFOneParentPhased::collect_haplotypes_mat(
+												size_t sample_index) const {
 	if(this->is_mat_phased)
 		return collect_haplotypes_from_parents();
 	else
 		return collect_haplotype_from_refs();
 }
 
-vector<Haplotype> VCFOneParentPhased::collect_haplotypes_pat() const {
+vector<Haplotype> VCFOneParentPhased::collect_haplotypes_pat(
+												size_t sample_index) const {
 	if(this->is_mat_phased)
 		return collect_haplotype_from_refs();
 	else
@@ -84,7 +92,7 @@ vector<HaplotypePair> VCFOneParentPhased::impute_cM(
 	vector<HaplotypePair>	haps;
 	for(size_t i = 0; i < prev_haps.size(); ++i) {
 		const auto	prev_hap = prev_haps[i];
-		const auto	hap = this->impute_cM_each_sample(prev_hap, i+2);
+		const auto	hap = this->impute_cM_each_sample(prev_hap, i+2, true);
 		haps.push_back(hap);
 	}
 	return haps;
@@ -93,11 +101,12 @@ vector<HaplotypePair> VCFOneParentPhased::impute_cM(
 void VCFOneParentPhased::impute() {
 	const Haplotype	h = Haplotype::default_value();
 	vector<HaplotypePair>	haps(num_progenies(), make_pair(h, h));
-	vector<VCFOneParentPhased *>	vcf_cMs = VCFImputable::divide_by_cM(this);
+	const auto	vcf_cMs = VCFImputable::divide_by_cM(this);
 	for(auto p = vcf_cMs.begin(); p != vcf_cMs.end(); ++p) {
 		VCFOneParentPhased	*vcf_cM = *p;
 		haps = vcf_cM->impute_cM(haps);
 		vcf_cM->records.clear();
+		delete vcf_cM->ref_vcf;
 		delete vcf_cM;
 	}
 }
@@ -112,6 +121,8 @@ VCFOneParentPhased *VCFOneParentPhased::create(
 	auto	new_vcf = new VCFOneParentPhased(vcf->get_header(),
 												vcf->get_samples(), records,
 												is_mat_phased, gmap, ref_vcf);
+	vcf->clear_records();
+	delete vcf;
 	return new_vcf;
 }
 
@@ -185,7 +196,7 @@ VCFSmall *VCFOneParentPhased::merge(const vector<VCFOneParentPhased *>& vcfs) {
 		}
 		records.push_back(new VCFRecord(v, samples));
 	}
-	vector<STRVEC>	header = vcfs.front()->create_header(samples);
+	vector<STRVEC>	header = vcfs.front()->trim_header(samples);
 	return new VCFSmall(header, samples, records);
 }
 

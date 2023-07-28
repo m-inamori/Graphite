@@ -15,7 +15,7 @@ public:
 	
 public:
 	Haplotype(const std::vector<int>& h, std::size_t sample_id, int i) :
-										hap(h), position(sample_id, i) { }
+											hap(h), position(sample_id, i) { }
 	
 public:
 	static Haplotype default_value() {
@@ -23,8 +23,9 @@ public:
 		return Haplotype(hap, 0, 2);
 	}
 	
-	static int score(const Haplotype& hap_mat,  const Haplotype& hap_pat,
-											const std::vector<int>& int_gts);
+	static int score(const Pair& hap, const std::vector<int>& int_gts);
+	static int score(const Haplotype& hap_mat,
+					const Haplotype& hap_pat, const std::vector<int>& int_gts);
 	
 	static std::vector<Pair> collect_optimal_haplotype_pairs(
 										const std::vector<Haplotype>& haps_mat,

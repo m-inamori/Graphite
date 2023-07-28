@@ -24,7 +24,7 @@ class Map:
 		self.chr_maps = []
 	
 	def is_empty(self):
-		return not self.chr_maps
+		return not self.records
 	
 	def total_cM(self) -> float:
 		return self.records[-1].cM

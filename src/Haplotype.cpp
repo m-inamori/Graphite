@@ -2,16 +2,24 @@
 
 using namespace std;
 
-int Haplotype::score(const Haplotype& hap1, const Haplotype& hap2,
-											const vector<int>& int_gts) {
+int Haplotype::score(const HaplotypePair& hap, const vector<int>& int_gts) {
 	int	total_score = 0;
 	for(size_t k = 0; k < int_gts.size(); ++k) {
-		if(hap1.hap[k] + hap2.hap[k] == int_gts[k])
+		if(hap.first.hap[k] + hap.second.hap[k] == int_gts[k])
 			total_score += 1;
 	}
 	return total_score;
 }
 
+int Haplotype::score(const Haplotype& hap_mat,
+					const Haplotype& hap_pat, const vector<int>& int_gts) {
+	int	total_score = 0;
+	for(size_t k = 0; k < int_gts.size(); ++k) {
+		if(hap_mat.hap[k] + hap_pat.hap[k] == int_gts[k])
+			total_score += 1;
+	}
+	return total_score;
+}
 
 int Haplotype::match_score(const HaplotypePair& prev_hap,
 										const HaplotypePair& hap) {

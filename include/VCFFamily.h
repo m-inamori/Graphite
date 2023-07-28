@@ -71,7 +71,7 @@ protected:
 public:
 	VCFFamily(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFamilyRecord *> rs);
-	~VCFFamily() { }
+	~VCFFamily();
 	
 	///// virtual methods /////
 	const std::vector<STRVEC>& get_header() const {
@@ -100,9 +100,9 @@ public:
 												const VCFSmall *vcf);
 	static VCFFamilyRecord *subset(VCFRecord *record, const STRVEC& samples,
 											const std::vector<int>& columns);
-	static VCFFamily *create_by_two_vcfs(const VCFSmall *vcf1,
-											const VCFSmall *vcf2,
-											const STRVEC& samples);
+	static VCFFamily *create_by_two_vcfs(const VCFSmallBase *vcf1,
+										 const VCFSmallBase *vcf2,
+										 const STRVEC& samples);
 	// join the VCFs divided into chrmosome
 	static VCFFamily *join(const std::vector<VCFFamily *>& vcfs);
 };

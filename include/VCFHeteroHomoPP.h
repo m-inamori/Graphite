@@ -45,7 +45,7 @@ protected:
 public:
 	VCFHeteroHomoPP(const std::vector<STRVEC>& h, const STRVEC& s,
 						std::vector<VCFFillableRecord *> rs, const Map& m);
-	~VCFHeteroHomoPP() { }
+	~VCFHeteroHomoPP();
 	
 	///// virtual methods for VCFSmallBase /////
 	std::size_t size() const { return records.size(); }

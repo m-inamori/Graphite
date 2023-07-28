@@ -49,16 +49,16 @@ class VCFIsolated(VCFBase, VCFImputable):
 					for i in range(self.num_imputed_samples, self.num_samples())
 					for j in (0, 1) ]
 	
-	def collect_haplotypes_mat(self) -> list[Haplotype]:
+	def collect_haplotypes_mat(self, sample_index: int) -> list[Haplotype]:
 		return self.collect_haplotype_from_refs()
 	
-	def collect_haplotypes_pat(self) -> list[Haplotype]:
+	def collect_haplotypes_pat(self, sample_index: int) -> list[Haplotype]:
 		return self.collect_haplotype_from_refs()
 	
 	def impute_cM(self, prev_haps: list[HaplotypePair]) -> list[HaplotypePair]:
 		haps: list[HaplotypePair] = []
 		for sample_index, prev_hap in enumerate(prev_haps):
-			hap = self.impute_cM_each_sample(prev_hap, sample_index)
+			hap = self.impute_cM_each_sample(prev_hap, sample_index, True)
 			haps.append(hap)
 		return haps
 	

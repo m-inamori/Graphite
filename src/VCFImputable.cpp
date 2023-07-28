@@ -15,15 +15,16 @@ Haplotype VCFImputable::clip_haplotype(size_t sample_index, int side) const {
 }
 
 HaplotypePair VCFImputable::impute_cM_each_sample(HaplotypePair prev_hap,
-													size_t sample_index) {
+											size_t sample_index, bool exec) {
 	const vector<int>	int_gts = get_int_gts(sample_index);
-	const vector<Haplotype>	haps_mat = collect_haplotypes_mat();
-	const vector<Haplotype>	haps_pat = collect_haplotypes_pat();
+	const vector<Haplotype>	haps_mat = collect_haplotypes_mat(sample_index);
+	const vector<Haplotype>	haps_pat = collect_haplotypes_pat(sample_index);
 	// select a combination with seed
 	const int	seed = get_record(0)->pos();
 	const HaplotypePair	hap = Haplotype::impute(int_gts, haps_mat, haps_pat,
 																prev_hap, seed);
-	this->set_haplotype(hap, sample_index);
+	if(exec)	// actually impute?
+		this->set_haplotype(hap, sample_index);
 	return hap;
 }
 

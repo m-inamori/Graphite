@@ -911,6 +911,11 @@ VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 								std::vector<VCFFillableRecord *> rs) :
 				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
 
+VCFFillable::~VCFFillable() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
+}
+
 void VCFFillable::modify() {
 	vector<Group>	groups = group_records();
 	for(size_t i = 0U; i < groups.size(); ++i) {
@@ -1301,7 +1306,7 @@ VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 	// サンプルが各Familyの何番目にあるか
 	const auto&		pos_samples = q.second;
 	
-	const vector<STRVEC>	header = vcf->create_header(new_samples);
+	const vector<STRVEC>	header = vcf->trim_header(new_samples);
 	VCFSmall	*new_vcf = new VCFSmall(header, new_samples,
 											vector<VCFRecord *>());
 	const STRVEC&	samples = new_vcf->get_samples();

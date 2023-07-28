@@ -13,8 +13,10 @@ public:
 	VCFImputable(const Map& map_) : VCFSmallBase(), VCFMeasurable(map_) { }
 	virtual ~VCFImputable() { };
 	
-	virtual std::vector<Haplotype> collect_haplotypes_mat() const = 0;
-	virtual std::vector<Haplotype> collect_haplotypes_pat() const = 0;
+	virtual std::vector<Haplotype> collect_haplotypes_mat(
+										std::size_t sample_index) const = 0;
+	virtual std::vector<Haplotype> collect_haplotypes_pat(
+										std::size_t sample_index) const = 0;
 	
 	std::vector<int> get_int_gts(std::size_t sample_index) const;
 	Haplotype clip_haplotype(std::size_t sample_index, int side) const;
@@ -43,7 +45,7 @@ public:
 	}
 	
 	HaplotypePair impute_cM_each_sample(HaplotypePair prev_hap,
-												std::size_t sample_index);
+										std::size_t sample_index, bool exec);
 	void set_haplotype(HaplotypePair hap, std::size_t sample_index);
 };
 #endif

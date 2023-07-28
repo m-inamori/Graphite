@@ -50,10 +50,11 @@ class VCFHomoHomoRecord(VCFImpFamilyRecord):
 
 #################### VCFHomoHomo ####################
 
-class VCFHomoHomo(VCFFamilyBase):
+class VCFHomoHomo(VCFBase, VCFSmallBase, VCFFamilyBase):
 	def __init__(self, header: list[list[str]],
 						records: list[VCFHomoHomoRecord]):
-		VCFFamilyBase.__init__(self, header)
+		VCFBase.__init__(self, header)
+		VCFFamilyBase.__init__(self)
 		self.records = records
 	
 	def __len__(self) -> int:

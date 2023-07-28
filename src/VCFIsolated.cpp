@@ -13,6 +13,11 @@ VCFIsolated::VCFIsolated(const vector<STRVEC>& h, const STRVEC& s,
 									VCFBase(h, s), VCFImputable(m),
 									records(rs), num_imputed_samples(nis)  { }
 
+VCFIsolated::~VCFIsolated() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
+}
+
 vector<Haplotype> VCFIsolated::collect_haplotype_from_refs() const {
 	vector<Haplotype>	haps;
 	for(size_t i = num_imputed_samples; i < num_samples(); ++i) {
@@ -22,11 +27,13 @@ vector<Haplotype> VCFIsolated::collect_haplotype_from_refs() const {
 	return haps;
 }
 
-vector<Haplotype> VCFIsolated::collect_haplotypes_mat() const {
+vector<Haplotype> VCFIsolated::collect_haplotypes_mat(
+										size_t sample_index) const {
 	return collect_haplotype_from_refs();
 }
 
-vector<Haplotype> VCFIsolated::collect_haplotypes_pat() const {
+vector<Haplotype> VCFIsolated::collect_haplotypes_pat(
+										size_t sample_index) const {
 	return collect_haplotype_from_refs();
 }
 
@@ -42,7 +49,7 @@ vector<HaplotypePair> VCFIsolated::impute_cM(
 	vector<HaplotypePair>	haps;
 	for(size_t i = 0; i < prev_haps.size(); ++i) {
 		const auto	prev_hap = prev_haps[i];
-		const auto	hap = this->impute_cM_each_sample(prev_hap, i);
+		const auto	hap = this->impute_cM_each_sample(prev_hap, i, true);
 		haps.push_back(hap);
 	}
 	return haps;
@@ -82,7 +89,7 @@ vector<VCFIsolated *> VCFIsolated::create(const VCFSmall *orig_vcf,
 			new_samples.push_back(orig_vcf->get_samples()[*q-9]);
 		new_samples.insert(new_samples.end(),
 							references.begin(), references.end());
-		const auto	header = orig_vcf->create_header(new_samples);
+		const auto	header = orig_vcf->trim_header(new_samples);
 		vector<VCFRecord *>	records;
 		// samplesをVCFに持たせるため、先にVCFを作って、後でRecordを追加する
 		VCFIsolated	*vcf = new VCFIsolated(header, new_samples,

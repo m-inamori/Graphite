@@ -30,7 +30,7 @@ private:
 public:
 	VCFIsolated(const std::vector<STRVEC>& h, const STRVEC& s,
 				std::vector<VCFRecord *> rs, std::size_t nis, const Map& m);
-	virtual ~VCFIsolated() { }
+	~VCFIsolated();
 	
 	///// virtual methods for VFSmallBase /////
 	const std::vector<STRVEC>& get_header() const {
@@ -43,8 +43,10 @@ public:
 	}
 	
 	///// virtual methods for VCFImputable /////
-	std::vector<Haplotype> collect_haplotypes_mat() const;
-	std::vector<Haplotype> collect_haplotypes_pat() const;
+	std::vector<Haplotype> collect_haplotypes_mat(
+									std::size_t sample_index) const;
+	std::vector<Haplotype> collect_haplotypes_pat(
+									std::size_t sample_index) const;
 	void set_gts(const std::vector<std::string>& gts, std::size_t sample_index);
 	
 	///// non-virtual methods /////

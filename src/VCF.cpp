@@ -98,15 +98,6 @@ VCFBase::VCFBase(const vector<STRVEC>& h, const STRVEC& s) :
 	determine_chromosome_id();
 }
 
-vector<STRVEC> VCFBase::create_header(const STRVEC& samples) const {
-	const vector<STRVEC>&	vcf_header = this->get_header();
-	vector<STRVEC>	header(vcf_header.begin(), vcf_header.end() - 1);
-	STRVEC	bottom(vcf_header.back().begin(), vcf_header.back().begin() + 9);
-	bottom.insert(bottom.end(), samples.begin(), samples.end());
-	header.push_back(bottom);
-	return header;
-}
-
 map<string,size_t> VCFBase::number_samples(const STRVEC& samples_) const {
 	map<string,size_t>	dic;
 	size_t	id = 0U;
@@ -263,15 +254,17 @@ VCFSmall *VCFSmallBase::extract_samples(const STRVEC& samples) const {
 //////////////////// VCFSmall ////////////////////
 
 VCFSmall::VCFSmall(const vector<STRVEC>& h, const STRVEC& s,
-										vector<VCFRecord *> rs) :
-							VCFBase(h, s), VCFSmallBase(), records(rs) {
+										vector<VCFRecord *> rs, bool rr) :
+				VCFBase(h, s), VCFSmallBase(), records(rs), reuses_records(rr) {
 	for(auto p = records.begin(); p != records.end(); ++p)
 		this->record_position(**p);
 }
 
 VCFSmall::~VCFSmall() {
-	for(auto p = records.begin(); p != records.end(); ++p)
-		delete *p;
+	if(!reuses_records) {
+		for(auto p = records.begin(); p != records.end(); ++p)
+			delete *p;
+	}
 }
 
 void VCFSmall::write(ostream& os, bool write_header) const {

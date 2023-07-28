@@ -275,11 +275,11 @@ class VCFSmall(VCFBase, VCFSmallBase):
 	
 	# samplesの順番で結合
 	@staticmethod
-	def join(vcfs: list[A], samples: list[str]) -> VCFSmall:
+	def join(vcfs: list[VCFSmallBase], samples: list[str]) -> VCFSmall:
 		dic = { }
 		for vcf in vcfs:
 			# sに'0'があっても問題ない
-			for c, s in enumerate(vcf.samples, 9):
+			for c, s in enumerate(vcf.get_samples(), 9):
 				dic[s] = (vcf, c)
 		cols = []
 		for s in samples:
@@ -289,9 +289,9 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		new_samples = [ s for s, vcf, c in cols ]
 		new_records = []
 		for i in range(len(vcfs[0])):
-			v = vcfs[0].records[i].v[:9]
+			v = vcfs[0].get_record(i).v[:9]
 			for s, vcf, c in cols:
-				v.append(vcf.records[i].v[c])
+				v.append(vcf.get_record(i).v[c])
 			new_records.append(VCFRecord(v, new_samples))
 		new_header = vcfs[0].trim_header(new_samples)
 		return VCFSmall(new_header, new_records)
@@ -301,8 +301,6 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		records: list[VCFRecord] = [ vcf.get_record(i)
 											for i in range(len(vcf)) ]
 		return VCFSmall(vcf.get_header(), records)
-
-A = TypeVar('A', bound=VCFSmall)
 
 
 #################### main ####################

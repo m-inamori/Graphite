@@ -111,7 +111,7 @@ class VCFFamily(VCFBase, VCFSmallBase, VCFFamilyBase):
 	# vcf1にあるsampleはvcf1から、
 	# そうでないsampleはvcf2からGenotypeを取って新たなVCFを作る
 	@staticmethod
-	def create_by_two_vcfs(vcf1: VCFSmall, vcf2: VCFSmall,
+	def create_by_two_vcfs(vcf1: VCFSmallBase, vcf2: VCFSmallBase,
 										samples: list[str]) -> VCFFamily:
 		# samplesは[mat, pat, prog1, ...]の前提
 		columns1 = vcf1.extract_columns(samples)
@@ -119,8 +119,8 @@ class VCFFamily(VCFBase, VCFSmallBase, VCFFamilyBase):
 		new_header = vcf1.trim_header(samples)
 		new_records = []
 		for i in range(len(vcf1)):
-			record1 = vcf1.records[i]
-			record2 = vcf2.records[i]
+			record1 = vcf1.get_record(i)
+			record2 = vcf2.get_record(i)
 			v = record1.v[:9]
 			for i in range(len(samples)):
 				if columns1[i] != -1:

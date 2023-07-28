@@ -1,5 +1,5 @@
 CC      = g++
-CFLAGS  = -O0 -g3 -Wall -DDEBUG
+CFLAGS  = -O0 -fno-inline-functions -g3 -Wall -DDEBUG
 LDFLAGS = 
 LIBS	= -lz -lpthread
 DEBUG_DIR = debug

@@ -58,9 +58,14 @@ VCFFamily::VCFFamily(const vector<STRVEC>& h, const STRVEC& s,
 										vector<VCFFamilyRecord *> rs) :
 				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
 
+VCFFamily::~VCFFamily() {
+	for(auto p = records.begin(); p != records.end(); ++p)
+		delete *p;
+}
+
 VCFFamily *VCFFamily::create(const VCFSmall *vcf, const STRVEC& samples) {
 	const auto	columns = VCFFamily::select_columns(samples, vcf);
-	const auto	header = vcf->create_header(samples);
+	const auto	header = vcf->trim_header(samples);
 	const vector<VCFRecord *>&	orig_records = vcf->get_records();
 	vector<VCFFamilyRecord *>	records;
 	for(auto p = orig_records.begin(); p != orig_records.end(); ++p)
@@ -129,13 +134,13 @@ VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
 }
 
 // 親はvcf1から子はvcf2からGenotypeを取って新たなVCFを作る
-VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmall *vcf1,
-											const VCFSmall *vcf2,
-											const STRVEC& samples) {
+VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmallBase *vcf1,
+										 const VCFSmallBase *vcf2,
+										 const STRVEC& samples) {
 	// samplesは[mat, pat, prog1, ...]の前提
 	const vector<size_t>	columns1 = vcf1->extract_columns(samples);
 	const vector<size_t>	columns2 = vcf2->extract_columns(samples);
-	const auto	new_header = vcf1->create_header(samples);
+	const auto	new_header = vcf1->trim_header(samples);
 	
 	vector<VCFFamilyRecord *>	new_records;
 	for(size_t i = 0; i < vcf1->size(); ++i) {
