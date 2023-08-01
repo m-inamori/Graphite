@@ -77,7 +77,7 @@ VCFHeteroHomo::~VCFHeteroHomo() {
 		delete *p;
 }
 
-Graph::InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
+InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 	vector<vector<int>>	gtss;
 	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
 		gtss.push_back((*p)->genotypes_from_hetero_parent());
@@ -89,8 +89,8 @@ Graph::InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 		cMs.push_back(this->record_cM(i));
 	}
 	
-	Graph::InvGraph	graph;
-	// キーをあらかじめ登録しておかないと、孤立した点が表されない
+	InvGraph	graph;
+	// isolated nodes can not be represented without pre-registering the key
 	for(size_t k = 0U; k < L; ++k)
 		graph[k];
 	for(size_t k = 0; k < L; ++k) {
@@ -142,15 +142,11 @@ double VCFHeteroHomo::dist_with_NA(int right, int counter_NA, int N) {
 }
 
 // haplotype1の各レコードのGenotypeが0なのか1なのか
-vector<int> VCFHeteroHomo::make_parent_haplotypes(
-										const Graph::InvGraph& graph) const {
-	const Graph::InvGraph	tree = Graph::minimum_spanning_tree(graph);
-	auto	vs = Graph::keys(tree);
+vector<int> VCFHeteroHomo::make_parent_haplotypes(const InvGraph& graph) const {
+	const InvGraph	tree = graph.minimum_spanning_tree();
+	auto	vs = tree.collect_nodes();
 	std::sort(vs.begin(), vs.end());
-	const size_t	L = this->size();
-	vector<int>	haplo(L, -1);
-	haplo[vs[0]] = 0;
-	walk(vs[0], haplo, tree);
+	vector<int>	haplo = create_haplotype(vs[0], tree);
 	
 	vector<int>	haplo2;
 	for(auto p = haplo.begin(); p != haplo.end(); ++p) {
@@ -160,31 +156,25 @@ vector<int> VCFHeteroHomo::make_parent_haplotypes(
 	return haplo2;
 }
 
-void VCFHeteroHomo::walk(size_t v0, vector<int>& haplo,
-									const Graph::InvGraph& tree_graph) {
-	// 再帰をやめてstackを明示的に使う
-	stack<size_t>	stk;
-	stk.push(v0);
-	while(!stk.empty()) {
-		const size_t	v = stk.top();
-		stk.pop();
-		const auto	q = tree_graph.find(v);
-		const auto&	vs = q->second;
-		for(auto p = vs.begin(); p != vs.end(); ++p) {
-			const size_t	v1 = get<0>(*p);
-			const bool		inv = get<2>(*p);
-			if(haplo[v1] != -1)		// visited
-				continue;
-			if(inv)
-				haplo[v1] = haplo[v] == 0 ? 1 : 0;
-			else
-				haplo[v1] = haplo[v];
-			stk.push(v1);
-		}
+vector<int> VCFHeteroHomo::create_haplotype(size_t v0,
+											const InvGraph& tree) const {
+	const size_t	L = size();
+	vector<int>	haplo(L, -1);
+	haplo[v0] = 0;
+	const auto	edges = tree.walk(v0);
+	for(auto p = edges.begin(); p != edges.end(); ++p) {
+		const size_t	v1 = get<0>(*p);
+		const size_t	v2 = get<1>(*p);
+		const bool		inv = get<2>(*p);
+		if(inv)
+			haplo[v2] = haplo[v1] == 0 ? 1 : 0;		// inverse
+		else
+			haplo[v2] = haplo[v1];
 	}
+	return haplo;
 }
 
-VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const Graph::InvGraph& graph) const {
+VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const InvGraph& graph) const {
 	const vector<int>	haplo = make_parent_haplotypes(graph);
 	vector<int>	indices;
 	for(auto p = graph.begin(); p != graph.end(); ++p)
@@ -203,48 +193,41 @@ VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const Graph::InvGraph& graph) const {
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 		VCFHeteroHomo::determine_haplotype(const OptionImpute *option) const {
 	const double	max_dist = std::min((double)option->max_dist,
-									this->num_progenies() * 0.1);
-	const Graph::InvGraph	graph = this->make_graph(max_dist);
-	const vector<Graph::InvGraph>	subgraphs =
-									Graph::divide_graph_into_connected(graph);
+										this->num_progenies() * 0.1);
+	const InvGraph	graph = this->make_graph(max_dist);
+	const vector<InvGraph>	subgraphs = graph.divide_into_connected();
 	
-	// 小さなgraphのmarkerは省く
-	vector<Graph::InvGraph>	gs;
-	vector<VCFHeteroHomoRecord *>	unused_records;
+	// keep only large graphs and collect records of small graphs
+	vector<InvGraph>	large_graphs;
+	vector<InvGraph>	small_graphs;
 	for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
-		if((int)p->size() >= option->min_graph) {
-			gs.push_back(*p);
-		}
+		if((int)p->size() >= option->min_graph)
+			large_graphs.push_back(*p);
+		else
+			small_graphs.push_back(*p);
 	}
 	
-	// 小さなgraphしかなければ、その中でも一番大きなgraphにする
-	if(gs.empty()) {
-		auto	max_g = std::max_element(subgraphs.begin(), subgraphs.end(),
-										[](const auto& a, const auto& b) {
-											return a.size() < b.size(); });
-		gs.push_back(*max_g);
-		for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
-			if(p != max_g) {
-				for(auto q = p->begin(); q != p->end(); ++q) {
-					unused_records.push_back(this->records[q->first]);
-				}
-			}
-		}
-	}
-	else {
-		for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
-			if((int)p->size() < option->min_graph) {
-				for(auto q = p->begin(); q != p->end(); ++q) {
-					unused_records.push_back(this->records[q->first]);
-				}
-			}
-		}
+	// keep only the largest graph if there are only small ones
+	if(large_graphs.empty()) {
+		auto	max_g = std::max_element(small_graphs.begin(),
+										 small_graphs.end(),
+											[](const auto& a, const auto& b) {
+												return a.size() < b.size(); });
+		large_graphs.push_back(*max_g);
+		small_graphs.erase(max_g);
 	}
 	
 	vector<VCFHeteroHomo *>	subvcfs;
-	for(auto p = gs.begin(); p != gs.end(); ++p) {
+	for(auto p = large_graphs.begin(); p != large_graphs.end(); ++p) {
 		subvcfs.push_back(this->make_subvcf(*p));
 	}
+	
+	vector<VCFHeteroHomoRecord *>	unused_records;
+	for(auto p = small_graphs.begin(); p != small_graphs.end(); ++p) {
+		for(auto q = p->begin(); q != p->end(); ++q)
+			unused_records.push_back(this->records[q->first]);
+	}
+	
 	return make_pair(subvcfs, unused_records);
 }
 
@@ -476,20 +459,21 @@ void VCFHeteroHomo::inverse_phases(const vector<VCFHeteroHomo *>& vcfs) {
 
 const InverseGraph *VCFHeteroHomo::make_vcf_graph(
 									const vector<VCFHeteroHomo *>& vcfs) {
+	InverseGraph	*graph = new InverseGraph();
 	const size_t	N = vcfs.size();
-	vector<vector<tuple<size_t, int, int>>>	graph(N);
 	for(size_t i = 0; i < N; ++i) {
+		(*graph)[i];	// initialize vector
 		for(size_t j = i + 1; j < N; ++j) {
 			const auto	p = vcfs[i]->match(vcfs[j]);
 			const int	num_match = p.first;
 			const int	num_unmatch = p.second;
 			if(num_match != 0 || num_unmatch != 0) {
-				graph[i].push_back(make_tuple(j, num_match, num_unmatch));
-				graph[j].push_back(make_tuple(i, num_match, num_unmatch));
+				(*graph)[i].push_back(make_tuple(j, num_match, num_unmatch));
+				(*graph)[j].push_back(make_tuple(i, num_match, num_unmatch));
 			}
 		}
 	}
-	return InverseGraph::convert(graph);
+	return graph;
 }
 
 vector<vector<bool>> VCFHeteroHomo::enumerate_bools(size_t L) {

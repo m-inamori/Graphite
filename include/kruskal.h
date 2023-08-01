@@ -4,29 +4,28 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
+#include "graph.h"
 
 
 namespace Kruskal {
 	
-	using GRAPH = std::map<std::size_t,
-							std::vector<std::pair<std::size_t,double>>>;
+	using Node = std::size_t;
+	using Edge = std::pair<Node, Node>;
 	
+	std::vector<Edge> Kruskal_core(const std::vector<Edge>& edges,
+												const GraphBase& graph);
 	
-	//////////////////// UnionFind ////////////////////
-	
-	class UnionFind {
-		std::map<std::size_t,std::size_t>	parents;
-		std::map<std::size_t,int>	heights;
+	template<typename T>
+	std::vector<Edge> Kruskal(const WeightedGraphBase<T>& graph) {
+		auto	weighted_edges = graph.collect_weighted_edges();
+		std::stable_sort(weighted_edges.begin(), weighted_edges.end(),
+								typename WeightedGraphBase<T>::LessWeight());
+		std::vector<Edge>	edges;
+		for(auto p = weighted_edges.begin(); p != weighted_edges.end(); ++p)
+			edges.push_back(Edge(std::get<0>(*p), std::get<1>(*p)));
 		
-	public:
-		UnionFind(const std::vector<std::size_t>& nodes);
-		
-		void join(const std::size_t& v1, const std::size_t& v2);
-		const std::size_t& root(const std::size_t& v0) const;
-	};
-	
-	//////////////////// Kruskal ////////////////////
-	
-	GRAPH Kruskal(const GRAPH& graph);
+		return Kruskal_core(edges, graph);
+	}
 }
 #endif

@@ -3,7 +3,7 @@
 
 #include "VCFImpFamily.h"
 #include "Map.h"
-#include "graph.h"
+#include "invgraph.h"
 #include "Baum_Welch_with_fixed_Ts.h"
 
 class Map;
@@ -103,8 +103,10 @@ public:
 	}
 	
 	// haplotype1の各レコードのGenotypeが0なのか1なのか
-	std::vector<int> make_parent_haplotypes(const Graph::InvGraph& graph) const;
-	VCFHeteroHomo *make_subvcf(const Graph::InvGraph& graph) const;
+	std::vector<int> make_parent_haplotypes(const InvGraph& graph) const;
+	std::vector<int> create_haplotype(std::size_t v0,
+										const InvGraph& graph) const;
+	VCFHeteroHomo *make_subvcf(const InvGraph& graph) const;
 	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
 						determine_haplotype(const OptionImpute *option) const;
 	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
@@ -118,7 +120,7 @@ public:
 	
 private:
 	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
-	Graph::InvGraph make_graph(double max_dist) const;
+	InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
 	std::string impute_each_sample_seq(int i,
 								const std::vector<double>& cMs, double min_c);
@@ -147,8 +149,6 @@ private:
 	static std::pair<double, bool> distance(const std::vector<int>& gts1,
 											const std::vector<int>& gts2);
 	static double dist_with_NA(int right, int counter_NA, int N);
-	static void walk(std::size_t v0, std::vector<int>& haplo,
-									const Graph::InvGraph& tree_graph);
 	static bool is_all_same_without_N(const std::string& seq);
 	static std::string create_same_color_string(const std::string& seq);
 	static std::vector<std::vector<bool>> enumerate_bools(std::size_t L);

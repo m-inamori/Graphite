@@ -8,73 +8,68 @@
 using namespace std;
 
 
+//////////////////// InverseGraph ////////////////////
+
+vector<InverseGraph::Node> InverseGraph::collect_nodes() const {
+	vector<Node>	nodes;
+	for(auto p = begin(); p != end(); ++p)
+		nodes.push_back(p->first);
+	return nodes;
+}
+
+vector<InverseGraph::Node> InverseGraph::neighbors(Node v0) const {
+	auto	p = find(v0);
+	if(p == end())
+		return vector<Node>();
+	else {
+		vector<Node>	neighs;
+		for(auto q = p->second.begin(); q != p->second.end(); ++q)
+			neighs.push_back(get<0>(*q));
+		return neighs;
+	}
+}
+
 vector<InverseGraph::Node> InverseGraph::sort_nodes() const {
 	vector<Node>	vs;
-	for(auto p = g.begin(); p != g.end(); ++p)
+	for(auto p = begin(); p != end(); ++p)
 		vs.push_back(p->first);
-	std::sort(vs.begin(), vs.end());
 	return vs;
 }
 
 map<InverseGraph::Node, size_t> InverseGraph::calc_dic() const {
 	map<Node, size_t>	dic;
-	for(size_t i = 0; i < vs.size(); ++i)
-		dic[vs[i]] = i;
+	size_t	i = 0;
+	for(auto p = begin(); p != end(); ++i, ++p)
+		dic[p->first] = i;
 	return dic;
 }
 
-void InverseGraph::walk(size_t v0, vector<size_t>& vs,
-									set<size_t>& visited) const {
-	vs.push_back(v0);
-	visited.insert(v0);
-	auto	iter = g.find(v0);
-	assert(iter != g.end());
-	const vector<std::tuple<Node, int, int>>&	vec = iter->second;
-	for(auto p = vec.begin(); p != vec.end(); ++p) {
-		const size_t&	v = get<0>(*p);
-		if(visited.find(v) != visited.end())
-			continue;
-		this->walk(v, vs, visited);
-	}
-}
-
 vector<bool> InverseGraph::optimize_inversions() const {
-	const auto	subgraphs = this->divide_graph_into_connected();
+	const auto	subgraphs = this->divide_into_connected();
 	vector<bool>	bs(this->size(), false);
 	for(auto p = subgraphs.begin(); p != subgraphs.end(); ++p) {
-		const InverseGraph	*subg = *p;
-		const auto	dic_bs = subg->optimize_inversions_connected();
+		const InverseGraph&	subg = *p;
+		const auto	dic_bs = subg.optimize_inversions_connected();
 		for(auto q = dic_bs.begin(); q != dic_bs.end(); ++q)
 			bs[q->first] = q->second;
-		delete subg;
 	}
 	return bs;
 }
 
-// 本当はgraph.cppと共通にしたい
-// weightをメソッドにすればよい
-vector<const InverseGraph *> InverseGraph::divide_graph_into_connected() const {
-	vector<const InverseGraph *>	graphs;
-	set<size_t>	visited;
-	for(auto p = g.begin(); p != g.end(); ++p) {
-		const size_t&	v = p->first;
-		if(visited.find(v) != visited.end())
-			continue;
-		Graph	g1;
-		vector<size_t>	vs;
-		this->walk(v, vs, visited);
-		for(auto q = vs.begin(); q != vs.end(); ++q) {
-			const Node&	v1 = *q;
-			auto	iter = g.find(v1);
-			assert(iter != g.end());
-			g1[v1] = iter->second;
+vector<InverseGraph> InverseGraph::divide_into_connected() const {
+	const vector<vector<Node>>	nss = divide_nodes_into_connected();
+	vector<InverseGraph>	graphs(nss.size());
+	for(size_t i = 0; i < nss.size(); ++i) {
+		for(auto p = nss[i].begin(); p != nss[i].end(); ++p) {
+			const Node	v = *p;
+			auto	q = find(v);
+			graphs[i][v] = q->second;
 		}
-		graphs.push_back(new InverseGraph(g1));
 	}
 	return graphs;
 }
 
-// thisは連結成分である前提
+// graph must be connected
 map<InverseGraph::Node, bool>
 					InverseGraph::optimize_inversions_connected() const {
 	if(this->size() <= 20)
@@ -91,7 +86,7 @@ map<InverseGraph::Node, bool>
 	return this->search_randomly();
 }
 
-// しらみつぶし
+// brute force
 map<InverseGraph::Node, bool> InverseGraph::search_all() const {
 	const size_t	N = this->size();
 	int	min_score = 100000000;
@@ -110,6 +105,7 @@ map<InverseGraph::Node, bool> InverseGraph::search_all() const {
 	}
 	
 	map<Node, bool>	dic;
+	const vector<Node>	vs = sort_nodes();
 	dic[vs[0]] = false;
 	for(size_t i = 1; i < vs.size(); ++i)
 		dic[vs[i]] = min_invs[i-1];
@@ -119,7 +115,7 @@ map<InverseGraph::Node, bool> InverseGraph::search_all() const {
 int InverseGraph::choice_seed() const {
 	int	s = 0;
 	int	D = 1000000000;
-	for(auto p = g.begin(); p != g.end(); ++p) {
+	for(auto p = begin(); p != end(); ++p) {
 		for(auto q = p->second.begin(); q != p->second.end(); ++q)
 			s = (s + (int)(get<0>(*q))) + D;
 	}
@@ -142,6 +138,7 @@ std::map<InverseGraph::Node, bool> InverseGraph::search_randomly() const {
 	}
 	
 	map<Node, bool>	dic;
+	const vector<Node>	vs = sort_nodes();
 	dic[vs[0]] = false;
 	for(size_t i = 1; i < vs.size(); ++i)
 		dic[vs[i]] = min_bs[i-1];
@@ -150,7 +147,7 @@ std::map<InverseGraph::Node, bool> InverseGraph::search_randomly() const {
 
 vector<InverseGraph::Edge> InverseGraph::extract_edges() const {
 	vector<Edge>	edges;
-	for(auto p = g.begin(); p != g.end(); ++p) {
+	for(auto p = begin(); p != end(); ++p) {
 		const Node&	v1 = p->first;
 		for(auto q = p->second.begin(); q != p->second.end(); ++q) {
 			const Node&	v2 = get<0>(*q);
@@ -166,6 +163,7 @@ vector<InverseGraph::Edge> InverseGraph::extract_edges() const {
 int InverseGraph::calc_match_score(const vector<bool>& bs) const {
 	int	num_wrong = 0;
 	const auto	edges = this->extract_edges();
+	const auto	dic_vs = calc_dic();
 	for(auto p = edges.begin(); p != edges.end(); ++p) {
 		auto	p1 = dic_vs.find(get<0>(*p));
 		auto	p2 = dic_vs.find(get<1>(*p));
@@ -195,19 +193,14 @@ vector<pair<double, InverseGraph::Edge>> InverseGraph::sort_edges() const {
 	return sorted_edges;
 }
 
-void InverseGraph::join(BoolGraph& graph1, const BoolGraph& graph2) {
-	for(auto p = graph2.begin(); p != graph2.end(); ++p)
-		graph1.insert(*p);
-}
-
 map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 	const vector<pair<double, Edge>>	sorted_edges = this->sort_edges();
 	// [ { node: [(index, inv?)] } ]
-	vector<map<size_t, vector<pair<size_t, bool>>>>	subgraphs;
-	for(auto p = g.begin(); p != g.end(); ++p) {
-		map<size_t, vector<pair<size_t, bool>>>	m;
-		m[p->first];
-		subgraphs.push_back(m);
+	vector<BoolGraph>	subgraphs;
+	for(auto p = begin(); p != end(); ++p) {
+		BoolGraph	graph;
+		graph[p->first];
+		subgraphs.push_back(graph);
 	}
 	
 	// 偏りが大きいエッジから追加していく
@@ -238,7 +231,7 @@ map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 		else {
 			auto&	subg1 = subgraphs[k1];
 			auto&	subg2 = subgraphs[k2];
-			join(subg1, subg2);
+			subg1.join(subg2);
 			subg1[i].push_back(make_pair(j, n1 < n2));
 			subg1[j].push_back(make_pair(i, n1 < n2));
 			subgraphs.erase(subgraphs.begin() + k2);
@@ -247,15 +240,6 @@ map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 		}
 	}
 	return map<size_t, bool>();		// ここには来ないはず
-}
-
-const InverseGraph *InverseGraph::convert(
-						const vector<vector<tuple<Node, int, int>>>& graph) {
-	Graph	g;
-	for(size_t i = 0; i < graph.size(); ++i) {
-		g[i] = graph[i];
-	}
-	return new InverseGraph(g);
 }
 
 bool InverseGraph::is_consistent(
@@ -310,4 +294,42 @@ map<InverseGraph::Node, bool> InverseGraph::invs(
 		}
 	}
 	return visited;
+}
+
+ostream& operator <<(ostream& os, const InverseGraph& graph) {
+	for(auto p = graph.begin(); p != graph.end(); ++p) {
+		os << p->first << " : ";
+		for(auto q = p->second.begin(); q != p->second.end(); ++q)
+			os << "(" << get<0>(*q) << ", " << get<1>(*q)
+							<< ", " << get<2>(*q) << ") ";
+		os << "\n";
+	}
+	return os;
+}
+
+
+//////////////////// BoolGraph ////////////////////
+
+vector<BoolGraph::Node> BoolGraph::collect_nodes() const {
+	vector<Node>	nodes;
+	for(auto p = begin(); p != end(); ++p)
+		nodes.push_back(p->first);
+	return nodes;
+}
+
+vector<BoolGraph::Node> BoolGraph::neighbors(Node v0) const {
+	auto	p = find(v0);
+	if(p == end())
+		return vector<Node>();
+	else {
+		vector<Node>	neighs;
+		for(auto q = p->second.begin(); q != p->second.end(); ++q)
+			neighs.push_back(get<0>(*q));
+		return neighs;
+	}
+}
+
+void BoolGraph::join(const BoolGraph& graph) {
+	for(auto p = graph.begin(); p != graph.end(); ++p)
+		insert(*p);
 }

@@ -3,29 +3,62 @@
 
 #include <vector>
 #include <map>
-#include <set>
 
-namespace Graph {
 
-typedef std::map<std::size_t,std::vector<std::pair<std::size_t,double>>>
-															WeightedGraph;
-// graph with weight and inverse
-typedef std::map<std::size_t,std::vector<std::tuple<std::size_t,double,bool>>>
-																	InvGraph;
+//////////////////// GraphBase ////////////////////
 
-std::vector<std::size_t> keys(const InvGraph& graph);
-int get_edge_value(std::size_t v1, std::size_t v2, const InvGraph& graph);
+class GraphBase {
+	using Index = std::size_t;
+	using Node = std::size_t;
+	using Edge = std::pair<Node, Node>;
+	
+	struct EdgeGenerator {
+		const GraphBase& graph;
+		const std::vector<Node>	nodes;
+		std::vector<Node>::const_iterator	p;
+		std::vector<Node>	neighs;
+		std::vector<Node>::const_iterator	q;
+		
+		EdgeGenerator(const GraphBase& g);
+		
+		bool ends() const;
+		bool is_effective() const;
+		void proceed();
+		void find_next_edge();
+		Edge next();
+	};
+	
+public:
+	GraphBase() { }
+	virtual ~GraphBase() { }
+	
+	std::vector<std::vector<Node>> divide_nodes_into_connected() const;
+	
+	virtual std::vector<Node> collect_nodes() const = 0;
+	virtual std::vector<Node> neighbors(Node v0) const = 0;
+	
+public:
+	static std::size_t count_groups(const std::map<Node, std::size_t>& groups);
+};
 
-WeightedGraph trim_inverse(const InvGraph& graph);
-InvGraph filter_graph(const InvGraph& graph, const WeightedGraph& tree);
-InvGraph minimum_spanning_tree(const InvGraph& graph);
-void walk(std::size_t v0, const InvGraph& graph,
-				std::vector<std::size_t>& vs, std::set<std::size_t>& visited);
-std::vector<std::size_t> walk(std::size_t v1, std::size_t v2,
-					const InvGraph& graph, std::set<std::size_t>& visited);
-std::vector<std::size_t> find_path(std::size_t v1, std::size_t v2,
-													const InvGraph& graph);
-std::vector<InvGraph> divide_graph_into_connected(const InvGraph& graph);
 
-}
+//////////////////// WeightedGraphBase ////////////////////
+
+template<typename T>
+class WeightedGraphBase : public GraphBase {
+public:
+	using Node = std::size_t;
+	using Edge = std::tuple<Node, Node, T>;
+	
+	struct LessWeight {
+		bool operator ()(const Edge& e1, const Edge& e2) const {
+			return std::get<2>(e1) < std::get<2>(e2);
+		}
+	};
+	
+public:
+//	virtual T get_weight(Node u, Node v) const = 0;
+	virtual std::vector<Edge> collect_weighted_edges() const = 0;
+};
+
 #endif
