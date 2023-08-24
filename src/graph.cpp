@@ -26,6 +26,8 @@ bool GraphBase::EdgeGenerator::is_effective() const {
 void GraphBase::EdgeGenerator::proceed() {
 	if(q == neighs.end()) {
 		++p;
+		if(p == nodes.end())
+			return;
 		neighs = graph.neighbors(*p);
 		q = neighs.begin();
 	}

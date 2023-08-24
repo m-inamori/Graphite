@@ -62,7 +62,7 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 		
 		gts = self.genotypes_from_hetero_parent()
 		for i, gt in enumerate(gts):
-			self.which_comes_from[i] = 0 if gt == h else 1
+			self.which_comes_from[i] = -1 if gt == -1 else 0 if gt == h else 1
 	
 	def set_int_gt_by_which_comes_from(self, ws: list[int]):
 		self.which_comes_from = ws
