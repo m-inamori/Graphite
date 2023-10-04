@@ -58,26 +58,39 @@ class TypeDeterminer:
 		for num_NA, n0, n2 in TypeDeterminer.gen_errors(self.N//5, 3):
 			self.memo[(n0, self.N - n0 - n2 - num_NA, n2)].append((3, 0.0))
 	
+	# C++と同じ挙動を示すように大きい方が優先するように符号を反転する
+	class PQ:
+		def __init__(self):
+			self.pq = PriorityQueue()
+		
+		def put(self, v):
+			p, n1, n2, n3 = v
+			self.pq.put((-p, -n1, -n2, -n3))
+		
+		def get(self):
+			v = self.pq.get()
+			return (-v[0], -v[1], -v[2], -v[3])
+	
 	# 0/1 x 0/1は難しい
 	def make_memo11(self):
 		# 確率が大きい状態から並べて累積が1-αを超えるまで列挙する
 		for num_NA in range(self.N//5 + 1):
 			M = self.N - num_NA
 			pqs0 = TypeDeterminer.initialize_state(M)
-			pq = PriorityQueue()
+			pq = TypeDeterminer.PQ()
 			pq.put(pqs0)
 			visited = set([pqs0])
 			total_p = 0.0
 			while total_p < 1.0 - self.alpha:
-				p, n1, n2, n3 = pq.get()	# p is negative
+				p, n1, n2, n3 = pq.get()
 				if n1 == n3:
 					self.memo[(n1, n2, n3)].append((2, total_p))
-					total_p -= p
+					total_p += p
 				else:
 					# n0 > n2なので、n0 < n2の分も考える
 					self.memo[(n1, n2, n3)].append((2, total_p))
 					self.memo[(n3, n2, n1)].append((2, total_p))
-					total_p -= p * 2
+					total_p += p * 2
 				
 				neighbors = TypeDeterminer.neighbor_states((p, n1, n2, n3))
 				for pqs1 in neighbors:
@@ -150,7 +163,7 @@ class TypeDeterminer:
 	def create_pqstate(n0: int, n1: int, n2: int
 								) -> tuple[float, int, int, int]:
 		p = TypeDeterminer.genotype_probability(n0, n1, n2)
-		return (-p, n0, n1, n2)
+		return (p, n0, n1, n2)
 	
 	@staticmethod
 	def neighbor_states(s0: tuple[float, int, int, int]

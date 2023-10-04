@@ -66,7 +66,7 @@ protected:
 public:
 	// Pythonよりheaderからsamplesを取り出すのがめんどうなので
 	VCFBase(const std::vector<STRVEC>& header_, const STRVEC& samples_);
-	~VCFBase() { }
+	virtual ~VCFBase() { }
 	
 	const std::vector<STRVEC>& get_header() const { return header; }
 	const STRVEC& get_samples() const { return samples; }

@@ -38,38 +38,35 @@ public:
 
 //////////////////// process ////////////////////
 
-typedef std::pair<std::string,std::string>	Parents;
-typedef std::map<Parents, std::vector<VCFHeteroHomoRecord *>>	HeHoRecords;
-typedef std::map<Parents, std::vector<VCFImpFamilyRecord *>>	ImpRecords;
-typedef std::map<std::pair<Parents,bool>, VCFHeteroHomo *>	HeteroParentVCFs;
-
-std::pair<HeHoRecords, ImpRecords> classify_records(VCFSmall *vcf,
-						const std::vector<const Family *>& families, double p);
-std::vector<std::vector<VCFImpFamilyRecord *>>
-							sort_records(const HeHoRecords& heho_records,
-											const ImpRecords& other_records);
-void modify_00x11(const HeHoRecords& heho_records, ImpRecords& other_records);
-
-std::pair<std::map<Parents, std::vector<VCFHeteroHomo *>>, HeHoRecords>
-impute_hetero_homo_core(const HeHoRecords& records,
-						const std::vector<const Family *>& families,
-						const VCFSmall *vcf,
-						const Map& geno_map, const Option *option);
-
-void fill_in_thread(void *config);
-void join_records(ImpRecords& records, HeHoRecords& unused_records);
-std::vector<VCFFillable *> fill(
-				std::map<Parents, std::vector<VCFHeteroHomo *>>& imputed_vcfs,
-				ImpRecords& other_records, const Option *op);
+VCFRecord *merge_progeny_records(std::vector<VCFFillable *>& vcfs,
+									std::size_t i, const STRVEC& samples);
+VCFSmall *impute_vcf_by_parents(
+				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+				const std::vector<const Family *>& families,
+				const Map& geno_map, int num_threads);
+VCFSmall *impute_vcf_by_parent(
+				const VCFSmall *orig_vcf, VCFSmall *merged_vcf,
+				const std::vector<const Family *>& families,
+				const Map& geno_map,
+				SampleManager *sample_man, int num_threads);
+VCFSmall *impute_one_parent_vcf(const VCFSmall *orig_vcf,
+								const VCFSmall *merged_vcf,
+								const std::vector<const Family *>& families,
+								const Map& geno_map,
+								SampleManager *sample_man, int num_threads);
+VCFSmall *impute_vcf_by_progenies(const VCFSmall *orig_vcf,
+								  const VCFSmall *merged_vcf,
+								  const std::vector<const Family *>& families,
+								  const Map& geno_map,
+								  SampleManager *sample_man, int num_threads);
 VCFSmall *impute_iolated_samples(
 				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 				SampleManager *sample_man, const STRVEC& samples,
 				const Map& gmap, int num_threads);
 
-HeteroParentVCFs extract_VCFs(const Materials *mat, const Option *option);
-VCFFamily *impute_each(const Parents& parents, const Map& gmap,
-										const HeteroParentVCFs& vcfs, int T);
+void display_chromosome_info(const VCFSmall *orig_vcf);
 VCFSmall *impute_vcf_chr(const VCFSmall *vcf, SampleManager *sample_man,
 								const Map& geno_map, const Option *option);
+void print_info(const Option *option);
 void impute_VCF(const Option *option);
 #endif

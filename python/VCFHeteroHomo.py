@@ -15,7 +15,8 @@ from Map import *
 import Imputer
 from option import *
 from inverse_graph import *
-from kruskal import Kruskal_fast
+from graph import Node
+from invgraph import InvGraph
 from common import flatten, divide_graph_into_connected
 
 
@@ -101,8 +102,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def is_mat_hetero(self):
 		return self.records[0].is_mat_hetero()
 	
-	def make_graph(self, max_dist: float
-							) -> Dict[int, list[tuple[int, float, bool]]]:
+	def make_graph(self, max_dist: float) -> InvGraph:
 		# ベータ分布を使うので、distはfloat
 		def distance(gts1: list[int], gts2: list[int]) -> tuple[float, bool]:
 			def dist_with_NA(right: int, counter_NA: int) -> float:
@@ -128,10 +128,12 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 				return (dist_with_NA(counter_diff, counter_NA), True)
 		
 		L = len(self)
-		graph: Dict[int, list[tuple[int, float, bool]]] \
-								= dict((k, []) for k in range(L))
+		graph = InvGraph()
+		for k in range(L):
+			graph[Node(k)] = []
 		gtss = [ r.genotypes_from_hetero_parent() for r in self.records ]
 		cMs = [ self.cM(record.pos()) for record in self.records ]
+		# C++版ではkで並列化したい
 		for k in range(L):
 			for l in range(k+1, L):
 				cM = cMs[l] - cMs[k]
@@ -144,50 +146,34 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		return graph
 	
 	# haplotype1の各レコードのGenotypeが0なのか1なのか
-	def make_parent_haplotypes(self,
-				graph: Dict[int, list[tuple[int, float, bool]]]) -> list[int]:
-		WeightedGraph = Dict[int, List[Tuple[int, bool]]]
-		
-		# treeにあるedgeのみのgraphにする
-		def filter_graph(graph: Dict[int, list[tuple[int, float, bool]]],
-										tree: WeightedGraph) -> WeightedGraph:
-			edges = set((v1, v2) for v1, vs in tree.items() for v2, w in vs)
-			tree_graph: WeightedGraph = { v: [] for v in graph.keys() }
-			for v1, vs in graph.items():
-				for v2, w, b in vs:
-					if (v1, v2) in edges:
-						tree_graph[v1].append((v2, b))
-			return tree_graph
-		
+	def make_parent_haplotypes(self, graph: InvGraph) -> list[int]:
 		def is_visited(v: int) -> bool:
 			return haplo[v] != -1
 		
-		# 再帰をやめてstackを明示的に使うようにしたい
-		def walk(v0: int):
-			for v, b in tree_graph[v0]:
-				if is_visited(v):
-					continue
-				if b:
-					haplo[v] = 1 if haplo[v0] == 0 else 0
-				else:
-					haplo[v] = haplo[v0]
-				walk(v)
-		
-		# minimum spanning tree
-		# { node: [(node, weight, inverse)] } -> { node: [(node, weight)] }
-		weighted_graph = { v: [ t[:2] for t in vs ] for v, vs in graph.items() }
-		tree: WeightedGraph = Kruskal_fast(weighted_graph)
-		tree_graph = filter_graph(graph, tree)
-		
-		vs = sorted(tree_graph.keys())
-		L = len(self)
-		haplo = [-1] * L
-		haplo[vs[0]] = 0
-		walk(vs[0])
+		tree: InvGraph = graph.minimum_spanning_tree()
+		vs = sorted(tree.keys())
+		haplo = self.create_haplotype(vs[0], tree)
 		return [ h for h in haplo if h != -1 ]
 	
-	def make_subvcf(self, graph: Dict[int, list[tuple[int, float, bool]]]
-														) -> VCFHeteroHomo:
+	def create_haplotype(self, v0: Node, tree: InvGraph) -> list[int]:
+		L = len(self)
+		haplo: list[int] = [-1] * L
+		haplo[v0] = 0
+		edges = tree.walk(v0)
+		for v1, v2, inv in edges:
+			if haplo[v2] == -1:
+				if inv:
+					haplo[v2] = 1 if haplo[v1] == 0 else 0
+				else:
+					haplo[v2] = haplo[v1]
+			elif haplo[v1] == -1:
+				if inv:
+					haplo[v1] = 1 if haplo[v2] == 0 else 0
+				else:
+					haplo[v1] = haplo[v2]
+		return haplo
+	
+	def make_subvcf(self, graph: InvGraph) -> VCFHeteroHomo:
 		haplo = self.make_parent_haplotypes(graph)
 		indices = sorted(graph.keys())
 		records = [ self.records[i] for i in indices ]
@@ -200,7 +186,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 					) -> tuple[list[VCFHeteroHomo], list[VCFHeteroHomoRecord]]:
 		max_dist = min(option.max_dist, (self.num_samples() - 2) * 0.1)
 		graph = self.make_graph(max_dist)
-		subgraphs = divide_graph_into_connected(graph)
+		subgraphs = graph.divide_into_connected()
 		
 		# 小さなgraphのmarkerは省く
 		# 小さなgraphしかなければ、その中でも一番大きなgraphにする
@@ -232,9 +218,28 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 									for record in self.records)
 	
 	def impute_each_sample_seq(self, i: int, cMs: list[float], min_c: float):
+		def is_all_same_without_N(seq):
+			prev_c = '-'
+			for c in seq:
+				if c == 'N':
+					continue
+				elif prev_c == '-':
+					prev_c = c
+				elif c != prev_c:
+					return False
+			else:
+				return True
+		
+		def create_same_color_string(seq):
+			if all(c == 'N' for c in seq):
+				c_base = '0'
+			else:
+				c_base = next(c for c in seq if c != 'N')
+			return c_base * len(seq)
+		
 		seq = self.make_seq(i)
-		if is_all_same(seq):
-			return seq
+		if is_all_same_without_N(seq):
+			return create_same_color_string(seq)
 		
 		hidden_states = ['0', '1']
 		states = [ s for s in ['0', '1', 'N'] if s in seq ]
@@ -265,6 +270,8 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		vcfs, unused_records = self.determine_haplotype(option)
 		for vcf in vcfs:
 			vcf.impute_each(option)
+		for record in unused_records:
+			record.enable_modification()
 		return (vcfs, unused_records)
 	
 	# 共通のヘテロ親はどれだけマッチしているか
@@ -300,23 +307,44 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 			else:
 				record.v[hetero_col] = '0|1'
 	
-	# ヘテロ親が同じVCFを集めて補完する
-	# ついでにphaseもなるべく同じになるように変更する
+	# Create a pair of VCFHeteroHomo for each Family and store it for each parent
 	@staticmethod
-	def impute_vcfs(vcfs: list[VCFHeteroHomo], op: Option
+	def make_VCFHeteroHomo(records: list[VCFHeteroHomoRecord],
+							header: list[list[str]], geno_map: Map
+									) -> tuple[VCFHeteroHomo, VCFHeteroHomo,
+													list[VCFHeteroHomoRecord]]:
+		unused_records: list[VCFHeteroHomoRecord] = []
+		heho_mat_records = [ r for r in records
+								if r.is_imputable() and r.is_mat_hetero() ]
+		heho_pat_records = [ r for r in records
+								if r.is_imputable() and not r.is_mat_hetero() ]
+		# TODO: classifyのときにunusedに入れておけばいいのでは？
+		unused_records = [ r for r in records if not r.is_imputable() ]
+		vcf_mat = VCFHeteroHomo(header, heho_mat_records, geno_map)
+		vcf_pat = VCFHeteroHomo(header, heho_pat_records, geno_map)
+		return (vcf_mat, vcf_pat, unused_records)
+	
+	@staticmethod
+	def impute_vcfs(records: list[VCFHeteroHomoRecord],
+					header: list[list[str]], geno_map: Map
 					) -> tuple[list[VCFHeteroHomo], list[VCFHeteroHomoRecord]]:
-		imputed_vcfs = []
-		unused_records = []
-		for vcf in vcfs:
-			subvcfs1, unused_records1 = vcf.impute()
-			imputed_vcfs.extend(subvcfs1)
-			unused_records.extend(unused_records1)
-		VCFHeteroHomo.inverse_phases(imputed_vcfs)
-		return (imputed_vcfs, unused_records)
+		vcf_mat, vcf_pat, unused = VCFHeteroHomo.make_VCFHeteroHomo(
+													records, header, geno_map)
+		vcfs_mat, unused_records1 = vcf_mat.impute()
+		vcfs_pat, unused_records2 = vcf_pat.impute()
+		vcfs = []
+		vcfs.extend(vcfs_mat)
+		vcfs.extend(vcfs_pat)
+		unused.extend(unused_records1)
+		unused.extend(unused_records2)
+		return (vcfs, unused)
 	
 	@staticmethod
 	def inverse_phases(vcfs: list[VCFHeteroHomo]):
 		graph = VCFHeteroHomo.make_vcf_graph(vcfs)
+		if not graph:
+			return
+		
 		bs: tuple[bool, ...] = graph.optimize_inversions()
 		for vcf, b in zip(vcfs, bs):
 			if b:
@@ -325,13 +353,14 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	@staticmethod
 	def make_vcf_graph(vcfs: list[VCFHeteroHomo]) -> InverseGraph:
 		N = len(vcfs)
-		g: Dict[int, list[tuple[int, int, int]]] = { v: [] for v in range(N) }
+		graph: InverseGraph = InverseGraph()
+		for v in range(N):
+			graph[v] = []
 		for i, j in combinations(range(N), 2):
 			num_match, num_unmatch = vcfs[i].match(vcfs[j])
 			if num_match != 0 or num_unmatch != 0:
-				g[i].append((j, num_match, num_unmatch))
-				g[j].append((i, num_match, num_unmatch))
-		return InverseGraph(g)
-
+				graph[i].append((j, num_match, num_unmatch))
+				graph[j].append((i, num_match, num_unmatch))
+		return graph
 
 __all__ = ['VCFHeteroHomoRecord', 'VCFHeteroHomo']

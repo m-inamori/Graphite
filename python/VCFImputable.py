@@ -8,7 +8,7 @@ from itertools import *
 from VCF import *
 from Haplotype import *
 from Map import *
-from typing import Iterator, Final, Tuple, TypeVar
+from typing import Iterator, Tuple, TypeVar
 
 R = TypeVar('R', bound='VCFRecord', covariant=True)
 
@@ -48,10 +48,10 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 	
 	def impute_cM_each_sample(self, prev_hap: HaplotypePair,
 								sample_index: int, exec: bool) -> HaplotypePair:
-		int_gts: Final[list[int]] = self.get_int_gts(sample_index)
-		haps_mat: Final[list[Haplotype]] = self.collect_haplotypes_mat(sample_index)
-		haps_pat: Final[list[Haplotype]] = self.collect_haplotypes_pat(sample_index)
-		seed: Final[int] = self.get_record(0).pos()
+		int_gts: list[int] = self.get_int_gts(sample_index)
+		haps_mat: list[Haplotype] = self.collect_haplotypes_mat(sample_index)
+		haps_pat: list[Haplotype] = self.collect_haplotypes_pat(sample_index)
+		seed: int = self.get_record(0).pos()
 		hap = Haplotype.impute(int_gts, haps_mat, haps_pat, prev_hap, seed)
 		if exec:	# actually impute?
 			self.set_haplotype(hap, sample_index)

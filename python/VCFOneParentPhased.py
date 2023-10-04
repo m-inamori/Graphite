@@ -5,7 +5,7 @@ from __future__ import annotations
 # 片方の親だけがphasingされた家系
 
 from collections import defaultdict, Counter
-from typing import List, Tuple, Optional, IO, Dict, Iterator, Final
+from typing import List, Tuple, Optional, IO, Dict, Iterator
 
 from VCFFamily import *
 from VCFImputable import *
@@ -25,7 +25,7 @@ class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 		VCFImputable.__init__(self, map_)
 		self.records: list[VCFFamilyRecord] = records
 		self.is_mat_phased: bool = mat_p
-		self.ref_vcf: Final[VCFSmall] = ref_vcf
+		self.ref_vcf: VCFSmall = ref_vcf
 	
 	def get_header(self) -> list[list[str]]:
 		return self.header

@@ -43,7 +43,7 @@ void VCFHeteroHomoRecord::set_haplo(int h) {
 	
 	const auto	gts = this->genotypes_from_hetero_parent();
 	for(size_t i = 0; i < gts.size(); ++i)
-		this->which_comes_from[i] = gts[i] == h ? 0 : 1;
+		this->which_comes_from[i] = gts[i] == -1 ? -1 : (gts[i] == h ? 0 : 1);
 }
 
 void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(
@@ -316,7 +316,7 @@ const OptionImpute *VCFHeteroHomo::create_option() const {
 }
 
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
-													VCFHeteroHomo::impute() {
+										VCFHeteroHomo::impute(int num_threads) {
 	if(this->records.empty()) {
 		// vcfを新たに作らないと、deleteしていけないvcfをdeleteしてしまう
 		VCFHeteroHomo	*empty_vcf = new VCFHeteroHomo(header, samples,
@@ -329,6 +329,8 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 	auto	p = this->determine_haplotype(option);
 	vector<VCFHeteroHomo *>&	vcfs = p.first;
 	vector<VCFHeteroHomoRecord *>&	unused_records = p.second;
+	std::for_each(unused_records.begin(), unused_records.end(),
+					std::mem_fun(&VCFImpFamilyRecord::enable_modification));
 	for(auto q = vcfs.begin(); q != vcfs.end(); ++q)
 		(*q)->impute_each(option);
 	delete option;
@@ -376,74 +378,62 @@ void VCFHeteroHomo::inverse_hetero_parent_phases() {
 	}
 }
 
-void VCFHeteroHomo::impute_in_thread(void *config) {
-	const auto	*c = (ConfigThread *)config;
-	const size_t	n = c->size();
-	// 家系数が少ない場合、スレッドの内部でも並列に処理したい
-	const int	num_inner_threads = (c->option->num_threads + n - 1) / n;
-	for(size_t i = c->first; i < n; i += c->num_threads) {
-		auto	result = impute_vcfs(c->vcfs_heho[i],
-											c->option, num_inner_threads);
-		c->imputed_vcfs[i] = result;
-	}
-}
-
-vector<ImpResult> VCFHeteroHomo::impute_hetero_homo_all(
-						const map<string, vector<VCFHeteroHomo *>>& vcfs,
-						const Option *option) {
-	vector<ImpResult>	results(vcfs.size());
-	
-	// vectorにしたほうがマルチスレッドにしやすい
-	vector<vector<VCFHeteroHomo *>>	vcfss;
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		vcfss.push_back(p->second);
+// Create a pair of VCFHeteroHomo for each Family and store it for each parent
+tuple<VCFHeteroHomo *, VCFHeteroHomo *, vector<VCFHeteroHomoRecord *>>
+VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
+								  const vector<STRVEC>& header,
+								  const STRVEC& samples, const Map& geno_map) {
+	// classify records
+	vector<VCFHeteroHomoRecord *>	heho_mat_records;
+	vector<VCFHeteroHomoRecord *>	heho_pat_records;
+	vector<VCFHeteroHomoRecord *>	unused_records;
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		VCFHeteroHomoRecord	*record = *p;
+		if(record == NULL)
+			continue;
+		else if(!record->is_imputable())
+			unused_records.push_back(record);
+		else if(record->is_mat_hetero())
+			heho_mat_records.push_back(record);
+		else
+			heho_pat_records.push_back(record);
 	}
 	
-	const int	T = min((int)vcfs.size(), option->num_threads);
-	vector<ConfigThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(vcfss, option, i, T, results);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&impute_in_thread, (void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		impute_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-	
-	return results;
+	auto	*vcf_mat = new VCFHeteroHomo(header, samples,
+											heho_mat_records, geno_map);
+	auto	*vcf_pat = new VCFHeteroHomo(header, samples,
+											heho_pat_records, geno_map);
+	return make_tuple(vcf_mat, vcf_pat, unused_records);
 }
-
 
 // ヘテロ親が同じVCFを集めて補完する
 // ついでにphaseもなるべく同じになるように変更する
-ImpResult VCFHeteroHomo::impute_vcfs(const vector<VCFHeteroHomo *>& vcfs,
-										const Option* op, int num_threads) {
-	vector<VCFHeteroHomo *>	imputed_vcfs;
-	vector<VCFHeteroHomoRecord *>	unused_records;
-	for(auto q = vcfs.begin(); q != vcfs.end(); ++q) {
-		auto	*vcf = *q;
-		auto	p = vcf->impute();
-		auto	subvcfs = p.first;
-		auto	unused = p.second;
-		imputed_vcfs.insert(imputed_vcfs.end(), subvcfs.begin(), subvcfs.end());
-		unused_records.insert(unused_records.end(),
-										unused.begin(), unused.end());
-		// 元のVCFは消したいが、Recordsは使いまわししているので、
-		// 元のVCFのRecordsを消してからVCFのdeleteをする
-		vcf->records.clear();
-		delete vcf;
-	}
-	inverse_phases(imputed_vcfs);
-	return make_pair(imputed_vcfs, unused_records);
+ImpResult VCFHeteroHomo::impute_vcfs(
+							const vector<VCFHeteroHomoRecord *>& records,
+							const vector<STRVEC>& header, const STRVEC& samples,
+							const Map& geno_map, int num_threads) {
+	auto	tuple1 = make_VCFHeteroHomo(records, header, samples, geno_map);
+	auto	*vcf_mat = get<0>(tuple1);
+	auto	*vcf_pat = get<1>(tuple1);
+	auto	unused = get<2>(tuple1);
+	
+	auto	pair1 = vcf_mat->impute(num_threads);
+	auto	pair2 = vcf_pat->impute(num_threads);
+	auto	vcfs_mat = pair1.first;
+	auto	unused_records1 = pair1.second;
+	auto	vcfs_pat = pair2.first;
+	auto	unused_records2 = pair2.second;
+	vcf_mat->clear_records();
+	delete vcf_mat;
+	vcf_pat->clear_records();
+	delete vcf_pat;
+	
+	vector<VCFHeteroHomo *>	vcfs;
+	vcfs.insert(vcfs.end(), vcfs_mat.begin(), vcfs_mat.end());
+	vcfs.insert(vcfs.end(), vcfs_pat.begin(), vcfs_pat.end());
+	unused.insert(unused.end(), unused_records1.begin(), unused_records1.end());
+	unused.insert(unused.end(), unused_records2.begin(), unused_records2.end());
+	return make_pair(vcfs, unused);
 }
 
 void VCFHeteroHomo::inverse_phases(const vector<VCFHeteroHomo *>& vcfs) {
@@ -522,30 +512,3 @@ int VCFHeteroHomo::match_score(const vector<bool>& invs,
 	}
 	return num_wrong;
 }
-
-// FamilyごとにVCFHeteroHomoを作って親ごとに格納する
-tuple<VCFHeteroHomo *, VCFHeteroHomo *, vector<VCFHeteroHomoRecord *>>
-VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
-								  const Family *family,
-								  const VCFSmall *vcf, const Map& geno_map) {
-	const STRVEC&	samples = family->get_samples();
-	const vector<STRVEC>	header = vcf->trim_header(samples);
-	vector<VCFHeteroHomoRecord *>	heho_mat_records;
-	vector<VCFHeteroHomoRecord *>	heho_pat_records;
-	vector<VCFHeteroHomoRecord *>	unused_records;
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		VCFHeteroHomoRecord	*record = *p;
-		if(!record->is_imputable())
-			unused_records.push_back(record);
-		else if(record->is_mat_hetero())
-			heho_mat_records.push_back(record);
-		else
-			heho_pat_records.push_back(record);
-	}
-	auto	*vcf_mat = new VCFHeteroHomo(header, samples,
-											heho_mat_records, geno_map);
-	auto	*vcf_pat = new VCFHeteroHomo(header, samples,
-											heho_pat_records, geno_map);
-	return make_tuple(vcf_mat, vcf_pat, unused_records);
-}
-

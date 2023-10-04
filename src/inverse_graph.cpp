@@ -185,8 +185,9 @@ vector<pair<double, InverseGraph::Edge>> InverseGraph::sort_edges() const {
 	for(auto p = edges.begin(); p != edges.end(); ++p) {
 		const int	n1 = get<2>(*p);
 		const int	n2 = get<3>(*p);
-		const double	r = (n1 + 1) / (double)(n1 + n2 + 2);
-		const double	ratio = std::min(r, 1.0 - r);
+		const double	r1 = (n1 + 1) / (double)(n1 + n2 + 2);
+		const double	r2 = (n2 + 1) / (double)(n1 + n2 + 2);
+		const double	ratio = std::min(r1, r2);
 		sorted_edges.push_back(make_pair(ratio, *p));
 	}
 	std::sort(sorted_edges.begin(), sorted_edges.end());
@@ -211,18 +212,18 @@ map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 		const int		n2 = get<3>(p->second);
 		int	k1;
 		for(k1 = 0; ; ++k1) {
-			auto	g1 = subgraphs[k1];
+			const auto&	g1 = subgraphs[k1];
 			if(g1.find(i) != g1.end())
 				break;
 		}
 		int	k2;
 		for(k2 = 0; ; ++k2) {
-			auto	g2 = subgraphs[k2];
+			const auto&	g2 = subgraphs[k2];
 			if(g2.find(j) != g2.end())
 				break;
 		}
 		if(k1 == k2) {
-			auto	subg1 = subgraphs[k1];
+			auto&	subg1 = subgraphs[k1];
 			subg1[i].push_back(make_pair(j, n1 < n2));
 			subg1[j].push_back(make_pair(i, n1 < n2));
 			if(!InverseGraph::is_consistent(subgraphs[k1]))

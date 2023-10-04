@@ -101,6 +101,7 @@ public:
 	void set_records(const std::vector<VCFHeteroHomoRecord *>& rs) {
 		records = rs;
 	}
+	void clear_records() { records.clear(); }
 	
 	// haplotype1の各レコードのGenotypeが0なのか1なのか
 	std::vector<int> make_parent_haplotypes(const InvGraph& graph) const;
@@ -110,7 +111,7 @@ public:
 	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
 						determine_haplotype(const OptionImpute *option) const;
 	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
-																	impute();
+														impute(int num_threads);
 	// 共通のヘテロ親はどれだけマッチしているか
 	std::pair<int, int> match(const VCFHeteroHomo *other) const;
 	void inverse_hetero_parent_phases();
@@ -128,22 +129,22 @@ private:
 	const OptionImpute *create_option() const;
 	
 public:
-	// ヘテロ親が同じVCFを集めて補完する
-	// ついでにphaseもなるべく同じになるように変更する
-	static ImpResult impute_vcfs(const std::vector<VCFHeteroHomo *>& vcfs,
-											const Option* op, int num_threads);
-	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
-	static const InverseGraph *make_vcf_graph(
-										const std::vector<VCFHeteroHomo *>& vcfs);
-	static std::vector<ImpResult> impute_hetero_homo_all(
-				const std::map<std::string, std::vector<VCFHeteroHomo *>>& vcfs,
-				const Option *option);
 	// FamilyごとにVCFHeteroHomoを作って親ごとに格納する
 	static std::tuple<VCFHeteroHomo *, VCFHeteroHomo *,
 						std::vector<VCFHeteroHomoRecord *>>
-			make_VCFHeteroHomo(const std::vector<VCFHeteroHomoRecord *>& records,
-								const Family *family,
-								const VCFSmall *vcf, const Map& geno_map);
+		make_VCFHeteroHomo(const std::vector<VCFHeteroHomoRecord *>& records,
+						   const std::vector<STRVEC>& header,
+						   const STRVEC& samples, const Map& geno_map);
+	// ヘテロ親が同じVCFを集めて補完する
+	// ついでにphaseもなるべく同じになるように変更する
+	static ImpResult impute_vcfs(
+						const std::vector<VCFHeteroHomoRecord *>& records,
+						const std::vector<STRVEC>& header,
+						const STRVEC& samples,
+						const Map& geno_map, int num_threads);
+	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
+	static const InverseGraph *make_vcf_graph(
+										const std::vector<VCFHeteroHomo *>& vcfs);
 	
 private:
 	static std::pair<double, bool> distance(const std::vector<int>& gts1,

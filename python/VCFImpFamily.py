@@ -63,14 +63,19 @@ class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
 		if is_all_same(gts):
 			return (gts[0], [])
 		
+		# collect reads in Genotype
+		# ここで./.を無視してもよいはず
 		dic = defaultdict(list)	# { int gt: [(record, parent index)] }
 		for (r, i), gt in zip(v, gts):
 			dic[gt].append((r, i))
 		items = list(dic.items())	# [(int gt, [(record, parent index)])]
 		
 		bs = [ all(r.is_fixed() for r, i in w) for gt, w in items ]
+		# 全部fixedが一つでないとあきらめる
+		# 先頭のGenotypeを返すが、空のレコードのリストを返すので何でもよい
 		if sum(1 for b in bs if b) != 1:
 			return (gts[0], [])
+		
 		bs2 = [ all(not r.is_fixed() for r, i in w) for gt, w in items ]
 		if sum(1 for b in bs2 if not b) != 1:
 			return (gts[0], [])

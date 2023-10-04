@@ -5,19 +5,19 @@ from __future__ import annotations
 
 from itertools import *
 from abc import ABC, abstractmethod
-from typing import Iterator, Final, Tuple
+from typing import Iterator, Tuple
 
 
 #################### Haplotype ####################
 
 class Haplotype(object):
 	def __init__(self, h: list[int], sample_id: int, i: int):
-		self.hap: Final[list[int]] = h
-		self.position: Final = (sample_id, i)
+		self.hap: list[int] = h
+		self.position: tuple[int, int] = (sample_id, i)
 	
 	@staticmethod
 	def default_value() -> Haplotype:
-		hap: Final[list[int]] = []
+		hap: list[int] = []
 		return Haplotype(hap, 0, 2)
 	
 	@staticmethod

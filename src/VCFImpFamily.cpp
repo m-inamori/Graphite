@@ -67,6 +67,8 @@ VCFImpFamilyRecord::which_is_fixed(const vector<RecordWithPos>& v) {
 	if(Common::is_all_same(gts))
 		return make_pair(gts.front(), vector<RecordWithPos>());
 	
+	// collect reads in Genotype
+	// ここで./.を無視してもよいはず
 	map<int, vector<RecordWithPos>>	dic;
 	for(size_t k = 0U; k < v.size(); ++k) {
 		dic[gts[k]].push_back(v[k]);

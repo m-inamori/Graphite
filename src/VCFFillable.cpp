@@ -1186,18 +1186,9 @@ void VCFFillable::impute_others(int i) {
 }
 
 VCFFillable *VCFFillable::fill(const vector<VCFHeteroHomo *>& vcfs,
-					const vector<VCFImpFamilyRecord *>& records, bool all_out) {
-	vector<VCFFillableRecord *>	merged_records;
-	if(all_out)
-		merged_records = VCFFillable::merge_records(vcfs, records, all_out);
-	else {
-		vector<VCFImpFamilyRecord *>	records_;
-		for(auto p = records.begin(); p != records.end(); ++p) {
-			if(!(*p)->is_fixed())
-				records_.push_back(*p);
-		}
-		merged_records = merge_records(vcfs, records_, all_out);
-	}
+					const vector<VCFImpFamilyRecord *>& records) {
+	vector<VCFFillableRecord *>	merged_records
+							 = VCFFillable::merge_records(vcfs, records, true);
 	VCFFillable	*vcf = new VCFFillable(vcfs.front()->get_header(),
 								vcfs.front()->get_samples(), merged_records);
 	vcf->modify();
@@ -1331,7 +1322,7 @@ void VCFFillable::fill_in_thread(void *config) {
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		auto	vcfs = c->items[i].first;
 		auto	records = c->items[i].second;
-		auto	result = VCFFillable::fill(vcfs, records, c->all_out);
+		auto	result = VCFFillable::fill(vcfs, records);
 		c->filled_vcfs[i] = result;
 	}
 }

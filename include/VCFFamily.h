@@ -4,6 +4,9 @@
 #include "VCF.h"
 
 
+using Parents = std::pair<std::string, std::string>;
+
+
 //////////////////// VCFFamilyRecord ////////////////////
 
 class VCFFamilyRecord : public VCFRecord {
@@ -55,9 +58,7 @@ public:
 	
 	const std::string& mat() const { return get_samples()[0]; }
 	const std::string& pat() const { return get_samples()[1]; }
-	const std::pair<std::string, std::string> parents() const {
-		return std::pair<std::string, std::string>(mat(), pat());
-	}
+	const Parents parents() const { return Parents(mat(), pat()); }
 	std::size_t num_progenies() const { return get_samples().size() - 2U; }
 };
 
@@ -71,7 +72,7 @@ protected:
 public:
 	VCFFamily(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFamilyRecord *> rs);
-	~VCFFamily();
+	virtual ~VCFFamily();
 	
 	///// virtual methods /////
 	const std::vector<STRVEC>& get_header() const {

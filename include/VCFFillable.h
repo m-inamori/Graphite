@@ -226,7 +226,6 @@ public:
 	using Group = std::pair<FillType, std::vector<VCFFillableRecord *>>;
 	using Item = std::pair<std::vector<VCFHeteroHomo *>,
 							std::vector<VCFImpFamilyRecord *>>;
-	using Parents = std::pair<std::string, std::string>;
 	using ImpRecords = std::map<Parents, std::vector<VCFImpFamilyRecord *>>;
 	
 public:
@@ -263,7 +262,8 @@ public:
 	void set_records(const std::vector<VCFFillableRecord *>& rs) {
 		records = rs;
 	}
-
+	void clear_records() { records.clear(); }
+	
 private:
 	std::vector<Group> group_records() const;
 	VCFFillableRecord *find_prev_record(FillType type, int i,
@@ -306,7 +306,7 @@ public:
 				std::map<Parents, std::vector<VCFHeteroHomo *>>& imputed_vcfs,
 				ImpRecords& other_records, int num_threads);
 	static VCFFillable *fill(const std::vector<VCFHeteroHomo *>& vcfs,
-				const std::vector<VCFImpFamilyRecord *>& records, bool all_out);
+				const std::vector<VCFImpFamilyRecord *>& records);
 	static std::vector<VCFFillableRecord *> merge_records(
 							const std::vector<VCFHeteroHomo *>& vcfs,
 							const std::vector<VCFImpFamilyRecord *>& records,

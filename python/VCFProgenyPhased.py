@@ -24,7 +24,7 @@ class VCFProgenyPhased(VCFBase, VCFFamilyBase, VCFImputable):
 		VCFFamilyBase.__init__(self)
 		VCFImputable.__init__(self, map_)
 		self.records: list[VCFFamilyRecord] = records
-		self.ref_vcf: Final[VCFSmall] = ref_vcf
+		self.ref_vcf: VCFSmall = ref_vcf
 		self.selection = 0
 	
 	def get_header(self) -> list[list[str]]:

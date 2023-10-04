@@ -2,12 +2,7 @@
 #include <cassert>
 #include "../include/graphite.h"
 #include "../include/SampleManager.h"
-#include "../include/VCFOriginal.h"
-#include "../include/VCFHeteroHomo.h"
-#include "../include/VCFJunkRecord.h"
-#include "../include/VCFHomoHomo.h"
-#include "../include/VCFHeteroHeteroLite.h"
-#include "../include/VCFFillable.h"
+#include "../include/LargeFamily.h"
 #include "../include/VCFHeteroHomoPP.h"
 #include "../include/VCFOneParentPhased.h"
 #include "../include/VCFProgenyPhased.h"
@@ -62,200 +57,6 @@ Materials *Materials::create(const Option *option) {
 
 
 //////////////////// process ////////////////////
-
-// HeteroHomoだけ別にする
-// このあとHeteroHomoだけ補完するから
-// その他はVCFFillableにした後補完する
-pair<HeHoRecords, ImpRecords> classify_records(const VCFSmall *vcf,
-							const vector<const Family *>& families, double p) {
-	ClassifyRecord	*CR = ClassifyRecord::get_instance();
-	HeHoRecords	heho_records;
-	ImpRecords	other_records;
-	for(auto q = families.begin(); q != families.end(); ++q) {
-		const Family	*family = *q;
-		const Parents	parents = family->parents();
-		const STRVEC&	samples = family->get_samples();
-		heho_records[parents];
-		// vcf_familyはこのループの最後でdeleteするので
-		// samplesはfamilyのものを使う
-		auto	*vcf_family = VCFFamily::create(vcf, samples);
-		const auto	*td = CR->get_TypeDeterminer(family->num_progenies(), p);
-		for(size_t i = 0; i < vcf_family->size(); ++i) {
-			VCFFamilyRecord	*record = vcf_family->get_family_record(i);
-			const auto	pair1 = CR->classify(record, td);
-			const ParentComb	pc = pair1.first;
-			const WrongType	wrong_type = pair1.second;
-			const STRVEC&	v = record->get_v();
-			if(pc == ParentComb::PNA) {		// 候補が無い
-				auto	*r = new VCFJunkRecord(v, samples, i, wrong_type);
-				other_records[parents].push_back(r);
-			}
-			else if(TypeDeterminer::is_homohomo(pc)) {
-				auto	*r_ = new VCFHomoHomoRecord(v, samples, i,
-														wrong_type, pc);
-				auto	*r = r_->impute();
-				delete r_;
-				other_records[parents].push_back(r);
-			}
-			else if(TypeDeterminer::is_heterohomo(pc)) {
-				auto	*r = new VCFHeteroHomoRecord(v, samples, i,
-														wrong_type, pc);
-				heho_records[parents].push_back(r);
-			}
-			else {
-				auto	*r = new VCFHeteroHeteroLiteRecord(v, samples, i,
-															wrong_type, pc);
-				other_records[parents].push_back(r);
-			}
-		}
-		delete vcf_family;
-	}
-	
-	return make_pair(heho_records, other_records);
-}
-
-vector<vector<VCFImpFamilyRecord *>>
-							sort_records(const HeHoRecords& heho_records,
-											const ImpRecords& other_records) {
-	int	max_index = 0;
-	for(auto p = heho_records.begin(); p != heho_records.end(); ++p) {
-		for(auto q = p->second.begin(); q != p->second.end(); ++q)
-			max_index = std::max(max_index, (*q)->get_index());
-	}
-	for(auto p = other_records.begin(); p != other_records.end(); ++p) {
-		for(auto q = p->second.begin(); q != p->second.end(); ++q)
-			max_index = std::max(max_index, (*q)->get_index());
-	}
-	
-	vector<vector<VCFImpFamilyRecord *>>	records(max_index + 1);
-	for(auto p = heho_records.begin(); p != heho_records.end(); ++p) {
-		const auto&	rs1 = p->second;
-		for(auto q = rs1.begin(); q != rs1.end(); ++q) {
-			if((*q)->is_right())
-				records[(*q)->get_index()].push_back(*q);
-		}
-	}
-	for(auto p = other_records.begin(); p != other_records.end(); ++p) {
-		const auto&	rs1 = p->second;
-		for(auto q = rs1.begin(); q != rs1.end(); ++q) {
-			if((*q)->is_homohomo())
-				records[(*q)->get_index()].push_back(*q);
-		}
-	}
-	return records;
-}
-
-// 0/0 x 1/1のrecordで別の家系の親になっているとき、
-// 他のホモ×ホモやヘテロ×ホモとGenotypeが違うとき、修正する
-void modify_00x11(const HeHoRecords& heho_records, ImpRecords& other_records) {
-	auto	records = sort_records(heho_records, other_records);
-	
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		if(p->size() >= 2)
-			VCFImpFamilyRecord::modify_00x11(*p);
-	}
-}
-
-pair<map<Parents, vector<VCFHeteroHomo *>>, HeHoRecords>
-		impute_hetero_homo_core(const HeHoRecords& records,
-								const VCFSmall *vcf, SampleManager *sample_man,
-								const Map& geno_map, const Option *option) {
-	// あとでFamilyを回復するために必要
-	map<Parents, const Family *>	parents_to_family;
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		const Parents	parents = p->first;
-		const Family	*family = sample_man->get_large_family(parents);
-		parents_to_family.insert(make_pair(parents, family));
-	}
-	
-	map<string, vector<VCFHeteroHomo *>>	vcfs;
-	HeHoRecords	unused_records;
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		const Parents&	parents = p->first;
-		const Family	*family = parents_to_family[parents];
-		const vector<VCFHeteroHomoRecord *>&	heho_records = p->second;
-		const auto	t = VCFHeteroHomo::make_VCFHeteroHomo(heho_records,
-														family, vcf, geno_map);
-		VCFHeteroHomo	*vcf_mat = get<0>(t);
-		VCFHeteroHomo	*vcf_pat = get<1>(t);
-		// Hetero x Homoで使われなかったRecordを再利用する
-		const vector<VCFHeteroHomoRecord *>&	unused_records1 = get<2>(t);
-		vcfs[family->get_mat()].push_back(vcf_mat);
-		vcfs[family->get_pat()].push_back(vcf_pat);
-		auto&	urs = unused_records[parents];
-		urs.insert(urs.end(), unused_records1.begin(), unused_records1.end());
-	}
-	
-	const auto	w = VCFHeteroHomo::impute_hetero_homo_all(vcfs, option);
-	
-	map<Parents, vector<VCFHeteroHomo *>>	imputed_vcfs;
-	for(auto p = w.begin(); p != w.end(); ++p) {
-		const vector<VCFHeteroHomo *>&	imputed_vcfs_heho = p->first;
-		const vector<VCFHeteroHomoRecord *>&	unused_records2 = p->second;
-		for(auto q = imputed_vcfs_heho.begin();
-								q != imputed_vcfs_heho.end(); ++q) {
-			VCFHeteroHomo	*vcf = *q;
-			imputed_vcfs[vcf->parents()].push_back(vcf);
-		}
-		
-		for(auto q = unused_records2.begin(); q != unused_records2.end(); ++q) {
-			VCFHeteroHomoRecord	*record = *q;
-			record->enable_modification();
-			unused_records[record->parents()].push_back(record);
-		}
-	}
-	return make_pair(imputed_vcfs, unused_records);
-}
-
-void join_records(ImpRecords& records, HeHoRecords& unused_records) {
-	for(auto q = unused_records.begin(); q != unused_records.end(); ++q) {
-		const auto&	parents = q->first;
-		const auto&	rs = q->second;
-		auto&	records_ = records[parents];
-		records_.insert(records_.end(), rs.begin(), rs.end());
-		sort(records_.begin(), records_.end(),
-				[](const VCFFamilyRecord *r1, const VCFFamilyRecord *r2) {
-					return r1->pos() < r2->pos(); });
-	}
-}
-
-pair<map<Parents, vector<VCFHeteroHomo *>>, ImpRecords>
-		impute_hetero_homo(const VCFSmall *orig_vcf, SampleManager *sample_man,
-									const Map& geno_map, const Option *option) {
-	const auto	pair1 = classify_records(orig_vcf,
-							sample_man->get_large_families(), option->ratio);
-	const auto	heho_records = pair1.first;
-	auto	other_records = pair1.second;
-	modify_00x11(heho_records, other_records);
-	
-	// HeteroHomoとそれ以外を分けて、HeteroHomoを補完する
-	// 使われなかったHeteroHomoはvillに回す
-	const auto	pair2 = impute_hetero_homo_core(heho_records, orig_vcf,
-												sample_man, geno_map, option);
-	auto	imputed_vcfs = pair2.first;
-	auto	unused_records = pair2.second;
-	
-	join_records(other_records, unused_records);
-	
-	return make_pair(imputed_vcfs, other_records);
-}
-
-VCFSmall *fill_and_merge_vcf(
-						map<Parents, vector<VCFHeteroHomo *>>& imputed_vcfs,
-						ImpRecords& other_records,
-						const STRVEC& samples, const Option *option) {
-	// Familyごとに残りのRecordをphaseする
-	const auto	filled_vcfs = VCFFillable::fill_all(imputed_vcfs,
-														other_records,
-														option->num_threads);
-	// FamilyごとのVCFを全て統合する
-	// この部分はVCFFillableでなく、切り離して別の名前空間で行いたい
-	VCFSmall	*vcf_integrated = VCFFillable::merge(filled_vcfs, samples);
-	for(auto p = filled_vcfs.begin(); p != filled_vcfs.end(); ++p)
-		delete *p;
-	
-	return vcf_integrated;
-}
 
 VCFRecord *merge_progeny_records(vector<VCFFillable *>& vcfs,
 									size_t i, const STRVEC& samples) {
@@ -421,11 +222,9 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	display_chromosome_info(orig_vcf);
 	
 	const auto&	all_samples = orig_vcf->get_samples();
-	auto	p = impute_hetero_homo(orig_vcf, sample_man, geno_map, option);
-	auto	imputed_vcfs = p.first;
-	auto	other_records = p.second;
-	auto	*merged_vcf = fill_and_merge_vcf(imputed_vcfs, other_records,
-														all_samples, option);
+	const auto	large_families = sample_man->get_large_families();
+	auto	merged_vcf = LargeFamily::correct_large_family_VCFs(
+									orig_vcf, large_families, geno_map, option);
 	if(option->only_large_families)
 		return merged_vcf;
 	
