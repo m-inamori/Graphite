@@ -95,7 +95,7 @@ void LargeFamily::create_vcf_in_thread(void *config) {
 	const VCFSmall	*orig_vcf = c->orig_vcf;
 	for(size_t i = c->first; i < c->families.size(); i += c->num_threads) {
 		const Family	*family = c->families[i];
-		c->vcfs_family[i] = VCFFamily::create(orig_vcf, family->get_samples());
+		c->results[i] = VCFFamily::create(orig_vcf, family->get_samples());
 	}
 }
 
@@ -222,10 +222,21 @@ LargeFamily::divide_vcf_into_record_types(
 	return make_pair(heho_recordss, other_recordss);
 }
 
+void LargeFamily::fill_in_thread(void *config) {
+	const auto	*c = (ConfigThreadFill *)config;
+	const size_t	n = c->vcfss_heho.size();
+	for(size_t i = c->first; i < n; i += c->num_threads) {
+		const auto&	vcfs = c->vcfss_heho[i];
+		const auto&	records = c->other_recordss[i];
+		c->results[i] = VCFFillable::fill(vcfs, records,
+											c->num_threads_in_family);
+	}
+}
+
 vector<VCFFillable *> LargeFamily::fill_vcf(
 					const map<string, vector<VCFHeteroHomo *>>& dic_vcfs,
 					const vector<vector<VCFImpFamilyRecord *>>& other_recordss,
-					const vector<const Family *>& families) {
+					const vector<const Family *>& families, int num_threads) {
 	// collect vcf by family index
 	const size_t	N = families.size();
 	map<pair<string, string>, size_t>	family_indices;
@@ -243,9 +254,27 @@ vector<VCFFillable *> LargeFamily::fill_vcf(
 	
 	// insert and correct other records
 	vector<VCFFillable *>	vcfs_filled(N);
-	for(size_t i = 0; i < N; ++i) {
-		vcfs_filled[i] = VCFFillable::fill(vcfss_heho[i], other_recordss[i]);
-	}
+	const int	T = std::min(num_threads, (int)N);
+	const int	T_in_family = std::max(2, (T+(int)N-1)/(int)N);
+	vector<ConfigThreadFill *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThreadFill(i, T, vcfss_heho, other_recordss,
+													T_in_family, vcfs_filled);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&fill_in_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		fill_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
 	return vcfs_filled;
 }
 
@@ -258,6 +287,22 @@ void LargeFamily::compress_records(vector<VCFImpFamilyRecord *>& others) {
 		}
 	}
 	others.erase(p, others.end());
+}
+
+void LargeFamily::clean_in_thread(void *config) {
+	auto	*c = (ConfigThreadClean *)config;
+	const int	n = (int)c->families.size();
+	const int	T = c->num_threads;
+	const int	T_in_family = std::max(2, (T+n-1)/n);
+	for(int i = c->first; i < n; i += T) {
+		const auto&	records = c->recordss[i];
+		const auto&	samples = c->families[i]->get_samples();
+		auto	header = c->orig_vcf->trim_header(samples);
+		auto	p = VCFHeteroHomo::clean_vcfs(records, header, samples,
+													c->geno_map, T_in_family);
+		c->vcfss[i] = p.first;
+		c->unused_recordss[i] = p.second;
+	}
 }
 
 VCFSmall *LargeFamily::correct_large_family_VCFs(
@@ -278,18 +323,34 @@ VCFSmall *LargeFamily::correct_large_family_VCFs(
 	modify_00x11(heho_recordss, other_recordss, large_families);
 	
 	// impute VCFs by family
-	vector<vector<VCFHeteroHomo *>>	vcfss;
+	const size_t	LN = large_families.size();
+	vector<vector<VCFHeteroHomo *>>	vcfss(LN);
+	vector<vector<VCFHeteroHomoRecord *>>	unused_recordss(LN);
+	const int	T = min((int)LN, num_threads);
+	vector<ConfigThreadClean *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThreadClean(i, T, heho_recordss,
+										   orig_vcf, large_families,
+										   geno_map, vcfss, unused_recordss);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+					(void *(*)(void *))&clean_in_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		clean_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+	
 	for(size_t i = 0; i < large_families.size(); ++i) {
-		const Family	*family = large_families[i];
-		const auto		records = heho_recordss[i];
-		auto&			others = other_recordss[i];
-		const auto&		samples = family->get_samples();
-		const auto		header = orig_vcf->trim_header(samples);
-		auto	pair1 = VCFHeteroHomo::impute_vcfs(records, header, samples,
-														geno_map, num_threads);
-		const auto&	vcfs = pair1.first;
-		const auto&	unused = pair1.second;
-		vcfss.push_back(vcfs);
+		auto&	others = other_recordss[i];
+		const auto&	unused = unused_recordss[i];
 		compress_records(others);
 		others.insert(others.end(), unused.begin(), unused.end());
 	}
@@ -321,14 +382,14 @@ VCFSmall *LargeFamily::correct_large_family_VCFs(
 		VCFHeteroHomo::inverse_phases(vcfs);
 	}
 	
-	auto	vcfs_filled = fill_vcf(dic_vcfs, other_recordss, large_families);
+	auto	vcfs_filled = fill_vcf(dic_vcfs, other_recordss,
+									large_families, option->num_threads);
 	for(size_t i = 0; i < large_families.size(); ++i) {
 		Common::delete_all(vcfss[i]);
 		Common::delete_all(other_recordss[i]);
 	}
 	auto	vcf1 = VCFFillable::merge(vcfs_filled, orig_vcf->get_samples());
 	for(auto p = vcfs_filled.begin(); p != vcfs_filled.end(); ++p) {
-//		(*p)->clear_records();
 		delete *p;
 	}
 	return vcf1;

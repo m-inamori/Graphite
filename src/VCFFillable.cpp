@@ -916,12 +916,43 @@ VCFFillable::~VCFFillable() {
 		delete *p;
 }
 
-void VCFFillable::modify() {
+void VCFFillable::phase_in_thread(void *config) {
+	auto	*c = (ConfigThreadPhase *)config;
+	const auto&	groups = c->groups;
+	const size_t	n = groups.size();
+	for(size_t i = c->first; i < n; i += c->num_threads) {
+		if(groups[i].second.front()->is_fillable_type())
+			c->vcf->phase(i, groups, true);
+	}
+}
+
+void VCFFillable::modify(int T) {
 	vector<Group>	groups = group_records();
+#if 1
+	vector<ConfigThreadPhase *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThreadPhase(i, T, groups, this);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+			(void *(*)(void *))&phase_in_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		phase_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+#else
 	for(size_t i = 0U; i < groups.size(); ++i) {
 		if(groups[i].second.front()->is_fillable_type())
 			this->phase(i, groups, true);
 	}
+#endif
 	
 	for(size_t i = 0U; i < records.size(); ++i) {
 		auto	*record = records[i];
@@ -1186,12 +1217,12 @@ void VCFFillable::impute_others(int i) {
 }
 
 VCFFillable *VCFFillable::fill(const vector<VCFHeteroHomo *>& vcfs,
-					const vector<VCFImpFamilyRecord *>& records) {
+				const vector<VCFImpFamilyRecord *>& records, int num_threads) {
 	vector<VCFFillableRecord *>	merged_records
 							 = VCFFillable::merge_records(vcfs, records, true);
 	VCFFillable	*vcf = new VCFFillable(vcfs.front()->get_header(),
 								vcfs.front()->get_samples(), merged_records);
-	vcf->modify();
+	vcf->modify(num_threads);
 	return vcf;
 }
 
@@ -1218,42 +1249,13 @@ vector<VCFFillableRecord *> VCFFillable::merge_records(
 }
 
 vector<vector<VCFFillableRecord *>> VCFFillable::collect_records(
-										const vector<VCFFillable *>& vcfs,
-										bool all_out) {
+										const vector<VCFFillable *>& vcfs) {
 	vector<vector<VCFFillableRecord *>>	rss;
-	if(all_out) {
-		for(size_t i = 0; i < vcfs.front()->size(); ++i) {
-			vector<VCFFillableRecord *>	rs;
-			for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
-				rs.push_back((*p)->get_fillable_record(i));
-			rss.push_back(rs);
-		}
-	}
-	else {
-		int	max_index = 0;
-		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-			max_index = max(max_index, (*p)->get_records().back()->get_index());
-		}
-		
-		vector<size_t>	js(vcfs.size());	// 各VCFの現在の位置
-		for(int i = 0; i <= max_index; ++i) {
-			// このindexで全ての家系でrecordが揃っていればrssに登録する
-			vector<VCFFillableRecord *>	rs(vcfs.size(), NULL);
-			for(size_t k = 0; k < vcfs.size(); ++k) {
-				VCFFillable	*vcf = vcfs[k];
-				if(js[k] == vcf->size())
-					continue;
-				VCFFillableRecord	*record = vcf->get_fillable_record(js[k]);
-				if(record->get_index() == i) {
-					rs[k] = record;
-					js[k] += 1;
-				}
-				
-				if(std::all_of(rs.begin(), rs.end(),
-									[](auto *r) { return r != NULL; }))
-					rss.push_back(rs);
-			}
-		}
+	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
+		vector<VCFFillableRecord *>	rs;
+		for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
+			rs.push_back((*p)->get_fillable_record(i));
+		rss.push_back(rs);
 	}
 	return rss;
 }
@@ -1312,7 +1314,7 @@ VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 
 VCFSmall *VCFFillable::merge(const vector<VCFFillable *>& vcfs,
 											const STRVEC& orig_samples) {
-	const auto	rss = collect_records(vcfs, true);
+	const auto	rss = collect_records(vcfs);
 	return integrate(vcfs.front(), rss, orig_samples);
 }
 
@@ -1322,7 +1324,7 @@ void VCFFillable::fill_in_thread(void *config) {
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		auto	vcfs = c->items[i].first;
 		auto	records = c->items[i].second;
-		auto	result = VCFFillable::fill(vcfs, records);
+		auto	result = VCFFillable::fill(vcfs, records, c->num_threads);
 		c->filled_vcfs[i] = result;
 	}
 }

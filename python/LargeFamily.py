@@ -66,12 +66,8 @@ def classify_records(vcf: VCFFamily,
 	records2: list[Optional[VCFImpFamilyRecord]] = [None] * len(vcf)
 	args = [ (vcf, td, records1, records2, i, option.num_threads)
 								for i in range(option.num_threads) ]
-	if option.num_threads > 1:
-		with Pool(option.num_threads) as pool:
-			pool.map(classify_records_parallel, args)
-	else:
-		for arg in args:
-			classify_records_parallel(arg)
+	for arg in args:
+		classify_records_parallel(arg)
 	
 	heho_records: list[VCFHeteroHomoRecord] = []
 	other_records: list[VCFImpFamilyRecord] = []

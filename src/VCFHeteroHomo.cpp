@@ -46,22 +46,17 @@ void VCFHeteroHomoRecord::set_haplo(int h) {
 		this->which_comes_from[i] = gts[i] == -1 ? -1 : (gts[i] == h ? 0 : 1);
 }
 
-void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(
-												const vector<int>& ws) {
-	this->which_comes_from = ws;
+void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(int w, int i) {
+	this->which_comes_from[i] = w;
 	const string&	mat_gt = this->v[9];
 	const string&	pat_gt = this->v[10];
 	if(this->is_mat_hetero()) {
 		const string	homo_gt = pat_gt.substr(0, 1);
-		for(size_t i = 0; i < this->num_progenies(); ++i) {
-			this->set_GT(i+2, mat_gt.substr(ws[i]*2, 1) + '|' + homo_gt);
-		}
+		this->set_GT(i+2, mat_gt.substr(w*2, 1) + '|' + homo_gt);
 	}
 	else {
 		const string	homo_gt = mat_gt.substr(0, 1);
-		for(size_t i = 0; i < this->num_progenies(); ++i) {
-			this->set_GT(i+2, homo_gt + '|' + pat_gt.substr(ws[i]*2, 1));
-		}
+		this->set_GT(i+2, homo_gt + '|' + pat_gt.substr(w*2, 1));
 	}
 }
 
@@ -270,7 +265,7 @@ string VCFHeteroHomo::create_same_color_string(const string& seq) {
 	return std::string(seq.size(), c);
 }
 
-string VCFHeteroHomo::impute_each_sample_seq(int i,
+string VCFHeteroHomo::clean_each_sample_seq(size_t i,
 								const vector<double>& cMs, double min_c) {
 	const string	seq = this->make_seq(i);
 	if(is_all_same_without_N(seq))
@@ -284,39 +279,64 @@ string VCFHeteroHomo::impute_each_sample_seq(int i,
 	return painted_seq;
 }
 
-void VCFHeteroHomo::impute_each(const OptionImpute *option) {
+void VCFHeteroHomo::clean_each_sample(size_t i, const vector<double>& cMs,
+																double min_c) {
+	const string	cleaned_seq = clean_each_sample_seq(i, cMs, min_c);
+	for(size_t k = 0; k < this->size(); ++k) {
+		VCFHeteroHomoRecord	*record = this->records[k];
+		const int	w = cleaned_seq.c_str()[k] - '0';
+		record->set_int_gt_by_which_comes_from(w, i);
+	}
+}
+
+void VCFHeteroHomo::clean_in_thread(void *config) {
+	auto	*c = (ConfigThreadCleanSeq *)config;
+	const size_t	n = c->vcf->num_progenies();
+	for(size_t i = c->first; i < n; i += c->num_threads) {
+		c->vcf->clean_each_sample(i, c->cMs, c->min_c);
+	}
+}
+
+void VCFHeteroHomo::clean_each_vcf(const OptionImpute *option) {
 	vector<double>	cMs;
 	const size_t	L = this->size();
 	for(size_t i = 0; i < L; ++i) {
 		cMs.push_back(this->record_cM(i));
 	}
 	
-	vector<string>	imputed_seqs;
-	for(size_t i = 0; i < this->num_progenies(); ++i) {
-		imputed_seqs.push_back(
-					impute_each_sample_seq(i, cMs, option->min_crossover));
-	}
+	const double	min_c = option->min_crossover;
+	const int	T = option->num_threads;
+	vector<ConfigThreadCleanSeq *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThreadCleanSeq(i, T, cMs, min_c, this);
 	
-	for(size_t k = 0; k < this->size(); ++k) {
-		VCFHeteroHomoRecord	*record = this->records[k];
-		vector<int>	ws;
-		for(auto p = imputed_seqs.begin(); p != imputed_seqs.end(); ++p)
-			ws.push_back(p->c_str()[k] - '0');
-		record->set_int_gt_by_which_comes_from(ws);
-	}
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+			(void *(*)(void *))&clean_in_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		clean_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
 }
 
-const OptionImpute *VCFHeteroHomo::create_option() const {
+const OptionImpute *VCFHeteroHomo::create_option(int num_threads) const {
 	const size_t	num = std::max(2UL, this->size());
 	const double	cM_length = this->record_cM(records.size()-1);
 	const int	max_dist = std::max(4,
 						(int)(cM_length * num_progenies()
 										/ num * log10(num) * 2.5 * 0.01));
-	return new OptionImpute(max_dist, 20, 5, 1.0);
+	return new OptionImpute(max_dist, 20, 5, 1.0, num_threads);
 }
 
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
-										VCFHeteroHomo::impute(int num_threads) {
+										VCFHeteroHomo::clean(int num_threads) {
 	if(this->records.empty()) {
 		// vcfを新たに作らないと、deleteしていけないvcfをdeleteしてしまう
 		VCFHeteroHomo	*empty_vcf = new VCFHeteroHomo(header, samples,
@@ -325,14 +345,14 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 									vector<VCFHeteroHomoRecord *>());
 	}
 	
-	const OptionImpute	*option = this->create_option();
+	const OptionImpute	*option = this->create_option(num_threads);
 	auto	p = this->determine_haplotype(option);
 	vector<VCFHeteroHomo *>&	vcfs = p.first;
 	vector<VCFHeteroHomoRecord *>&	unused_records = p.second;
 	std::for_each(unused_records.begin(), unused_records.end(),
 					std::mem_fun(&VCFImpFamilyRecord::enable_modification));
 	for(auto q = vcfs.begin(); q != vcfs.end(); ++q)
-		(*q)->impute_each(option);
+		(*q)->clean_each_vcf(option);
 	delete option;
 	return make_pair(vcfs, unused_records);
 }
@@ -408,7 +428,7 @@ VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
 
 // ヘテロ親が同じVCFを集めて補完する
 // ついでにphaseもなるべく同じになるように変更する
-ImpResult VCFHeteroHomo::impute_vcfs(
+ImpResult VCFHeteroHomo::clean_vcfs(
 							const vector<VCFHeteroHomoRecord *>& records,
 							const vector<STRVEC>& header, const STRVEC& samples,
 							const Map& geno_map, int num_threads) {
@@ -417,8 +437,8 @@ ImpResult VCFHeteroHomo::impute_vcfs(
 	auto	*vcf_pat = get<1>(tuple1);
 	auto	unused = get<2>(tuple1);
 	
-	auto	pair1 = vcf_mat->impute(num_threads);
-	auto	pair2 = vcf_pat->impute(num_threads);
+	auto	pair1 = vcf_mat->clean(num_threads);
+	auto	pair2 = vcf_pat->clean(num_threads);
 	auto	vcfs_mat = pair1.first;
 	auto	unused_records1 = pair1.second;
 	auto	vcfs_pat = pair2.first;
@@ -464,51 +484,4 @@ const InverseGraph *VCFHeteroHomo::make_vcf_graph(
 		}
 	}
 	return graph;
-}
-
-vector<vector<bool>> VCFHeteroHomo::enumerate_bools(size_t L) {
-	vector<vector<bool>>	bss;
-	if(L <= 10) {
-		for(size_t n = 0; n < (1U << L); ++n) {
-			vector<bool>	bs(L);
-			for(size_t k = 0; k < L; ++k)
-				bs[k] = ((n >> k) & 1) == 1;
-			bss.push_back(bs);
-		}
-	}
-	else {
-		std::mt19937	mt(123456789);
-		std::uniform_int_distribution<int>	dist(0, 1);
-		
-		for(size_t i = 0; i < 1024; ++i) {
-			vector<bool>	bs(L);
-			for(size_t j = 1; j < L; ++j)
-				bs[j] = dist(mt) == 0;
-			bss.push_back(bs);
-		}
-	}
-	return bss;
-}
-
-int VCFHeteroHomo::match_score(const vector<bool>& invs,
-					const vector<vector<tuple<int, int, int>>>& graph) {
-	const size_t	N = graph.size();
-	int	num_wrong = 0;
-	for(int i = 0; i < (int)N; ++i) {
-		const auto&	v = graph[i];
-		for(auto q = v.begin(); q != v.end(); ++q) {
-			const int	j = std::get<0>(*q);
-			const int	n1 = std::get<1>(*q);
-			const int	n2 = std::get<2>(*q);
-			if(i > j)
-				continue;
-			const bool	inv1 = i == 0 ? false : invs[i-1];
-			const bool	inv2 = invs[j-1];
-			if(inv1 == inv2)
-				num_wrong += n2;
-			else
-				num_wrong += n1;
-		}
-	}
-	return num_wrong;
 }

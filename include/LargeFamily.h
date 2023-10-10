@@ -51,26 +51,68 @@ namespace LargeFamily {
 			  std::vector<VCFImpFamilyRecord *>>
 	classify_records(const VCFFamily *vcf, const Option *option);
 	
+	std::vector<VCFFamily *> create_family_vcfs(
+							const VCFSmall *orig_vcf,
+							const std::vector<const Family *>& large_families,
+							int num_threads);
+	
+	void create_vcf_in_thread(void *config);
+	
 	struct ConfigThreadCreate {
 		std::size_t	first;
 		std::size_t	num_threads;
 		const VCFSmall	*orig_vcf;
 		const std::vector<const Family *>&	families;
-		std::vector<VCFFamily *>&	vcfs_family;
+		std::vector<VCFFamily *>&	results;
 		
-		ConfigThreadCreate(std::size_t i, std::size_t n,
-						   const VCFSmall *vcf,
-						   const std::vector<const Family *>& fams,
-						   std::vector<VCFFamily *>& vcfs) :
-										first(i), num_threads(n), orig_vcf(vcf),
-										families(fams), vcfs_family(vcfs) { }
+		ConfigThreadCreate(int i, int n, const VCFSmall *orig,
+							const std::vector<const Family *>& fams,
+							std::vector<VCFFamily *>& res) :
+								first(i), num_threads(n), orig_vcf(orig),
+								families(fams), results(res) { }
 	};
 	
-	void create_vcf_in_thread(void *config);
-	std::vector<VCFFamily *> create_family_vcfs(
-							const VCFSmall *orig_vcf,
-							const std::vector<const Family *>& large_families,
-							int num_threads);
+	void clean_in_thread(void *config);
+	
+	struct ConfigThreadClean {
+		std::size_t	first;
+		std::size_t	num_threads;
+		const std::vector<std::vector<VCFHeteroHomoRecord *>>&	recordss;
+		const VCFSmall	*orig_vcf;
+		const std::vector<const Family *>&	families;
+		const Map&	geno_map;
+		std::vector<std::vector<VCFHeteroHomo *>>&	vcfss;
+		std::vector<std::vector<VCFHeteroHomoRecord *>>&	unused_recordss;
+		
+		ConfigThreadClean(int i, int n,
+					const std::vector<std::vector<VCFHeteroHomoRecord *>>& rss,
+					const VCFSmall *orig,
+					const std::vector<const Family *>& fams, const Map& m,
+					std::vector<std::vector<VCFHeteroHomo *>>& vcfss_,
+					std::vector<std::vector<VCFHeteroHomoRecord *>>& un) :
+								first(i), num_threads(n), recordss(rss),
+								orig_vcf(orig), families(fams), geno_map(m),
+								vcfss(vcfss_), unused_recordss(un) { }
+	};
+	
+	void fill_in_thread(void *config);
+	
+	struct ConfigThreadFill {
+		std::size_t	first;
+		std::size_t	num_threads;
+		const std::vector<std::vector<VCFHeteroHomo *>>&	vcfss_heho;
+		const std::vector<std::vector<VCFImpFamilyRecord *>>&	other_recordss;
+		const int	num_threads_in_family;
+		std::vector<VCFFillable *>&	results;
+		
+		ConfigThreadFill(int i, int n,
+				const std::vector<std::vector<VCFHeteroHomo *>>& heho,
+				const std::vector<std::vector<VCFImpFamilyRecord *>>&	other,
+				int n_f, std::vector<VCFFillable *>& res) :
+								first(i), num_threads(n), vcfss_heho(heho),
+								other_recordss(other),
+								num_threads_in_family(n_f), results(res) { }
+	};
 	
 	std::vector<std::pair<std::string,
 						  std::vector<std::pair<std::size_t, std::size_t>>>>
@@ -95,7 +137,7 @@ namespace LargeFamily {
 	std::vector<VCFFillable *> fill_vcf(
 			const std::map<std::string, std::vector<VCFHeteroHomo *>>& dic_vcfs,
 			const std::vector<std::vector<VCFImpFamilyRecord *>>& other_recordss,
-			const std::vector<const Family *>& families);
+			const std::vector<const Family *>& families, int num_threads);
 	void compress_records(std::vector<VCFImpFamilyRecord *>& others);
 	VCFSmall *correct_large_family_VCFs(const VCFSmall *orig_vcf,
 							const std::vector<const Family *>& large_families,

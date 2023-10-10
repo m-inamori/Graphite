@@ -55,10 +55,11 @@ public:
 	const int	min_positions;
 	const int	min_graph;
 	const double	min_crossover;
+	const int	num_threads;
 	
 public:
-	OptionImpute(int md, int mp, int mg, double mc) :
+	OptionImpute(int md, int mp, int mg, double mc, int nt) :
 				max_dist(md), min_positions(mp),
-				min_graph(mg), min_crossover(mc) { }
+				min_graph(mg), min_crossover(mc), num_threads(nt) { }
 };
 #endif

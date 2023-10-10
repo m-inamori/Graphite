@@ -199,34 +199,27 @@ class VCFFillable : public VCFBase, public VCFSmallBase, public VCFFamilyBase {
 		void impute_NA_pat_each(std::size_t i) const;
 	};
 	
-	struct ConfigReplaceThread {
-		const std::vector<VCFFillable *>&	vcfs;
-		const std::vector<const VCFRecord *>&	orig_records;
-		const std::size_t	first;
-		const int	num_thread;
-		
-		ConfigReplaceThread(const std::vector<VCFFillable *>& v,
-						const std::vector<const VCFRecord *>& o, int f, int n) :
-					vcfs(v), orig_records(o), first(f), num_thread(n) { }
-	};
-	
-	struct ConfigThread {
-		const std::vector<VCFFillable *>&	vcfs;
-		const std::size_t	first;
-		const int	num_thread;
-		
-		ConfigThread(const std::vector<VCFFillable *>& v, int f, int n) :
-								vcfs(v), first(f), num_thread(n) { }
-	};
-	
-	std::vector<VCFFillableRecord *>	records;
-	
 public:
 	using Position = std::tuple<int, ll, std::string>;
 	using Group = std::pair<FillType, std::vector<VCFFillableRecord *>>;
 	using Item = std::pair<std::vector<VCFHeteroHomo *>,
 							std::vector<VCFImpFamilyRecord *>>;
 	using ImpRecords = std::map<Parents, std::vector<VCFImpFamilyRecord *>>;
+	
+	struct ConfigThreadPhase {
+		const std::size_t	first;
+		const std::size_t	num_threads;
+		const std::vector<Group>&	groups;
+		VCFFillable	*vcf;
+		
+		ConfigThreadPhase(std::size_t f, std::size_t n,
+							const std::vector<Group>& g, VCFFillable *v) :
+								first(f), num_threads(n), groups(g), vcf(v) { }
+	};
+	
+public:
+	
+	std::vector<VCFFillableRecord *>	records;
 	
 public:
 	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
@@ -256,7 +249,7 @@ public:
 		return records;
 	}
 	
-	void modify();
+	void modify(int num_threads);
 	void phase_hetero_hetero();
 	VCFFillable *create_from_header() const;
 	void set_records(const std::vector<VCFFillableRecord *>& rs) {
@@ -306,7 +299,8 @@ public:
 				std::map<Parents, std::vector<VCFHeteroHomo *>>& imputed_vcfs,
 				ImpRecords& other_records, int num_threads);
 	static VCFFillable *fill(const std::vector<VCFHeteroHomo *>& vcfs,
-				const std::vector<VCFImpFamilyRecord *>& records);
+							 const std::vector<VCFImpFamilyRecord *>& records,
+							 int num_threads);
 	static std::vector<VCFFillableRecord *> merge_records(
 							const std::vector<VCFHeteroHomo *>& vcfs,
 							const std::vector<VCFImpFamilyRecord *>& records,
@@ -314,7 +308,7 @@ public:
 	
 private:
 	static std::vector<std::vector<VCFFillableRecord *>>
-		collect_records(const std::vector<VCFFillable *>& vcfs, bool all_out);
+		collect_records(const std::vector<VCFFillable *>& vcfs);
 	static std::pair<STRVEC, std::vector<std::vector<std::pair<int, int>>>>
 			integrate_samples(const std::vector<STRVEC>& sss,
 											const STRVEC& orig_samples);
@@ -325,6 +319,7 @@ private:
 	static std::vector<VCFFillable *> fill_parellel(std::vector<Item>& items,
 															int num_threads);
 	static void delete_items(const std::vector<Item>& items);
+	static void phase_in_thread(void *config);
 	static void fill_in_thread(void *config);
 };
 

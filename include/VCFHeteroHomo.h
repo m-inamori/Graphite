@@ -44,7 +44,7 @@ public:
 	
 	std::vector<int> genotypes_from_hetero_parent() const;
 	void set_haplo(int h);
-	void set_int_gt_by_which_comes_from(const std::vector<int>& ws);
+	void set_int_gt_by_which_comes_from(int w, int i);
 };
 
 
@@ -53,20 +53,17 @@ public:
 class VCFHeteroHomo : public VCFBase, public VCFSmallBase, 
 						public VCFFamilyBase, public VCFMeasurable {
 public:
-	struct ConfigThread {
-		const std::vector<std::vector<VCFHeteroHomo *>>&	vcfs_heho;
-		const Option *option;
+	struct ConfigThreadCleanSeq {
 		const std::size_t	first;
-		const int	num_threads;
-		std::vector<ImpResult>&	imputed_vcfs;
+		const std::size_t	num_threads;
+		const std::vector<double>&	cMs;
+		const double	min_c;
+		VCFHeteroHomo	*vcf;
 		
-		ConfigThread(const std::vector<std::vector<VCFHeteroHomo *>>& vcfs,
-											const Option *op, int f, int n,
-											std::vector<ImpResult>& results) :
-									vcfs_heho(vcfs), option(op), first(f),
-									num_threads(n), imputed_vcfs(results) { }
-		
-		std::size_t size() const { return imputed_vcfs.size(); }
+		ConfigThreadCleanSeq(std::size_t i, std::size_t	n,
+							 const std::vector<double>& cMs_,
+							 double m, VCFHeteroHomo *vcf_) :
+					first(i), num_threads(n), cMs(cMs_), min_c(m), vcf(vcf_) { }
 	};
 	
 	typedef std::pair<std::string,std::string>	Parents;
@@ -111,7 +108,7 @@ public:
 	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
 						determine_haplotype(const OptionImpute *option) const;
 	std::pair<std::vector<VCFHeteroHomo *>, std::vector<VCFHeteroHomoRecord *>>
-														impute(int num_threads);
+														clean(int num_threads);
 	// 共通のヘテロ親はどれだけマッチしているか
 	std::pair<int, int> match(const VCFHeteroHomo *other) const;
 	void inverse_hetero_parent_phases();
@@ -123,10 +120,12 @@ private:
 	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
 	InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
-	std::string impute_each_sample_seq(int i,
+	std::string clean_each_sample_seq(std::size_t i,
 								const std::vector<double>& cMs, double min_c);
-	void impute_each(const OptionImpute *option);
-	const OptionImpute *create_option() const;
+	void clean_each_sample(std::size_t i,
+								const std::vector<double>& cMs, double min_c);
+	void clean_each_vcf(const OptionImpute *option);
+	const OptionImpute *create_option(int num_threads) const;
 	
 public:
 	// FamilyごとにVCFHeteroHomoを作って親ごとに格納する
@@ -137,7 +136,7 @@ public:
 						   const STRVEC& samples, const Map& geno_map);
 	// ヘテロ親が同じVCFを集めて補完する
 	// ついでにphaseもなるべく同じになるように変更する
-	static ImpResult impute_vcfs(
+	static ImpResult clean_vcfs(
 						const std::vector<VCFHeteroHomoRecord *>& records,
 						const std::vector<STRVEC>& header,
 						const STRVEC& samples,
@@ -152,11 +151,8 @@ private:
 	static double dist_with_NA(int right, int counter_NA, int N);
 	static bool is_all_same_without_N(const std::string& seq);
 	static std::string create_same_color_string(const std::string& seq);
-	static std::vector<std::vector<bool>> enumerate_bools(std::size_t L);
-	static int match_score(const std::vector<bool>& invs,
-			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
 	static std::vector<bool> optimize_phase_inversions(
 			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
-	static void impute_in_thread(void *config);
+	static void clean_in_thread(void *config);
 };
 #endif
