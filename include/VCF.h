@@ -161,8 +161,10 @@ public:
 public:
 	static VCFSmall *read(const std::string& path);
 	// join VCFs in order of given samples
-	static VCFSmall *join(const std::vector<VCFSmallBase *>& vcfs,
-												const STRVEC& samples);
+	static VCFSmall *join(const std::vector<const VCFSmallBase *>& vcfs,
+														const STRVEC& samples);
+	static VCFSmall *join(const VCFSmallBase *vcf1, const VCFSmallBase *vcf2,
+														const STRVEC& samples);
 };
 
 

@@ -294,17 +294,17 @@ VCFSmall *VCFSmall::read(const string& path) {
 }
 
 // join VCFs in order of given samples
-VCFSmall *VCFSmall::join(const vector<VCFSmallBase *>& vcfs,
-										const STRVEC& samples) {
-	map<string, pair<VCFSmallBase *, size_t>>	dic;
+VCFSmall *VCFSmall::join(const vector<const VCFSmallBase *>& vcfs,
+													const STRVEC& samples) {
+	map<string, pair<const VCFSmallBase *, size_t>>	dic;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		VCFSmallBase	*vcf = *p;
+		const VCFSmallBase	*vcf = *p;
 		const STRVEC&	ss = vcf->get_samples();
 		for(size_t i = 0; i < ss.size(); ++i)
 			dic[ss[i]] = make_pair(vcf, i + 9);
 	}
 	
-	vector<tuple<string, VCFSmallBase *, size_t>>	cols;
+	vector<tuple<string, const VCFSmallBase *, size_t>>	cols;
 	for(auto p = samples.begin(); p != samples.end(); ++p) {
 		auto	q = dic.find(*p);
 		if(q != dic.end())
@@ -321,7 +321,7 @@ VCFSmall *VCFSmall::join(const vector<VCFSmallBase *>& vcfs,
 	VCFSmall	*new_vcf = new VCFSmall(new_header, new_samples, empty_records);
 	const STRVEC&	samples_ = new_vcf->get_samples();
 	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
-		VCFSmallBase	*vcf = vcfs[0];
+		const VCFSmallBase	*vcf = vcfs[0];
 		const STRVEC&	orig_v = vcf->get_record(i)->get_v();
 		STRVEC	v(orig_v.begin(), orig_v.begin() + 9);
 		for(auto p = cols.begin(); p != cols.end(); ++p)
@@ -330,6 +330,12 @@ VCFSmall *VCFSmall::join(const vector<VCFSmallBase *>& vcfs,
 	}
 	
 	return new_vcf;
+}
+
+VCFSmall *VCFSmall::join(const VCFSmallBase *vcf1, const VCFSmallBase *vcf2,
+														const STRVEC& samples) {
+	vector<const VCFSmallBase *>	vcfs{ vcf1, vcf2 };
+	return VCFSmall::join(vcfs, samples);
 }
 
 
