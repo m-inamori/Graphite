@@ -10,7 +10,7 @@
 
 class BaumWelch {
 	typedef std::map<std::pair<char,char>,double>	Matrix;
-	typedef std::vector<std::map<char,double>>	Table;
+	typedef std::vector<std::map<char,double> >	Table;
 	
 	const std::vector<char>&	hidden_states;
 	const std::vector<char>&	states;
