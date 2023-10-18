@@ -6,12 +6,28 @@ on:
     branches:
     - '*'
 jobs:
-  build-linux-x86:
-    # For Windows you can go with "windows-latest"
+  build-linux-aarch64:
     runs-on: ubuntu-latest
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      # Usually this is always needed
+      - uses: actions/checkout@v2
+      - uses: uraimo/run-on-arch-action@v2
+        name: Run commands
+        id: runcmd
+        with:
+          arch: aarch64
+          distro: ubuntu_latest
+          run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-multilib python3 curl zip unzip
+          make
+      - name: artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: linux-x64
+          path: .
+  build-linux-x86:
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v2
       - name: Install Packages
         run: |
@@ -26,6 +42,7 @@ jobs:
         with:
           name: linux-x64
           path: .
+
   build-macos-x86:
     runs-on: macos-latest
     steps:
