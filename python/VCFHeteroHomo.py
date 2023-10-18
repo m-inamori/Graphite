@@ -355,7 +355,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		N = len(vcfs)
 		graph: InverseGraph = InverseGraph()
 		for v in range(N):
-			graph[v] = []
+			graph[Node(v)] = []
 		for i, j in combinations(range(N), 2):
 			num_match, num_unmatch = vcfs[i].match(vcfs[j])
 			if num_match != 0 or num_unmatch != 0:

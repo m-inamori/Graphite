@@ -21,6 +21,7 @@ from VCFHeteroHeteroLite import VCFHeteroHeteroLiteRecord
 from VCFJunkRecord import *
 from VCFFillable import *
 from VCFHeteroHomoPP import *
+from VCFImpFamily import VCFImpFamilyRecord
 from Map import *
 import ClassifyRecord as CR
 from TypeDeterminer import TypeDeterminer
@@ -105,7 +106,9 @@ def collect_same_parent_families(families: list[Family]
 def sort_records(rs: list[tuple[list[VCFHeteroHomoRecord],
 								list[VCFImpFamilyRecord], int]]
 										) -> list[list[VCFImpFamilyRecord]]:
-	max_index = max(rs1[-1].index for rs1 in rs[0][:2] if rs1)
+	indices1 = [ rs1[-1].index for rs1, _, __ in rs ]
+	indices2 = [ rs2[-1].index for _, rs2, __ in rs ]
+	max_index = max(indices1 + indices2)
 	recordss: list[list[VCFImpFamilyRecord]] = \
 							[ [] for _ in range(max_index + 1) ]
 	for rs1, rs2, _ in rs:

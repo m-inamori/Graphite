@@ -19,18 +19,23 @@ public:
 	const double		ratio;
 	const std::size_t	lower_progs;
 	const bool			only_large_families;
+	const bool			imputes_isolated_samples;
+	const bool			outputs_unimputed_samples;
 	
 public:
 	Option(const std::string& vcf, const std::string& ped,
 			const std::string& map, const std::vector<std::size_t>& fam,
-			const std::vector<std::size_t>& chr,
-			int nt, std::size_t lp, bool ol, const std::string& out) :
+			const std::vector<std::size_t>& chr, int nt,
+			std::size_t lp, bool ol, bool ii, bool ou, const std::string& out) :
 									path_vcf(vcf), path_ped(ped), path_map(map),
 									families(fam), chroms(chr), num_threads(nt),
 									path_out(out), ratio(0.01), lower_progs(lp),
-									only_large_families(ol) { }
+									only_large_families(ol),
+									imputes_isolated_samples(ii),
+									outputs_unimputed_samples(ou)  { }
 	
 	bool is_efficient_chrom(int i) const;
+	void print_info() const;
 	
 public:
 	static Option *create(int argc, char **argv);

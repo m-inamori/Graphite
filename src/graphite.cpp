@@ -86,31 +86,31 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	
 	// At last, impute isolated samples
 	const STRVEC	samples = sample_man->extract_isolated_samples();
-	if(!samples.empty()) {
+	if(!samples.empty() && option->imputes_isolated_samples) {
 		VCFSmall	*new_imputed_vcf = SmallFamily::impute_iolated_samples(
 												orig_vcf,
 												merged_vcf, sample_man, samples,
 												geno_map, option->num_threads);
-		vector<VCFSmallBase *>	vcfs{ merged_vcf, new_imputed_vcf };
 		VCFSmall	*vcf = merged_vcf;
 		merged_vcf = VCFSmall::join(merged_vcf, new_imputed_vcf,
 												orig_vcf->get_samples());
 		delete vcf;
 		delete new_imputed_vcf;
 	}
+	else if(!samples.empty() && option->outputs_unimputed_samples) {
+		auto	*vcf_isolated = orig_vcf->extract_samples(samples);
+		VCFSmall	*vcf = merged_vcf;
+		merged_vcf = VCFSmall::join(merged_vcf, vcf_isolated,
+												orig_vcf->get_samples());
+		delete vcf;
+	}
 	
 	sample_man->clear_imputed_samples();
 	return merged_vcf;
 }
 
-void print_info(const Option *option) {
-	cerr << "input VCF : " << option->path_vcf << endl;
-	cerr << "pedigree : " << option->path_ped << endl;
-	cerr << "output VCF : " << option->path_out << endl;
-}
-
 void impute_VCF(const Option *option) {
-	print_info(option);
+	option->print_info();
 	Materials	*materials = Materials::create(option);
 	materials->display_map_info();
 	

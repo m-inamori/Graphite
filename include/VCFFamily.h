@@ -97,10 +97,8 @@ public:
 public:
 	static VCFFamily *create(const VCFSmall *vcf, const STRVEC& samples);
 	static VCFFamily *merge(const VCFFamily *vcf1, const VCFFamily *vcf2);
-	static std::vector<int> select_columns(const STRVEC& samples,
-												const VCFSmall *vcf);
 	static VCFFamilyRecord *subset(VCFRecord *record, const STRVEC& samples,
-											const std::vector<int>& columns);
+									const std::vector<std::size_t>& columns);
 	static VCFFamily *create_by_two_vcfs(const VCFSmallBase *vcf1,
 										 const VCFSmallBase *vcf2,
 										 const STRVEC& samples);

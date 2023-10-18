@@ -64,7 +64,7 @@ VCFFamily::~VCFFamily() {
 }
 
 VCFFamily *VCFFamily::create(const VCFSmall *vcf, const STRVEC& samples) {
-	const auto	columns = VCFFamily::select_columns(samples, vcf);
+	const auto	columns = vcf->extract_columns(samples);
 	const auto	header = vcf->trim_header(samples);
 	const vector<VCFRecord *>&	orig_records = vcf->get_records();
 	vector<VCFFamilyRecord *>	records;
@@ -74,22 +74,8 @@ VCFFamily *VCFFamily::create(const VCFSmall *vcf, const STRVEC& samples) {
 	return new_vcf;
 }
 
-vector<int> VCFFamily::select_columns(const STRVEC& samples,
-												const VCFSmall *vcf) {
-	const STRVEC&	orig_samples = vcf->get_samples();
-	map<string, int>	dic;
-	int	c = 9;
-	for(auto p = orig_samples.begin(); p != orig_samples.end(); ++p, ++c)
-		dic.insert(make_pair(*p, c));
-	
-	vector<int>	columns;
-	for(auto p = samples.begin(); p != samples.end(); ++p)
-		columns.push_back(dic[*p]);
-	return columns;
-}
-
 VCFFamilyRecord *VCFFamily::subset(VCFRecord *record, const STRVEC& samples,
-												const vector<int>& columns) {
+												const vector<size_t>& columns) {
 	const STRVEC&	orig_v = record->get_v();
 	STRVEC	v(orig_v.begin(), orig_v.begin() + 9);
 	for(auto p = columns.begin(); p != columns.end(); ++p) {
