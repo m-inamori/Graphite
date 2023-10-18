@@ -16,7 +16,11 @@ jobs:
         with:
           arch: aarch64
           distro: ubuntu_latest
+          install: |
+            apt-get update -qq
+            apt-get install -y gcc-multilib python3 curl zip unzip
           run: |
+
             make
       - name: artifacts
         uses: actions/upload-artifact@v1
