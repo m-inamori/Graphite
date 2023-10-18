@@ -14,7 +14,7 @@ jobs:
       - name: version
         run: gcc --version
       - name: Build
-        run: make --std=c++17
+        run: make
       - name: artifacts
         uses: actions/upload-artifact@v1
         with:
