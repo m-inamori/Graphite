@@ -18,14 +18,13 @@ jobs:
           distro: ubuntu_latest
           install: |
             apt-get update -qq
-            apt-get install -y gcc-multilib python3 curl zip unzip
+            apt-get install -y build-essential python3 curl zip unzip
           run: |
-
             make
       - name: artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: linux-x64
+          name: linux-aarch64
           path: .
   build-linux-x86:
     runs-on: ubuntu-latest
