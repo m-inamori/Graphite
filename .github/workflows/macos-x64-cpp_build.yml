@@ -7,18 +7,14 @@ on:
     - '*'
 jobs:
   build-macos-x86:
-    # For Windows you can go with "windows-latest"
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
-  #    - name: Install Packages
-  #      run: |
-  #        sudo apt-get update -qq
-  #        sudo apt-get install -y gcc-multilib python3 curl zip unzip
-      - name: verions
+
+      - name: version
         run: gcc --version
       - name: Build
-        run: make
+        run: make --std=c++17
       - name: artifacts
         uses: actions/upload-artifact@v1
         with:

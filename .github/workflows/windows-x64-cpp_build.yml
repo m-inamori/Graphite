@@ -10,20 +10,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-
-
-      - name: Create Build Directory
-        run: cmake -E make_directory ${{github.workspace}}/build
- #     - name: Install Packages
- #       run: |
- #         sudo apt-get update -qq
- #         sudo apt-get install -y gcc-multilib python3 curl zip unzip
-      - name: verions
+      - name: version
         run: gcc --version
-      - name: Build
-        run: make
-      - name: artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: windows-x64
-          path: .
+#      - name: Build
+#        run: make
+#      - name: artifacts
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: windows-x64
+#          path: .
