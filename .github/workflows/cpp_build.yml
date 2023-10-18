@@ -27,7 +27,9 @@ jobs:
         run: gcc --version
       - name: Build
         run: make
-      - name:
+      - name: none1
+        run: ls -all
+      - name: none2
         run: |
           cd build
           ls
