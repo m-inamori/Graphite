@@ -2,7 +2,7 @@
 #define __SAMPLEMANAGER
 
 #include <set>
-#include "pedigree.h"
+#include "Pedigree.h"
 
 
 //////////////////// SampleManager ////////////////////
