@@ -1,5 +1,5 @@
 ---
-name: 'build cpp'
+name: 'build cpp linux x86'
 
 on:
   push:
@@ -13,12 +13,6 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       # Usually this is always needed
       - uses: actions/checkout@v2
-
-      # Runs a single command using the runners shell
-      - name: just some echo
-        run: echo Hello, world!
-      - name: Create Build Directory
-        run: cmake -E make_directory ${{github.workspace}}/build
       - name: Install Packages
         run: |
           sudo apt-get update -qq

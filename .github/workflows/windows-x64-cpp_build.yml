@@ -1,5 +1,5 @@
 ---
-name: 'build cpp'
+name: 'build cpp windows x86'
 
 on:
   push:
