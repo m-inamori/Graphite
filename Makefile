@@ -1,5 +1,5 @@
 CC		= g++
-CFLAGS	= -std=c++17 -O2 -Wall
+CFLAGS	= -std=c++20 -O2 -Wall
 LDFLAGS = 
 LIBS	= -lz -lpthread
 PROGRAM = ../graphite
