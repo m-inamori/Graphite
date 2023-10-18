@@ -1,5 +1,5 @@
 ---
-name: 'build cpp linux x86'
+name: 'build cpp'
 
 on:
   push:
@@ -25,4 +25,18 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: linux-x64
+          path: .
+  build-macos-x86:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: version
+        run: gcc --version
+      - name: Build
+        run: make
+      - name: artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: macos-x64
           path: .
