@@ -33,3 +33,8 @@ jobs:
         run: |
           cd build
           ls
+      - name: artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: Linux
+          path: artifacts
