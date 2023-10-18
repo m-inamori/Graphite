@@ -6,7 +6,7 @@ on:
     branches:
     - '*'
 jobs:
-  build:
+  build-linux-x86:
     # For Windows you can go with "windows-latest"
     runs-on: ubuntu-latest
     steps:
@@ -27,14 +27,8 @@ jobs:
         run: gcc --version
       - name: Build
         run: make
-      - name: none1
-        run: ls -all
-      - name: none2
-        run: |
-          cd obj
-          ls
       - name: artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: Linux
-          path: obj
+          name: Linux-x64
+          path: .
