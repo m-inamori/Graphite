@@ -185,6 +185,10 @@ VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const InvGraph& graph) const {
 										records, this->get_map());
 }
 
+bool operator <(const InvGraph& g1, const InvGraph& g2) {
+	return g1.size() < g2.size();
+}
+
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 		VCFHeteroHomo::determine_haplotype(const OptionImpute *option) const {
 	const double	max_dist = std::min((double)option->max_dist,
@@ -204,10 +208,7 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 	
 	// keep only the largest graph if there are only small ones
 	if(large_graphs.empty()) {
-		auto	max_g = std::max_element(small_graphs.begin(),
-										 small_graphs.end(),
-											[](const auto& a, const auto& b) {
-												return a.size() < b.size(); });
+		auto	max_g = max_element(small_graphs.begin(), small_graphs.end());
 		large_graphs.push_back(*max_g);
 		small_graphs.erase(max_g);
 	}
