@@ -45,7 +45,12 @@ public:
 	}
 	
 	HaplotypePair impute_cM_each_sample(HaplotypePair prev_hap,
-										std::size_t sample_index, bool exec);
-	void set_haplotype(HaplotypePair hap, std::size_t sample_index);
+										std::size_t sample_index,
+										bool exec, bool modify_genotypes);
+	// phasing, but not correct
+	void set_GT_unmodify(std::size_t i, std::size_t sample_id,
+											const std::string& new_GT);
+	void set_haplotype(HaplotypePair hap, std::size_t sample_index,
+												bool modify_genotypes);
 };
 #endif

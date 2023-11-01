@@ -6,7 +6,7 @@ GRAph used tool to correct, PHase, and ImpuTE VCF
 
 ## Usage
 
-graphite  -i VCF -p ped [-m map] [-t num_threads] [-f family indices] [-c chrom indices] [--lower-progs lower num progenies] [--large-only] [--not-impute-isolated [--out-isolated]] -o out.
+graphite  -i VCF -p ped [-m map] [-t num_threads] [-f family indices] [-c chrom indices] [--lower-progs lower num progenies] [--large-only] [--not-impute-isolated [--out-isolated]] [--not-correct-isolated] -o out.
 family indices: (index|first:last)[,(index|first:last)[,..]]
 chrom indices: same as family indices.
 
@@ -37,6 +37,8 @@ chrom indices: same as family indices.
 --not-impute-isolated : not impute isolated samples
 
 --out-isolated    : output not imputed isolated samples
+
+--not-correct-isolated : impute and phase, but not correct isolated samples
 
 #### 
 

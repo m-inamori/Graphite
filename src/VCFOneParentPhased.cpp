@@ -92,7 +92,8 @@ vector<HaplotypePair> VCFOneParentPhased::impute_cM(
 	vector<HaplotypePair>	haps;
 	for(size_t i = 0; i < prev_haps.size(); ++i) {
 		const auto	prev_hap = prev_haps[i];
-		const auto	hap = this->impute_cM_each_sample(prev_hap, i+2, true);
+		const auto	hap = this->impute_cM_each_sample(prev_hap, i+2,
+															true, true);
 		haps.push_back(hap);
 	}
 	return haps;

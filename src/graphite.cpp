@@ -82,15 +82,16 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	
 	merged_vcf = SmallFamily::impute_small_family_VCFs(orig_vcf, merged_vcf,
 														geno_map, sample_man,
-														option->num_threads);
+														option);
 	
 	// At last, impute isolated samples
 	const STRVEC	samples = sample_man->extract_isolated_samples();
 	if(!samples.empty() && option->imputes_isolated_samples) {
 		VCFSmall	*new_imputed_vcf = SmallFamily::impute_iolated_samples(
-												orig_vcf,
-												merged_vcf, sample_man, samples,
-												geno_map, option->num_threads);
+											orig_vcf, merged_vcf,
+											sample_man, samples, geno_map,
+											option->corrects_isolated_samples,
+											option->num_threads);
 		VCFSmall	*vcf = merged_vcf;
 		merged_vcf = VCFSmall::join(merged_vcf, new_imputed_vcf,
 												orig_vcf->get_samples());
