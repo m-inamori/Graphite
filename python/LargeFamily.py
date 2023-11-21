@@ -106,8 +106,8 @@ def collect_same_parent_families(families: list[Family]
 def sort_records(rs: list[tuple[list[VCFHeteroHomoRecord],
 								list[VCFImpFamilyRecord], int]]
 										) -> list[list[VCFImpFamilyRecord]]:
-	indices1 = [ rs1[-1].index for rs1, _, __ in rs ]
-	indices2 = [ rs2[-1].index for _, rs2, __ in rs ]
+	indices1 = [ rs1[-1].index if rs1 else 0 for rs1, _, __ in rs ]
+	indices2 = [ rs2[-1].index if rs2 else 0 for _, rs2, __ in rs ]
 	max_index = max(indices1 + indices2)
 	recordss: list[list[VCFImpFamilyRecord]] = \
 							[ [] for _ in range(max_index + 1) ]

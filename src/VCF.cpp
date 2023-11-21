@@ -393,7 +393,7 @@ VCFRecord *VCFHuge::next() {
 		return NULL;
 	
 	VCFRecord	*record = new VCFRecord(v, this->samples);
-	this->record_position(*record);		// chrsを更新するために必要
+	this->record_position(*record);		// necessary to update chrs
 	return record;
 }
 

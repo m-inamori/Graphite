@@ -27,14 +27,14 @@ VCFSmall *SmallFamily::impute_vcf_by_parents_core(
 						const Map& geno_map, const Option *option) {
 	auto	vcfs = VCFHeteroHomoPP::impute_vcfs(orig_vcf, merged_vcf, families,
 												geno_map, option->num_threads);
-	STRVEC	samples;	// 子どもだけ集める
+	STRVEC	samples;	// collect progenies
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		VCFFillable	*vcf = *p;
 		STRVEC	ss = vcf->get_samples();
 		samples.insert(samples.end(), ss.begin() + 2, ss.end());
 	}
 	
-	// samplesの所有権をnew_vcfに持たせる
+	// Give ownership of samples to new _vcf
 	auto	new_header = orig_vcf->trim_header(samples);
 	vector<VCFRecord *>	empty_records;
 	auto	*new_vcf = new VCFSmall(new_header, samples, empty_records);
@@ -277,7 +277,7 @@ VCFSmall *SmallFamily::impute_iolated_samples(
 				SampleManager *sample_man, const STRVEC& samples,
 				const Map& gmap, bool modify_genotypes, int num_threads) {
 	const STRVEC	references = sample_man->get_large_parents();
-	// あとでマルチプロセス化するためにphasingすべきsample分割する
+	// Split sample to phase for later multithreading
 	auto	vcfs_ = VCFIsolated::create(orig_vcf, merged_vcf, samples,
 										references, gmap,
 										modify_genotypes, num_threads);
@@ -287,4 +287,3 @@ VCFSmall *SmallFamily::impute_iolated_samples(
 	Common::delete_all(new_vcfs);
 	return new_vcf;
 }
-

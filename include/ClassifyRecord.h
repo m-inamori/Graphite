@@ -18,7 +18,8 @@ class VCFFamilyRecord;
 
 class ClassifyRecord {
 public:
-	typedef std::pair<double, ParentComb>	GTComb;		// 親のGenotypeの組合せ
+	// probability and genotypes of parents
+	typedef std::pair<double, ParentComb>	GTComb;
 	
 private:
 	// Singleton

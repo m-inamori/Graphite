@@ -38,7 +38,7 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 	# 最後に孤立したサンプルを補完する
 	samples = sample_man.extract_isolated_samples()
 	if samples:
-		new_imputed_vcf = SmallFamily.impute_iolated_samples(orig_vcf,
+		new_imputed_vcf = SmallFamily.impute_isolated_samples(orig_vcf,
 												merged_vcf, sample_man, samples,
 												geno_map, option.num_threads)
 		vcfs: list[VCFSmallBase] = [merged_vcf, new_imputed_vcf]

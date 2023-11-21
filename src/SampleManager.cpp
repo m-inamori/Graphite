@@ -55,7 +55,7 @@ bool SampleManager::is_parents_imputed_and_progenies_not_imputed(
 
 bool SampleManager::is_parent_imputed_and_progenies_not_imputed(
 												const Family *family) const {
-	// 片親だけimputed
+	// only one parent is imputed
 	if(!(this->is_imputed(family->get_mat()) ^
 				this->is_imputed(family->get_pat())))
 		return false;
@@ -176,8 +176,9 @@ bool SampleManager::is_all_not_imputed(const vector<string>& samples) const {
 }
 
 vector<string> SampleManager::extract_isolated_samples() const {
-	// 繋がっているサンプルがあっても、
-	// 家系の全サンプルがphasingされていないなら孤立とみなす
+	// If there is a connected sample in the family
+	// but the entire sample of the pedigree is not imputed,
+	// it is considered isolated.
 	vector<string>	samples;
 	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
 		const Family	*family = *p;

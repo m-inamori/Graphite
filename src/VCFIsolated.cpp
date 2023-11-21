@@ -96,7 +96,7 @@ vector<VCFIsolated *> VCFIsolated::create(const VCFSmall *orig_vcf,
 							references.begin(), references.end());
 		const auto	header = orig_vcf->trim_header(new_samples);
 		vector<VCFRecord *>	records;
-		// samplesをVCFに持たせるため、先にVCFを作って、後でRecordを追加する
+		// Create VCF first and add Record later to have samples in VCF
 		VCFIsolated	*vcf = new VCFIsolated(header, new_samples, records,
 											cs.size(), gmap, modify_genotypes);
 		for(size_t i = 0; i < orig_vcf->size(); ++i) {

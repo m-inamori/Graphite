@@ -36,7 +36,7 @@ namespace LargeFamily {
 					heho_records(heho_rs), other_records(other_rs) { }
 	};
 	
-	// HeteroHomoとそれ以外を分ける
+	// separate hetero x homo records from others
 	void classify_record(std::size_t i, const VCFFamily *vcf,
 						 const TypeDeterminer *td,
 						 std::vector<VCFHeteroHomoRecord *>& heho_records,
@@ -44,9 +44,9 @@ namespace LargeFamily {
 	
 	void classify_records_in_thread(void *config);
 	
-	// HeteroHomoだけ別にする
-	// このあとHeteroHomoだけ補完するから
-	// その他はVCFFillableにした後補完する
+	// Collect only hetero × homo to impute.
+	// Homo × Homo is imputed for each record.
+	// The others are imputed by VCFFillable.
 	std::pair<std::vector<VCFHeteroHomoRecord *>,
 			  std::vector<VCFImpFamilyRecord *>>
 	classify_records(const VCFFamily *vcf, const Option *option);

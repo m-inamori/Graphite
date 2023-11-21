@@ -26,7 +26,7 @@ void LargeFamily::classify_record(size_t i, const VCFFamily *vcf,
 	const WrongType	wrong_type = pair1.second;
 	const STRVEC&	v = record->get_v();
 	const STRVEC&	samples = record->get_samples();
-	if(pc == ParentComb::PNA) {		// 候補が無い
+	if(pc == ParentComb::PNA) {		// no candidates
 		other_records[i] = new VCFJunkRecord(v, samples, i, wrong_type);
 	}
 	else if(TypeDeterminer::is_homohomo(pc)) {
@@ -54,9 +54,6 @@ void LargeFamily::classify_records_in_thread(void *config) {
 	}
 }
 
-// HeteroHomoだけ別にする
-// このあとHeteroHomoだけ補完するから
-// その他はVCFFillableにした後補完する
 pair<vector<VCFHeteroHomoRecord *>, vector<VCFImpFamilyRecord *>>
 LargeFamily::classify_records(const VCFFamily *vcf, const Option *option) {
 	const size_t	N = vcf->size();
@@ -180,8 +177,6 @@ void LargeFamily::modify_00x11_each(
 	}
 }
 
-// 0/0 x 1/1のrecordで別の家系の親になっているとき、
-// 他のホモ×ホモやヘテロ×ホモとGenotypeが違うとき、修正する
 // When a parent of record with 0/0 x 1/1 parents is one of another family,
 // correct if the genotype is different from other Homo x Homo or Hetero x Homo
 void LargeFamily::modify_00x11(

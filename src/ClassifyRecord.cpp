@@ -42,6 +42,7 @@ const TypeDeterminer *ClassifyRecord::get_TypeDeterminer(size_t n, double a) {
 	return td;
 }
 
+// count the numbers of 0, 1, 2
 tuple<size_t, size_t, size_t> ClassifyRecord::count_int_gts(
 											const vector<int>& gts) const {
 	vector<size_t>	ns(3, 0);
@@ -57,9 +58,10 @@ vector<ClassifyRecord::GTComb> ClassifyRecord::filter_pairs(
 	if(combs.size() == 1)
 		return combs;
 	
-	// 親の組合せの候補が複数ある場合、取れる確率が大きく違えば一つにする
-	// p0(1-p1)(1-p2)などを確率のようなものとみなす
-	vector<double>	ps(combs.size());	// p0(1-p1)(1-p2)などを格納する
+	// When there are multiple candidates for a parent combination,
+	// if the probabilities are very different, one candidate is selected.
+	// regard p0(1-p1)(1-p2) and like this as probabilities
+	vector<double>	ps(combs.size());	// store p0(1-p1)(1-p2) and like this
 	for(size_t i = 0; i < combs.size(); ++i) {
 		double	p = 1.0;
 		for(size_t k = 0; k < combs.size(); ++k)
@@ -109,9 +111,10 @@ bool ClassifyRecord::is_matched(int mat_gt, int pat_gt, ParentComb comb) const {
 std::pair<ParentComb, WrongType> ClassifyRecord::select_pair(
 												vector<GTComb>& combs,
 												int mat_gt, int pat_gt) const {
-	// combsの中に確率が大きいものがあり、それ以外は小さければ、それだけにする
+	// If one of the combs has a high probability and the others are small,
+	// only that comb is used.
 	if(combs.size() >= 2) {
-		std::sort(combs.begin(), combs.end());	// 確率でソート
+		std::sort(combs.begin(), combs.end());	// sort by probabilities
 		vector<double>	ps;
 		for(auto p = combs.begin(); p != combs.end(); ++p) {
 			ps.push_back(p->first);
@@ -129,11 +132,16 @@ std::pair<ParentComb, WrongType> ClassifyRecord::select_pair(
 	
 	const ParentComb	comb = combs.front().second;
 	if(is_matched(mat_gt, pat_gt, comb))
+		// If the most probable Genotype pair matches the original Genotypes,
+		// it is determined to be that Genotype pair
 		return make_pair(comb, WrongType::RIGHT);
-	else if(mat_gt == pat_gt)	// どちらが正しいのかわからない
+	else if(mat_gt == pat_gt)
+		// I don't know which of my parents' genotypes is correct.
 		return make_pair(ParentComb::PNA, WrongType::MIX);
 	
-	// 最も優先順位が高いペアだけ片方だけ合っているなら修正可能
+	// If the most probable Genotype pair matches only one Genotype
+	// and no other Genotype pair matches the original Genotypes,
+	// the pair can be modified.
 	vector<bool>	bs;
 	for(auto p = combs.begin(); p != combs.end(); ++p) {
 		const auto	gt_pair = TypeDeterminer::int_gt_pair(p->second);

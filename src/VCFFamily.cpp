@@ -85,8 +85,8 @@ VCFFamilyRecord *VCFFamily::subset(VCFRecord *record, const STRVEC& samples,
 }
 
 VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
-	// samplesをVFCとRecordで共通にするために
-	// 空のVCFを作って、そのsamplesを使うようにする
+	// Create an empty VCF to make samples common to VFC and Record
+	// and use the samples
 	vector<VCFFamilyRecord *>	records;
 	VCFFamily	*vcf = new VCFFamily(vcf1->get_header(),
 											vcf1->get_samples(), records);
@@ -119,11 +119,10 @@ VCFFamily *VCFFamily::merge(const VCFFamily *vcf1, const VCFFamily *vcf2) {
 	return vcf;
 }
 
-// 親はvcf1から子はvcf2からGenotypeを取って新たなVCFを作る
 VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmallBase *vcf1,
 										 const VCFSmallBase *vcf2,
 										 const STRVEC& samples) {
-	// samplesは[mat, pat, prog1, ...]の前提
+	// assume that samples are [mat, pat, prog1, prog2, ...]
 	const vector<size_t>	columns1 = vcf1->extract_columns(samples);
 	const vector<size_t>	columns2 = vcf2->extract_columns(samples);
 	const auto	new_header = vcf1->trim_header(samples);

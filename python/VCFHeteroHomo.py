@@ -242,7 +242,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 			return create_same_color_string(seq)
 		
 		hidden_states = ['0', '1']
-		states = [ s for s in ['0', '1', 'N'] if s in seq ]
+		states = ['0', '1', 'N']
 		hidden_seq = Imputer.impute(seq, hidden_states, states, cMs)
 		painted_seq = Imputer.paint(hidden_seq, cMs, min_c)
 		return painted_seq

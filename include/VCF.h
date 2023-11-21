@@ -64,7 +64,6 @@ protected:
 	mutable std::map<std::string,int>	chrs;
 	
 public:
-	// Pythonよりheaderからsamplesを取り出すのがめんどうなので
 	VCFBase(const std::vector<STRVEC>& header_, const STRVEC& samples_);
 	virtual ~VCFBase() { }
 	

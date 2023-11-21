@@ -170,9 +170,9 @@ class VCFFillable : public VCFBase, public VCFSmallBase, public VCFFamilyBase {
 													std::size_t i) const;
 		Pair select_pair(const std::vector<Pair>& pairs,
 								std::size_t i, bool selected=false) const;
-		std::vector<double> probs_from_which_chrom(int prev_chrom,
+		std::vector<double> likelihoods_from_which_chrom(int prev_chrom,
 													int next_chrom) const;
-		std::vector<double> probs_from_which_chrom(std::size_t i,
+		std::vector<double> likelihoods_from_which_chrom(std::size_t i,
 													bool is_mat) const;
 		double compute_phasing_likelihood_each(std::size_t i,
 									int mat_phasing, int pat_phasing) const;
@@ -312,7 +312,7 @@ private:
 	static std::pair<STRVEC, std::vector<std::vector<std::pair<int, int>>>>
 			integrate_samples(const std::vector<STRVEC>& sss,
 											const STRVEC& orig_samples);
-	// 重複したサンプルが一つになるようにVCFを統合する
+	// Integrate the VCF so that duplicate samples are one
 	static VCFSmall *integrate(const VCFFillable *vcf,
 					const std::vector<std::vector<VCFFillableRecord *>>& rss,
 					const STRVEC& orig_samples);

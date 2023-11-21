@@ -31,7 +31,8 @@ public:
 	
 	template<typename T>
 	static std::vector<T *> divide_by_cM(const T *vcf) {
-		// 1cMを超えても10個以内で10cM以内なら塊とみなす
+		// If more than 1 cM but not more than 10 pieces and not more than 10 cM
+		// are considered to be a block
 		std::vector<T *>	vcfs;
 		std::size_t	first = 0;
 		for(std::size_t i = 1; i < vcf->size(); ++i) {

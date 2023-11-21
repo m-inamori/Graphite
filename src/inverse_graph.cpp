@@ -75,14 +75,14 @@ map<InverseGraph::Node, bool>
 	if(this->size() <= 20)
 		return this->search_all();
 	
-	// trueとfalseの偏りが大きいものからedgeを確定させていく
-	// グラフが全て繋がるまでに矛盾が無ければOK
+	// Determine edge from those with large true/false bias
+	// It is OK if there is no contradiction until all the graphs are connected.
 	const auto	dic_bs = this->connect_biased_edges();
 	if(!dic_bs.empty())
 		return dic_bs;
 	
-	// それでもダメならランダム
-	// 本当はSAを使いたい
+	// decide to flip randomly if contradictory
+	// I really want to use SA
 	return this->search_randomly();
 }
 
@@ -92,7 +92,8 @@ map<InverseGraph::Node, bool> InverseGraph::search_all() const {
 	int	min_score = 100000000;
 	vector<bool>	min_invs;
 	for(int i = 0; i < (1 << (N-1)); ++i) {
-		// 本当は全てintのままで扱えれば速い
+		// Instead of converting it to bools,
+		// it's faster to keep it as an integer.
 		vector<bool>	invs(N-1);
 		for(size_t j = 0; j < N - 1; ++j)
 			invs[j] = ((i >> j) & 1) == 1;
@@ -204,7 +205,7 @@ map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 		subgraphs.push_back(graph);
 	}
 	
-	// 偏りが大きいエッジから追加していく
+	// Add from highly biased edge
 	for(auto p = sorted_edges.begin(); p != sorted_edges.end(); ++p) {
 		const size_t	i = get<0>(p->second);
 		const size_t	j = get<1>(p->second);
@@ -240,7 +241,7 @@ map<InverseGraph::Node, bool> InverseGraph::connect_biased_edges() const {
 				return InverseGraph::invs(subgraphs[0]);
 		}
 	}
-	return map<size_t, bool>();		// ここには来ないはず
+	return map<size_t, bool>();		// not coming here
 }
 
 bool InverseGraph::is_consistent(
@@ -278,7 +279,7 @@ map<InverseGraph::Node, bool> InverseGraph::invs(
 	map<Node, bool>	visited;
 	const Node	v0 = graph.begin()->first;
 	stack<pair<Node, bool>>	stk;
-	stk.push(make_pair(v0, false));		// v0は反転しないとする
+	stk.push(make_pair(v0, false));		// assume that v0 is not inverted
 	while(!stk.empty()) {
 		const Node	v = stk.top().first;
 		const bool	b = stk.top().second;

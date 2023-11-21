@@ -43,7 +43,6 @@ string VCFHeteroHomoPP::make_seq(size_t i) const {
 		}
 		
 		const int	mat1 = mat_GT.c_str()[0] - '0';
-//		const int	mat2 = mat_GT.c_str()[2] - '0';
 		const int	pat1 = pat_GT.c_str()[0] - '0';
 		const int	pat2 = pat_GT.c_str()[2] - '0';
 		if(pat1 == pat2) {	// mat hetero
@@ -70,10 +69,7 @@ string VCFHeteroHomoPP::impute_sample_seq(size_t i,
 	if(is_all_same_without_N(seq))
 		return create_same_color_string(seq);
 	
-	const vector<char>	hidden_states = { '0', '1' };
-	const vector<char>	states = Imputer::create_states(seq);
-	const string	hidden_seq = Imputer::impute(seq,
-												hidden_states, states, cMs);
+	const string	hidden_seq = Imputer::impute(seq, cMs);
 	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);
 	return painted_seq;
 }
@@ -160,7 +156,6 @@ pair<ParentComb, FillType> VCFHeteroHomoPP::classify_record(
 	else {
 		const char	mat_gt = record->mat_gt().c_str()[0];
 		const char	pat_gt = record->pat_gt().c_str()[0];
-		// FILLEDとするので、ここでimputeもしておく
 		record->impute_homohomo();
 		if(mat_gt == '0' && pat_gt == '0')
 			return make_pair(ParentComb::P00x00, FillType::FILLED);
@@ -173,7 +168,6 @@ pair<ParentComb, FillType> VCFHeteroHomoPP::classify_record(
 
 map<FillType, vector<VCFFillableRecord *>> VCFHeteroHomoPP::classify_records(
 									const vector<VCFFamilyRecord *>& records) {
-	// ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
 	map<FillType, vector<VCFFillableRecord *>>	rss;
 	for(size_t index = 0; index < records.size(); ++index) {
 		VCFFamilyRecord	*record = records[index];
@@ -217,7 +211,6 @@ VCFFillable *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
 									const STRVEC& samples, const Map& gmap) {
 	VCFFamily	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 														orig_vcf, samples);
-	// ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
 	auto	rss = VCFHeteroHomoPP::classify_records(vcf->get_family_records());
 	auto	*mat_vcf = new VCFHeteroHomoPP(vcf->get_header(),
 											vcf->get_samples(),
@@ -233,7 +226,8 @@ VCFFillable *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
 													rss[FillType::IMPUTABLE]);
 	new_vcf->phase_hetero_hetero();
 	
-	// Recordは使いまわししているので、空にしてVCFだけ消す
+	// Since the Records are used by other VCF,
+	// empty the VCF and delete only the VCF.
 	mat_vcf->clear_records();
 	pat_vcf->clear_records();
 	delete mat_vcf;

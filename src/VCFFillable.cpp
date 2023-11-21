@@ -189,7 +189,7 @@ string VCFFillableRecord::gt_from_pat(int pat_from, int c) const {
 }
 
 vector<vector<double>> VCFFillableRecord::make_probability_table() const {
-	// 全ての親のGenotypeの組合せで確率を求める
+	// Probability for all parent Genotype combinations
 	// (0/0, 0/0), (0/0, 0/1), (0/0, 1/1), (0/1, 0/1), (0/1, 1/1), (1/1, 1/1)
 	const vector<double>	ps = {1.0, 0.5, 0.0};
 	vector<vector<double>>	pss_;
@@ -213,7 +213,7 @@ vector<vector<double>> VCFFillableRecord::make_probability_table() const {
 }
 
 void VCFFillableRecord::phase() {
-	// 両親ともホモになっている前提
+	// premise that both parents are homozygous
 	const string	gt_mat = this->v[9].substr(0, 1);
 	const string	gt_pat = this->v[10].substr(0, 1);
 	this->set_mat_GT(gt_mat + "|" + gt_mat);
@@ -395,10 +395,10 @@ string VCFFillableRecord::decide_by_majority(const vector<string>& GTs) const {
 	}
 	
 	vector<string>	max_GTs = max_pair.second;
-	std::sort(max_GTs.begin(), max_GTs.end());	// Python版と合わせるため
+	std::sort(max_GTs.begin(), max_GTs.end());	// to match the Python version
 	if(max_GTs.size() == 1)
 		return max_GTs.front();
-	else	// 最多が複数ある場合は乱数的なものを使う
+	else	// Use a random number if there is more than one candidates
 		return max_GTs[this->hash((int)max_GTs.size())];
 }
 
@@ -411,34 +411,31 @@ void VCFFillableRecord::swap_parents(int i, const string& GT) {
 		this->set_GT(0, is_mat_00 ? "0|0" : "1|1");
 		this->set_GT(1, is_mat_00 ? "1|1" : "0|0");
 		
-		// 子どもも入れ換えなければならない
+		// swap genotyeps of progenies
 		const string	prog_GT = is_mat_00 ? "0|1" : "1|0";
 		for(size_t i = 2; i < this->samples.size(); ++i)
 			this->set_GT(i, prog_GT);
 	}
 }
 
+// Determine a single Genotype
+// when the Genotype of the same sample differs from family to family
 string VCFFillableRecord::decide_duplicated_Genotype(
 									const vector<VCFFillableRecord *>& records,
 									const vector<pair<int, int>>& positions) {
-	// 全部./.ならそのまま
-	// 子どもがいたらそれ
-	// ./.を除いて全部同じだったらそれ
-	// ./.と0/0 x 1/1で全部なら0/0 x 1/1で多数決
-	// ./.と0/0 x 1/1を除いて全部同じだったらそれ
-	// ./.と0/0 x 1/1を除いて複数種あれば多数決
 	STRVEC	GTs;
 	for(auto p = positions.begin(); p != positions.end(); ++p)
 		GTs.push_back(records[p->first]->get_GT(p->second));
 	
+	// if all genotype are ./., not change
 	if(Genotype::is_all_NA(GTs))
 		return "./.";
 	
-	// 子どもが優先
+	// if the sample is a progeny of a family, use the genotype
 	for(size_t i = 0; i < GTs.size(); ++i) {
-		const int	j = positions[i].second;
+		const int	j = positions[i].second;	// jth(0-based) sample of family
 		const string&	GT = GTs[i];
-		if(j >= 2 && GT != "./.")
+		if(j >= 2 && GT != "./.")	// j >= 2 means progeny
 			return GT;
 	}
 	
@@ -448,6 +445,7 @@ string VCFFillableRecord::decide_duplicated_Genotype(
 			GTs_less_NA.push_back(*p);
 	}
 	
+	// If all Genotypes except ./. are the same Genotype, use that Genotype
 	if(Common::is_all_same(GTs_less_NA))
 		return GTs_less_NA.front();
 	
@@ -514,14 +512,13 @@ VCFRecord *VCFFillableRecord::integrate(
 							const vector<string>& samples,
 							const vector<vector<pair<int, int>>>& pos_samples) {
 	const VCFFillableRecord	*record = records.front();
-	// 0|0 x 1|1なら親のGenotypeを交換できる
+	// Exchangeable if one parent Genotype is 0|0 and the other is 1|1
 	for(auto p = pos_samples.begin(); p != pos_samples.end(); ++p) {
 		if(!is_all_same_GT(records, *p)) {
 			integrate_each_sample(records, *p);
 		}
 	}
 	
-	// 交換したあとにGenotypeを集める
 	vector<string>	v(record->v.begin(), record->v.begin() + 9);
 	for(auto p = pos_samples.begin(); p != pos_samples.end(); ++p) {
 		const pair<int, int>&	pos = p->front();
@@ -530,7 +527,7 @@ VCFRecord *VCFFillableRecord::integrate(
 	return new VCFRecord(v, samples);
 }
 
-// phasingされている前提
+// after imputed
 int VCFFillableRecord::from_which_chrom(const VCFFillableRecord *record,
 													size_t i, bool is_mat) {
 	if(record == NULL)
@@ -605,23 +602,25 @@ VCFFillable::Pair VCFFillable::RecordSet::select_nearest_froms(
 	if(pairs.size() == 4U) {
 		return Pair(near_mat_from(i), near_pat_from(i));
 	}
-	else if(pairs[0].first == pairs[1].first) {			// matが同じ
+	else if(pairs[0].first == pairs[1].first) {			// same mat
 		if(is_pat_prev_near())
 			return Pair(pairs[0].first, prev_pat_from(i));
 		else
 			return Pair(pairs[0].first, next_pat_from(i));
 	}
-	else if(pairs[0].second == pairs[1].second) {	// patが同じ
+	else if(pairs[0].second == pairs[1].second) {	// same pat
 		if(is_mat_prev_near())
 			return Pair(prev_mat_from(i), pairs[0].second);
 		else
 			return Pair(next_mat_from(i), pairs[1].second);
 	}
-	else {	// 両親とも乗り換えている（滅多にない）
+	else {	// Both parents crossover (rarely)
 		return Pair(near_mat_from(i), near_pat_from(i));
 	}
 }
 
+
+// Select a pair from both parent's Haplotype
 VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 												size_t i, bool selected) const {
 	if(pairs.empty())
@@ -634,7 +633,8 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 	else if(selected)
 		return select_nearest_froms(pairs, i);
 	
-	vector<Pair>	new_pairs;	// 元々のGenotypeと同じになるペア
+	// Collect pairs that are identical to the original Genotype
+	vector<Pair>	new_pairs;
 	for(auto p = pairs.begin(); p != pairs.end(); ++p) {
 		string	parent_gt = record->gt_from_parent(p->first, p->second);
 		if(Genotype::sum_gt(record->get_gt(i)) == Genotype::sum_gt(parent_gt))
@@ -647,9 +647,10 @@ VCFFillable::Pair VCFFillable::RecordSet::select_pair(const vector<Pair>& pairs,
 		return select_pair(pairs, i, true);
 }
 
-// 親のどちらの染色体から来ているかの確率
-vector<double> VCFFillable::RecordSet::probs_from_which_chrom(
-									int prev_from, int next_from) const {
+// Likelihood based on which of the parent Haplotypes
+// came from before and after the record
+vector<double> VCFFillable::RecordSet::likelihoods_from_which_chrom(
+										int prev_from, int next_from) const {
 	static const double ps[] = {
 		0.5, 0.9, 0.1, 0.9, 0.99, 0.5, 0.1, 0.5, 0.01
 	};
@@ -658,14 +659,12 @@ vector<double> VCFFillable::RecordSet::probs_from_which_chrom(
 	return probs;
 }
 
-vector<double> VCFFillable::RecordSet::probs_from_which_chrom(
+vector<double> VCFFillable::RecordSet::likelihoods_from_which_chrom(
 												size_t i, bool is_mat) const {
-//	if((is_mat && record->is_mat_homo()) || (!is_mat && record->is_pat_homo()))
-//		return vector<double>(2U, 0.5);
 	if(is_mat)
-		return probs_from_which_chrom(prev_mat_from(i), next_mat_from(i));
+		return likelihoods_from_which_chrom(prev_mat_from(i), next_mat_from(i));
 	else
-		return probs_from_which_chrom(prev_pat_from(i), next_pat_from(i));
+		return likelihoods_from_which_chrom(prev_pat_from(i), next_pat_from(i));
 }
 
 double VCFFillable::RecordSet::likelihood_each(const string& gt,
@@ -675,12 +674,13 @@ double VCFFillable::RecordSet::likelihood_each(const string& gt,
 	const int	sum = Genotype::sum_gt(gt);
 	double	likelihood = 0.0;
 	for(int k = 0; k < 4; ++k) {
-		const int	i = k >> 1;		// 母親は0|1か1|0か
+		const int	i = k >> 1;
 		const int	j = k & 1;
+		// does this pair match genotype?
 		if((((mat_phasing >> i) & 1) + ((pat_phasing >> j) & 1)) == sum)
 			likelihood += probs_mat[i] * probs_pat[j];
 	}
-	if(likelihood == 0.0)	// 該当する組合せが無い
+	if(likelihood == 0.0)	// no matching pair
 		return log(0.0001);
 	else
 		return log(likelihood);
@@ -688,21 +688,18 @@ double VCFFillable::RecordSet::likelihood_each(const string& gt,
 
 double VCFFillable::RecordSet::compute_phasing_likelihood_each(size_t i,
 									int mat_phasing, int pat_phasing) const {
-	const auto	probs_mat = this->probs_from_which_chrom(i, true);
-	const auto	probs_pat = this->probs_from_which_chrom(i, false);
+	const auto	probs_mat = this->likelihoods_from_which_chrom(i, true);
+	const auto	probs_pat = this->likelihoods_from_which_chrom(i, false);
 	return this->likelihood_each(this->gt(i), probs_mat, probs_pat,
 											mat_phasing, pat_phasing);
 }
 
-// 親のGTがひっくり返っているかひっくり返っていないのか仮定して尤度を計算する
-// GTが0/1のとき、phasingが0なら0|1、1なら1|0
-// GTが0|0のとき、どちらでも0|0
 double VCFFillable::RecordSet::compute_phasing_likelihood(int mat_phasing,
 														int pat_phasing) const {
 	double	ll = 0.0;
 	for(int i = 2; i < (int)record->num_samples(); ++i) {
 		if(record->get_GT(i) == "./.")
-			ll += log(0.0001);	// 本来要らないがPython版と合わせるため
+			ll += log(0.0001);	// to match the Python version
 		else
 			ll += compute_phasing_likelihood_each(i, mat_phasing, pat_phasing);
 	}
@@ -725,15 +722,16 @@ pair<int, int> VCFFillable::RecordSet::select_phasing(
 							abs(pat_int_gt1 - pat_int_gt);
 		v.push_back(make_tuple(score, p->first, p->second));
 	}
-	// これだと、同じスコアならphasingが小さい方から選んでいる
-	// 本当はランダム的に選びたい
+	// If the score is the same, phasing is chosen from the smaller.
+	// want to choice at random
 	const auto	p = std::min_element(v.begin(), v.end());
 	return make_pair(get<1>(*p), get<2>(*p));
 }
 
 pair<int, int> VCFFillable::RecordSet::determine_phasing_core(
 								const vector<tuple<double, int, int>>& lls) {
-	// 最大に近いllを集める
+	// collect max or near likelihoods
+	// for numerical error
 	vector<pair<int, int>>	candidates;
 	const double	max_ll = get<0>(lls.back());
 	for(size_t i = lls.size() - 1; i < lls.size(); --i) {
@@ -752,20 +750,19 @@ void VCFFillable::RecordSet::determine_phasing() {
 		return;
 	
 	const vector<pair<int, int>>	phasing = record->possible_phasings();
-//	double	max_ll = -std::numeric_limits<double>::max();
 	vector<tuple<double, int, int>>	lls;
 	for(auto p = phasing.begin(); p != phasing.end(); ++p) {
 		const double	ll = compute_phasing_likelihood(p->first, p->second);
 		lls.push_back(make_tuple(ll, p->first, p->second));
 	}
 	
-	// 最大のllとほとんど同じllがあったとき、
+	// Measures for when there is almost the same ll as the largest ll
 	std::sort(lls.begin(), lls.end());
 	const auto	p = this->determine_phasing_core(lls);
 	const int	mat_phasing = p.first;
 	const int	pat_phasing = p.second;
 	
-	// この処理は本当に合っているのか
+	// is it OK?
 	static const string	gts[] = { "0|0", "1|0", "0|1", "1|1" };
 	record->set_mat_GT(gts[mat_phasing]);
 	record->set_pat_GT(gts[pat_phasing]);
@@ -774,13 +771,14 @@ void VCFFillable::RecordSet::determine_phasing() {
 int VCFFillable::RecordSet::select_from(int from1, int from2,
 										const VCFRecord *record1,
 										const VCFRecord *record2) const {
-	// どちらかは0でない前提
+	// assume either is not zero
+	// That is, there is a record on either side.
 	if(from1 == 0)
 		return from2;
 	else if(from2 == 0)
 		return from1;
-	else {	// 両側にRecordがある
-		// 近い方を選ぶ
+	else {	// there are records on both sides
+		// select a close record
 		if(record->pos() * 2 < record1->pos() + record2->pos())
 			return from1;
 		else
@@ -862,7 +860,7 @@ void VCFFillable::RecordSet::impute_NA_mat_each(size_t i) const {
 	const int	next_mat_from = VCFFillableRecord::from_which_chrom_mat(
 													this->next_mat_record, i);
 	
-	// patはホモだから1でも2でもよい
+	// pat can be 1 or 2 because pat is homozygous
 	vector<Pair>	pairs;	// [(mat_from, pat_from)]
 	if(this->prev_mat_record != NULL)
 		pairs.push_back(Pair(prev_mat_from, 1));
@@ -969,7 +967,7 @@ void VCFFillable::modify(int T) {
 }
 
 void VCFFillable::phase_hetero_hetero() {
-	// typeが'IMPUTABLE', 'MAT', 'PAT', 'FIXED'でrecordを分ける
+	// Group records with type 'IMPUTABLE', 'MAT', 'PAT' and 'FIXED'
 	vector<Group>	groups = this->group_records();
 	for(size_t i = 0; i < groups.size(); ++i) {
 		if(groups[i].first == FillType::IMPUTABLE)
@@ -1105,6 +1103,7 @@ void VCFFillable::impute_NA_mat_each(size_t i, size_t c) {
 	delete rs;
 }
 
+// impute N/A genotypes in families with heterozygous mat and homozygous pat
 void VCFFillable::impute_NA_mat(size_t i) {
 	auto	*record = this->records[i];
 	for(size_t c = 11U; c != samples.size() + 9; ++c) {
@@ -1170,7 +1169,7 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 	const int	i2 = f2.first;
 	const int	from2 = f2.second;
 	if(from1 == 0 && from2 == 0) {
-		// 前後がないとき乱数的に決める
+		// Decide which Haplotype comes from when there is no before or after
 		const auto	*r0 = this->records[i];
 		return r0->pos() % 2 + 1;
 	}
@@ -1181,7 +1180,7 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 	else if(from1 == 0)
 		return from2;
 	else {
-		// 最後は物理距離で決める
+		// Determine which Haplotype is coming from by physical distance
 		const auto	*r0 = this->records[i];
 		const auto	*r1 = this->records[i1];
 		const auto	*r2 = this->records[i2];
@@ -1284,7 +1283,7 @@ VCFFillable::integrate_samples(const vector<STRVEC>& sss,
 	return P(new_samples, pos_samples);
 }
 
-// 重複したサンプルが一つになるようにVCFを統合する
+// Integrate the VCF so that duplicate samples are one
 VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 								const vector<vector<VCFFillableRecord *>>& rss,
 								const STRVEC& orig_samples) {
@@ -1296,7 +1295,7 @@ VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
 	
 	const auto	q = integrate_samples(sss, orig_samples);
 	const STRVEC&	new_samples = q.first;
-	// サンプルが各Familyの何番目にあるか
+	// What number of each Family is the sample at?
 	const auto&		pos_samples = q.second;
 	
 	const vector<STRVEC>	header = vcf->trim_header(new_samples);
