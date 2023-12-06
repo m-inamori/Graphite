@@ -24,12 +24,13 @@ ClassifyRecord *ClassifyRecord::get_instance() {
 
 pair<ParentComb, WrongType> ClassifyRecord::classify(
 									const VCFFamilyRecord *record,
-									const TypeDeterminer *td) {
+									const TypeDeterminer *td,
+									bool one_parent) {
 	const vector<int>	gts = record->get_progeny_int_gts();
 	const tuple<int, int, int>	counter = count_int_gts(gts);
 	const auto	combs = td->determine(counter);
 	return classify_record_core(combs, record->mat_int_gt(),
-												record->pat_int_gt());
+										record->pat_int_gt(), one_parent);
 }
 
 const TypeDeterminer *ClassifyRecord::get_TypeDeterminer(size_t n, double a) {
@@ -77,8 +78,8 @@ vector<ClassifyRecord::GTComb> ClassifyRecord::filter_pairs(
 	return combs;
 }
 
-WrongType ClassifyRecord::select_wrong_type(ParentComb comb,
-											int mat_gt, int pat_gt) const {
+WrongType ClassifyRecord::select_wrong_type(ParentComb comb, int mat_gt,
+											int pat_gt, bool one_parent) const {
 	if(TypeDeterminer::is_same_parent_gts(comb)) {
 		const int	gt = TypeDeterminer::int_gt_pair(comb).first;
 		if(mat_gt == gt && pat_gt == gt)
@@ -91,10 +92,10 @@ WrongType ClassifyRecord::select_wrong_type(ParentComb comb,
 		const int	avoiding_gt = TypeDeterminer::get_avoiding_gt(comb);
 		if(mat_gt == pat_gt)
 			return WrongType::UNMODIFIABLE;
-		else if(mat_gt == -1 && (pat_gt != -1 && pat_gt != avoiding_gt))
-			return WrongType::MODIFIABLE;
-		else if(pat_gt == -1 && (mat_gt != -1 && mat_gt != avoiding_gt))
-			return WrongType::MODIFIABLE;
+		else if((mat_gt == -1 && (pat_gt != -1 && pat_gt != avoiding_gt)) ||
+				(pat_gt == -1 && (mat_gt != -1 && mat_gt != avoiding_gt))) {
+			return one_parent ? WrongType::RIGHT : WrongType::MODIFIABLE;
+		}
 		else if(mat_gt != avoiding_gt && pat_gt != avoiding_gt)
 			return WrongType::RIGHT;
 		else
@@ -155,14 +156,15 @@ std::pair<ParentComb, WrongType> ClassifyRecord::select_pair(
 
 pair<ParentComb, WrongType> ClassifyRecord::classify_record_core(
 												const vector<GTComb>& pairs_,
-												int mat_gt, int pat_gt) const {
+												int mat_gt, int pat_gt,
+												bool one_parent) const {
 	if(pairs_.size() == 0)
 		return make_pair(ParentComb::PNA, WrongType::UNSPECIFIED);
 	
 	auto	combs = filter_pairs(pairs_);
 	if(combs.size() == 1) {
 		const ParentComb	p = combs.front().second;
-		return make_pair(p, select_wrong_type(p, mat_gt, pat_gt));
+		return make_pair(p, select_wrong_type(p, mat_gt, pat_gt, one_parent));
 	}
 	else {
 		return select_pair(combs, mat_gt, pat_gt);

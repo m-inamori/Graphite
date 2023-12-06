@@ -10,6 +10,7 @@
 
 class Map;
 class Family;
+class KnownFamily;
 class PedigreeTable;
 class VCFOriginal;
 
@@ -22,14 +23,14 @@ public:
 	struct ConfigThread {
 		const VCFSmall	*orig_vcf;
 		const VCFSmall	*merged_vcf;
-		const std::vector<const Family *>&	families;
+		const std::vector<const KnownFamily *>&	families;
 		const Map& geno_map;
 		const std::size_t	first;
 		const int	num_threads;
 		std::vector<VCFFillable *>&	results;
 		
 		ConfigThread(const VCFSmall *o, const VCFSmall *m,
-					 const std::vector<const Family *>& fs,
+					 const std::vector<const KnownFamily *>& fs,
 					 const Map& gmap, std::size_t f,
 					 int T, std::vector<VCFFillable *>& rs) :
 			 						orig_vcf(o), merged_vcf(m),
@@ -91,7 +92,7 @@ public:
 										const STRVEC& samples, const Map& gmap);
 	static std::vector<VCFFillable *> impute_vcfs(
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-						const std::vector<const Family *>& families,
+						const std::vector<const KnownFamily *>& families,
 						const Map& geno_map, int num_threads);
 	
 private:

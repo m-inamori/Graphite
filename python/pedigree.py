@@ -9,7 +9,7 @@ from common import read_csv
 
 #################### Family ####################
 
-class Family:
+class Family(object):
 	def __init__(self, mat: str, pat: str, progs: list[str]):
 		self.mat: str	= mat
 		self.pat: str	= pat

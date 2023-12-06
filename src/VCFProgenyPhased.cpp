@@ -9,6 +9,7 @@
 #include "../include/VCFFillable.h"
 #include "../include/Map.h"
 #include "../include/Pedigree.h"
+#include "../include/KnownFamily.h"
 #include "../include/Imputer.h"
 
 using namespace std;

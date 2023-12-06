@@ -7,6 +7,7 @@
 #include <map>
 
 #include "filereader.h"
+#include "Genotype.h"
 
 
 typedef long long					ll;
@@ -33,14 +34,12 @@ public:
 	ll	pos() const { return stoll(this->v[1]); }
 	const std::string	format() const { return this->v[8]; }
 	std::string	gt(const std::string& sample) const;
-	bool is_NA(std::size_t i) const {
-		return v[i+9].c_str()[0] == '.' || v[i+9].c_str()[2] == '.';
-	}
+	bool is_NA(std::size_t i) const { return Genotype::is_NA(v[i+9]); }
 	STRVEC gts() const;
 	const std::string& get_gt(std::size_t i) const { return v[i+9]; }
 	std::string& get_mut_gt(std::size_t i) { return v[i+9]; }
 	std::string get_GT(std::size_t i) const { return v[i+9].substr(0, 3); }
-	int get_int_gt(std::size_t i) const;
+	int get_int_gt(std::size_t i) const { return Genotype::get_int_gt(v[i+9]); }
 	std::vector<int> get_int_gts() const;
 	bool is_homo(std::size_t i) const;
 	bool is_hetero(std::size_t i) const;

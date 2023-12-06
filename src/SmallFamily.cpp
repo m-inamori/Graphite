@@ -23,7 +23,7 @@ VCFRecord *SmallFamily::merge_progeny_records(vector<VCFFillable *>& vcfs,
 
 VCFSmall *SmallFamily::impute_vcf_by_parents_core(
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-						const vector<const Family *>& families,
+						const vector<const KnownFamily *>& families,
 						const Map& geno_map, const Option *option) {
 	auto	vcfs = VCFHeteroHomoPP::impute_vcfs(orig_vcf, merged_vcf, families,
 												geno_map, option->num_threads);
@@ -71,13 +71,14 @@ VCFSmall *SmallFamily::impute_vcf_by_parents(
 }
 
 VCFSmall *SmallFamily::impute_vcf_by_parent_core(
-				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-				const vector<const Family *>& families, const Map& geno_map,
-				SampleManager *sample_man, const Option *option) {
+					const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+					const vector<const KnownFamily *>& families,
+					const Map& geno_map,
+					SampleManager *sample_man, const Option *option) {
 	// collect not phased parents
 	STRVEC	samples;
 	for(auto p = families.begin(); p != families.end(); ++p) {
-		const Family	*family = *p;
+		const KnownFamily	*family = *p;
 		if(sample_man->is_imputed(family->get_mat()))
 			samples.push_back(family->get_pat());
 		else
@@ -128,7 +129,7 @@ VCFSmall *SmallFamily::impute_vcf_by_parent(const VCFSmall *orig_vcf,
 
 VCFSmall *SmallFamily::impute_one_parent_vcf_core(const VCFSmall *orig_vcf,
 								const VCFSmall *merged_vcf,
-								const vector<const Family *>& families,
+								const vector<const KnownFamily *>& families,
 								const Map& geno_map,
 								SampleManager *sample_man, int num_threads) {
 	STRVEC	references = sample_man->collect_large_family_parents();
@@ -136,7 +137,7 @@ VCFSmall *SmallFamily::impute_one_parent_vcf_core(const VCFSmall *orig_vcf,
 	
 	vector<VCFOneParentPhased *>	vcfs;
 	for(auto p = families.begin(); p != families.end(); ++p) {
-		const Family	*family = *p;
+		const KnownFamily	*family = *p;
 		const bool	is_mat_phased = sample_man->is_imputed(family->get_mat());
 		auto	*vcf = VCFOneParentPhased::create(family->get_samples(),
 												  is_mat_phased, merged_vcf,
@@ -172,15 +173,15 @@ VCFSmall *SmallFamily::impute_one_parent_vcf(const VCFSmall *orig_vcf,
 
 VCFSmall *SmallFamily::impute_vcf_by_progenies_core(const VCFSmall *orig_vcf,
 								const VCFSmall *merged_vcf,
-								const vector<const Family *>& families,
+								const vector<const KnownFamily *>& families,
 								const Map& geno_map,
 								SampleManager *sample_man, int num_threads) {
 	STRVEC	references = sample_man->collect_large_family_parents();
 	VCFSmall	*ref_vcf = merged_vcf->extract_samples(references);
 	
-	vector<pair<const Family *, size_t>>	progeny_imputed_families;
+	vector<pair<const KnownFamily *, size_t>>	progeny_imputed_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
-		const Family	*family = *p;
+		const KnownFamily	*family = *p;
 		size_t	ppi;	// phased progeny index
 		for(size_t i = 2; ; ++i) {
 			if(sample_man->is_imputed(family->get_samples()[i])) {
@@ -276,7 +277,7 @@ VCFSmall *SmallFamily::impute_iolated_samples(
 				const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 				SampleManager *sample_man, const STRVEC& samples,
 				const Map& gmap, bool modify_genotypes, int num_threads) {
-	const STRVEC	references = sample_man->get_large_parents();
+	const STRVEC	references = sample_man->collect_large_family_parents();
 	// Split sample to phase for later multithreading
 	auto	vcfs_ = VCFIsolated::create(orig_vcf, merged_vcf, samples,
 										references, gmap,

@@ -196,6 +196,15 @@ bool BaumWelch::converge_pi_E() {
 
 BaumWelch::EmissionMatrix BaumWelch::reverse_probs(
 										const EmissionMatrix& M) const {
+#if 1
+	EmissionMatrix	rev_M;	// index: s*2+h
+	for(size_t s = 0; s < 3; ++s) {
+		double	sum_observed = Log::add(M[s*2], M[s*2+1]);
+		for(size_t h = 0; h < 2; ++h) {
+			rev_M[s*2+h] = M[s*2+h] - sum_observed;
+		}
+	}
+#else
 	array<double, 3>	sum_observed;
 	for(size_t s0 = 0; s0 < 3; ++s0) {
 		sum_observed[s0] = Log::add(M[s0*2], M[s0*2+1]);
@@ -206,6 +215,7 @@ BaumWelch::EmissionMatrix BaumWelch::reverse_probs(
 		for(size_t s = 0; s < 3; ++s)
 			rev_M[s*2+h] = M[s*2+h] - sum_observed[s];
 	}
+#endif
 	return rev_M;
 }
 

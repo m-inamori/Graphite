@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # coding: utf-8
+# VCFFillable.py
 
 from functools import reduce
 from itertools import *
@@ -12,53 +13,9 @@ from typing import Optional
 from VCFFamily import *
 from VCFImpFamily import VCFImpFamilyRecord
 from VCFHeteroHomo import *
+from Genotype import Genotype
 from option import *
 from common import *
-
-
-#################### Genotype ####################
-
-class Genotype:
-	def __init__(self, s: str):
-		self.phasing: bool	= s[1] == '|'
-		self.gt1: str		= s[0]
-		self.gt2: str		= s[2]
-	
-	def gts(self) -> list[str]:
-		return [self.gt1, self.gt2]
-	
-	def __str__(self) -> str:
-		return self.gt1 + ('|' if self.phasing else '/') + self.gt2
-	
-	@staticmethod
-	def conflicts(mat: Genotype, pat: Genotype, prog: Genotype,
-									considers_phasing: bool = True) -> bool:
-		if considers_phasing and prog.phasing:
-			return not (prog.gt1 in mat.gts() and prog.gt2 in pat.gts())
-		else:
-			if prog.gt1 == prog.gt2:
-				return not (prog.gt1 in mat.gts() and prog.gt2 in pat.gts())
-			else:
-				return not ((prog.gt1 in mat.gts() and prog.gt2 in pat.gts()) or
-							(prog.gt1 in pat.gts() and prog.gt2 in mat.gts()))
-	
-	@staticmethod
-	def is_valid(gt: str, mat_gt: int, pat_gt: int) -> bool:
-		mat_gts = Genotype.possible_gts(mat_gt)
-		pat_gts = Genotype.possible_gts(pat_gt)
-		return len(gt) >= 3 and (gt[0] in mat_gts and gt[2] in pat_gts or
-								 gt[2] in mat_gts and gt[0] in pat_gts)
-	
-	# ここにあるのがいいのかわからない
-	# できれば違うファイルにして、これ関連をここに集めたい
-	@staticmethod
-	def possible_gts(gt: int) -> list[str]:
-		if gt == 0:
-			return ['0']
-		elif gt == 3:
-			return ['1']
-		else:
-			return ['0', '1']
 
 
 #################### VCFFillableRecord ####################
@@ -189,7 +146,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 		else:
 			return -1
 	
-	def fill_PGT(self):
+	def fill_PGT(self) -> None:
 		i_GT: int = self.find_geno_type('GT')
 		assert(i_GT != -1)
 		i_PGT: int = self.find_geno_type('PGT')
@@ -319,7 +276,9 @@ class VCFFillableRecord(VCFFamilyRecord):
 #################### RecordSet ####################
 
 class RecordSet:
-	def __init__(self, r, pm, nm, pp, np):
+	def __init__(self, r: Optional[VCFFillableRecord],
+			pm: Optional[VCFFillableRecord], nm: Optional[VCFFillableRecord],
+			pp: Optional[VCFFillableRecord], np: Optional[VCFFillableRecord]):
 		self.record: Optional[VCFFillableRecord] = r
 		self.prev_mat_record: Optional[VCFFillableRecord] = pm
 		self.next_mat_record: Optional[VCFFillableRecord] = nm
@@ -388,7 +347,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
-	def modify(self):
+	def modify(self) -> None:
 		# typeが'UNABLE', 'IMPUTABLE', 'MAT', 'PAT', 'FIXED'でrecordを分ける
 		groups: list[tuple[str, list[VCFFillableRecord]]] = [ (g, list(v))
 					for g, v in groupby(self.records, key=lambda r: r.type) ]
@@ -408,7 +367,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		for record in self.records:
 			record.fill_PGT()
 	
-	def phase_hetero_hetero(self):
+	def phase_hetero_hetero(self) -> None:
 		# typeが'IMPUTABLE', 'MAT', 'PAT', 'FIXED'でrecordを分ける
 		groups: list[tuple[str, list[VCFFillableRecord]]] = [ (g, list(v))
 					for g, v in groupby(self.records, key=lambda r: r.type) ]

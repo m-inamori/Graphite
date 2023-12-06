@@ -26,15 +26,17 @@ def count_int_gts(gts: list[int]) -> tuple[int,int,int]:
 			ns[gt] += 1
 	return (ns[0], ns[1], ns[2])
 
-def classify_record(record: VCFRecord, td: TypeDeterminer) -> tuple[str, int]:
+def classify_record(record: VCFRecord, td: TypeDeterminer,
+										one_parent: bool) -> tuple[str, int]:
 	gts = record.get_int_gts()
 	counter = count_int_gts(gts[2:])
 	pairs = td.determine(counter)
-	pair, wrong_type = classify_record_core(pairs, gts[0], gts[1])
+	pair, wrong_type = classify_record_core(pairs, gts[0], gts[1], one_parent)
 	return (wrong_type, pair)
 
 def classify_record_core(pairs: list[tuple[int, float]],
-								mat_gt: int, pat_gt: int) -> tuple[int, str]:
+						 mat_gt: int, pat_gt: int,
+						 one_parent: bool) -> tuple[int, str]:
 	def is_matched(mat_gt: int, pat_gt: int, pair: int) -> bool:
 		gt_pair = TypeDeterminer.int_gt_pair(pair)
 		return (mat_gt, pat_gt) == gt_pair or (pat_gt, mat_gt) == gt_pair
@@ -66,9 +68,15 @@ def classify_record_core(pairs: list[tuple[int, float]],
 			if mat_gt == pat_gt:
 				return (pair, 'Unmodifiable')
 			elif mat_gt == -1 and pat_gt not in (-1, avoiding_gt):
-				return (pair, 'Modifiable')
+				if one_parent:
+					return (pair, 'Right')
+				else:
+					return (pair, 'Modifiable')
 			elif pat_gt == -1 and mat_gt not in (-1, avoiding_gt):
-				return (pair, 'Modifiable')
+				if one_parent:
+					return (pair, 'Right')
+				else:
+					return (pair, 'Modifiable')
 			elif mat_gt != avoiding_gt and pat_gt != avoiding_gt:
 				return (pair, 'Right')
 			else:

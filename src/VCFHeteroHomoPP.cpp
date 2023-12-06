@@ -9,6 +9,7 @@
 #include "../include/VCFFillable.h"
 #include "../include/Map.h"
 #include "../include/Pedigree.h"
+#include "../include/KnownFamily.h"
 #include "../include/Imputer.h"
 
 using namespace std;
@@ -239,7 +240,7 @@ VCFFillable *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
 void VCFHeteroHomoPP::impute_in_thread(void *config) {
 	const auto	*c = (ConfigThread *)config;
 	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
-		const Family	*family = c->families[i];
+		const KnownFamily	*family = c->families[i];
 		c->results[i] = impute_by_parents(c->orig_vcf, c->merged_vcf,
 											family->get_samples(), c->geno_map);
 	}
@@ -247,7 +248,7 @@ void VCFHeteroHomoPP::impute_in_thread(void *config) {
 
 vector<VCFFillable *> VCFHeteroHomoPP::impute_vcfs(
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-						const vector<const Family *>& families,
+						const vector<const KnownFamily *>& families,
 						const Map& geno_map, int num_threads) {
 	vector<VCFFillable *>	results(families.size());
 	

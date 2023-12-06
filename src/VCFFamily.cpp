@@ -79,7 +79,7 @@ VCFFamilyRecord *VCFFamily::subset(VCFRecord *record, const STRVEC& samples,
 	const STRVEC&	orig_v = record->get_v();
 	STRVEC	v(orig_v.begin(), orig_v.begin() + 9);
 	for(auto p = columns.begin(); p != columns.end(); ++p) {
-		v.push_back(orig_v[*p]);
+		v.push_back(*p != string::npos ? orig_v[*p] : "./.");
 	}
 	return new VCFFamilyRecord(v, samples);
 }
