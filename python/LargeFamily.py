@@ -235,7 +235,8 @@ def correct_large_family_VCFs(orig_vcf: VCFSmall,
 			else:
 				dic_vcfs[family.pat].append(vcf)
 	
-	for parent, vcfs in dic_vcfs.items():
+	v = sorted(dic_vcfs.items())
+	for parent, vcfs in v:
 		VCFHeteroHomo.inverse_phases(vcfs)
 	
 	filled_vcfs = fill_vcf(dic_vcfs, other_recordss, large_families)

@@ -2,13 +2,20 @@
 #include <stack>
 #include <algorithm>
 #include <cassert>
+#include <random>
 #include "../include/inverse_graph.h"
-#include "../include/random.h"
 
 using namespace std;
 
 
 //////////////////// InverseGraph ////////////////////
+
+InverseGraph *InverseGraph::copy() const {
+	auto	*g = new InverseGraph();
+	for(auto p = begin(); p != end(); ++p)
+		(*g)[p->first] = p->second;
+	return g;
+}
 
 vector<InverseGraph::Node> InverseGraph::collect_nodes() const {
 	vector<Node>	nodes;
@@ -69,9 +76,94 @@ vector<InverseGraph> InverseGraph::divide_into_connected() const {
 	return graphs;
 }
 
-// graph must be connected
+bool InverseGraph::is_leaf(Node v) const {
+	auto	p = find(v);
+	return p != end() && p->second.size() == 1;
+}
+
+void InverseGraph::remove_directed_edge(Node v1, Node v2) {
+	const auto	neighs1 = this->neighbors(v1);
+	if(neighs1.size() == 1)
+		this->erase(v1);
+	else {
+		auto&	vs2 = (*this)[v1];
+		for(auto p = vs2.begin(); p != vs2.end(); ++p) {
+			if(get<0>(*p) == v2) {
+				vs2.erase(p, p+1);
+				return;
+			}
+		}
+		throw("error in InverseGraph::remove_directed_edge");
+	}
+}
+
+void InverseGraph::remove_edge(Node v1, Node v2) {
+	this->remove_directed_edge(v1, v2);
+	this->remove_directed_edge(v2, v1);
+}
+
+pair<InverseGraph *, vector<InverseGraph::Node>>
+					InverseGraph::remove_acyclic_nodes() const {
+	auto	*graph = this->copy();
+	vector<Node>	removed_nodes;
+	while(true) {
+		const size_t	prev_num_removed_nodes = removed_nodes.size();
+		const auto	vs = graph->collect_nodes();
+		for(auto p = vs.begin(); p != vs.end(); ++p) {
+			const Node	v = *p;
+			if(graph->is_leaf(v)) {
+				const auto	neighs = graph->neighbors(v);
+				const Node	v1 = neighs[0];
+				graph->remove_edge(v, v1);
+				removed_nodes.push_back(v);
+			}
+		}
+		if(removed_nodes.size() == prev_num_removed_nodes)
+			break;
+	}
+	return make_pair(graph, removed_nodes);
+}
+
+// assume connected
+bool InverseGraph::is_tree() const {
+	size_t	num_edges = 0;
+	for(auto p = begin(); p != end(); ++p)
+		num_edges += p->second.size();
+	return num_edges == (size() - 1) * 2;
+}
+
+map<InverseGraph::Node, bool> InverseGraph::decide_inversions_tree() const {
+	map<InverseGraph::Node, bool>	dic_bs;
+	const Node	v0 = begin()->first;
+	set<Node>	visited;
+	visited.insert(v0);
+	vector<pair<Node, bool>>	stk(1, make_pair(v0, false));
+	dic_bs[v0] = false;
+	while(!stk.empty()) {
+		const auto	_p = stk.back();
+		stk.pop_back();
+		const Node	v = _p.first;
+		const bool	b = _p.second;
+		auto	p = find(v);
+		if(p == end())
+			continue;
+		for(auto q = p->second.begin(); q != p->second.end(); ++q) {
+			const Node	v1 = get<0>(*q);
+			const int	n1 = get<1>(*q);
+			const int	n2 = get<2>(*q);
+			const bool	b1 = b ^ (n1 < n2);
+			if(visited.find(v1) == visited.end()) {
+				dic_bs[v1] = b1;
+				stk.push_back(make_pair(v1, b1));
+				visited.insert(v1);
+			}
+		}
+	}
+	return dic_bs;
+}
+
 map<InverseGraph::Node, bool>
-					InverseGraph::optimize_inversions_connected() const {
+				InverseGraph::optimize_inversions_connected_core() const {
 	if(this->size() <= 20)
 		return this->search_all();
 	
@@ -84,6 +176,40 @@ map<InverseGraph::Node, bool>
 	// decide to flip randomly if contradictory
 	// I really want to use SA
 	return this->search_randomly();
+}
+
+void InverseGraph::add_removed_nodes(map<InverseGraph::Node, bool>& dic_bs,
+									const vector<Node>& removed_nodes) const {
+	for(auto p = removed_nodes.rbegin(); p != removed_nodes.rend(); ++p) {
+		const Node	v1 = *p;
+		const auto	vs = find(v1)->second;
+		for(auto q = vs.begin(); q != vs.end(); ++q) {
+			const Node	v2 = get<0>(*q);
+			const int	n1 = get<1>(*q);
+			const int	n2 = get<2>(*q);
+			auto	r = dic_bs.find(v2);
+			if(r != dic_bs.end()) {
+				const bool	b2 = r->second;
+				const bool	b1 = b2 ^ (n1 < n2);
+				dic_bs.insert(make_pair(v1, b1));
+				break;
+			}
+		}
+	}
+}
+
+// graph must be connected
+map<InverseGraph::Node, bool>
+					InverseGraph::optimize_inversions_connected() const {
+	if(this->is_tree())
+		return this->decide_inversions_tree();
+	
+	const auto	p = this->remove_acyclic_nodes();
+	auto	*graph = p.first;
+	auto	removed_nodes = p.second;
+	auto	dic_bs = graph->optimize_inversions_connected_core();
+	this->add_removed_nodes(dic_bs, removed_nodes);
+	return dic_bs;
 }
 
 // brute force
@@ -126,11 +252,12 @@ int InverseGraph::choice_seed() const {
 std::map<InverseGraph::Node, bool> InverseGraph::search_randomly() const {
 	vector<bool>	min_bs;
 	int				min_score = 1000000000;
-	Random	random(this->choice_seed());
+	std::mt19937 generator(this->choice_seed());
+	std::bernoulli_distribution	distribution(0.5);
 	for(int i = 0; i < 524288; ++i) {	// 2^19
 		vector<bool>	bs(this->size() - 1);
 		for(size_t k = 0; k < this->size() - 1; ++k)
-			bs.push_back(random.randbool());
+			bs.push_back(distribution(generator));
 		const int	cur_score = this->calc_match_score(bs);
 		if(min_bs.empty() || cur_score < min_score) {
 			min_bs = bs;
