@@ -13,7 +13,7 @@ class Option:
 	def __init__(self, VCF: str, ped: str, m: str,
 						families: list[int], chroms: list[int],
 						num: int, lp: int, ol: bool, ii: bool,
-						ou: bool, out: str):
+						ou: bool, ci: bool, out: str):
 		self.path_VCF: str						= VCF
 		self.path_ped: str						= ped
 		self.path_map: str						= m
@@ -26,6 +26,7 @@ class Option:
 		self.only_large_families: bool			= ol
 		self.imputes_isolated_samples: bool		= ii
 		self.outputs_unimputed_samples: bool	= ou
+		self.corrects_isolated_samples: bool	= ci
 	
 	def print_info(self):
 		# required
@@ -131,10 +132,12 @@ class Option:
 			if impute_isolated and out_isolated:
 				return None
 			
+			corrects_isolated_samples = Option.exists(
+												"--correct-isolated", argv)
 			return Option(path_vcf, path_ped, path_map, families,
 							chroms, num_threads, lower_progs,
 							only_large_families, impute_isolated,
-							out_isolated, path_out)
+							out_isolated, corrects_isolated_samples, path_out)
 		except ValueError:
 			return None
 		except Exception as e:
@@ -147,12 +150,15 @@ class Option:
 				'[-f family indices] [-c chrom indices] ' +
 				'[--lower-progs lower num progenies] [--large-only] ' +
 				'[--not-impute-isolated [--out-isolated]] ' +
+				'[--correct-isolated] ' +
 				'-o out.')
 		messages = ['usage : ' + u,
 					'indices: (index|first:last)[,(index|first:last)[,..]]',
 					'--large-only: large families only.',
 					'--not-impute-isolated: not impute isolated samples.',
-					'--out-isolated: output not imputed isolated samples.']
+					'--out-isolated: output not imputed isolated samples.',
+					'--correct-isolated: ' +
+						'correct wrong genotypes of isolated samples.']
 		for msg in messages:
 			print(msg, file=sys.stderr)
 

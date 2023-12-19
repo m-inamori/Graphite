@@ -133,7 +133,7 @@ Option *Option::create(int argc, char **argv) {
 			return NULL;
 		
 		const bool	corrects_isolated_samples
-							= !exists("--not-correct-isolated", argc, argv);
+							= !exists("--correct-isolated", argc, argv);
 		
 		return new Option(path_vcf, path_ped, path_map, families,
 							chroms, num_threads, lower_progs,
@@ -154,7 +154,7 @@ void Option::usage(char **argv) {
 				<< "[-f family indices] [-c chrom indices] "
 				<< "[--lower-progs lower num progenies] [--large-only] "
 				<< "[--not-impute-isolated [--out-isolated]] "
-				<< "[--not-correct-isolated] "
+				<< "[--correct-isolated] "
 				<< "-o out." << endl;
 	cerr << "family indices: (index|first:last)[,(index|first:last)[,..]]"
 																	<< endl;
@@ -162,6 +162,6 @@ void Option::usage(char **argv) {
 	cerr << "--large-only: large families only." << endl;
 	cerr << "--not-impute-isolated: not impute isolated samples." << endl;
 	cerr << "--out-isolated: output not imputed isolated samples." << endl;
-	cerr << "--not-correct-isolated: "
-		 << "not correct wrong genotypes of isolated samples." << endl;
+	cerr << "--correct-isolated: "
+		 << "correct wrong genotypes of isolated samples." << endl;
 }
