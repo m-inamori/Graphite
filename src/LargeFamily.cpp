@@ -5,7 +5,7 @@
 #include "../include/VCFJunkRecord.h"
 #include "../include/VCFHomoHomo.h"
 #include "../include/VCFHeteroHeteroLite.h"
-#include "../include/pedigree.h"
+#include "../include/Pedigree.h"
 #include "../include/KnownFamily.h"
 #include "../include/Map.h"
 #include "../include/option.h"

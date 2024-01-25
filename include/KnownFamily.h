@@ -2,7 +2,7 @@
 #define __KNOWNFAMILY__
 
 // KnownFamily.h
-#include "pedigree.h"
+#include "Pedigree.h"
 
 // Remember if the parent is in samples
 class KnownFamily : public Family {
