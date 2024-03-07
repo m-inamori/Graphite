@@ -9,7 +9,11 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator
 
 from VCFFamily import *
 from VCFFillable import *
+from RecordSet import RecordSet
+from VCFImpFamily import FillType
 from Map import *
+from TypeDeterminer import ParentComb, TypeDeterminer
+import ClassifyRecord
 import Imputer
 from option import *
 
@@ -117,35 +121,122 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		for i in range(len(self)):
 			self.update(i, imputed_seqs)
 	
+	def fill(self):
+		# FillTypeでrecordを分ける
+		groups: list[tuple[FillType, list[VCFFillableRecord]]] = [ (g, list(v))
+					for g, v in groupby(self.records, key=lambda r: r.type) ]
+		for i, (key, subrecords) in enumerate(groups):
+			if key != FillType.MAT and key != FillType.PAT:
+				self.__phase(groups, i, True)
+	
+	# このあたりはあとでVCFFillableと共通化する
+	def __phase(self, groups: list[tuple[FillType, list[VCFFillableRecord]]],
+											i: int, necessary_parents_phasing):
+		prev_mat_record = self.find_prev_record(groups, i, FillType.MAT)
+		next_mat_record = self.find_next_record(groups, i, FillType.MAT)
+		prev_pat_record = self.find_prev_record(groups, i, FillType.PAT)
+		next_pat_record = self.find_next_record(groups, i, FillType.PAT)
+		key, records = groups[i]
+		for record in records:
+			record_set = RecordSet(record, prev_mat_record,
+							next_mat_record, prev_pat_record, next_pat_record)
+			self.__impute_core(record_set)
+	
+	def __impute_core(self, record_set: RecordSet):
+		record = record_set.record
+		if record is None:
+			return
+		for i in range(2, len(record.samples)):
+			_, mat_gt1, mat_gt2, pat_gt1, pat_gt2 = record_set.gts(i)
+			prev_mat_from = record_set.from_which_chrom_prev_mat(mat_gt1)
+			next_mat_from = record_set.from_which_chrom_next_mat(mat_gt2)
+			prev_pat_from = record_set.from_which_chrom_prev_pat(pat_gt1)
+			next_pat_from = record_set.from_which_chrom_next_pat(pat_gt2)
+			# とりあえず、両側Noneはないと仮定する
+			if prev_mat_from == 0:
+				mat_from = next_mat_from
+			elif next_mat_from == 0:
+				mat_from = prev_mat_from
+			elif prev_mat_from == next_mat_from:
+				mat_from = prev_mat_from
+			elif record_set.is_prev_nearer(True):
+				mat_from = prev_mat_from
+			else:
+				mat_from = next_mat_from
+			if prev_pat_from == 0:
+				pat_from = next_pat_from
+			elif next_pat_from == 0:
+				pat_from = prev_pat_from
+			elif prev_pat_from == next_pat_from:
+				pat_from = prev_pat_from
+			elif record_set.is_prev_nearer(True):
+				pat_from = prev_pat_from
+			else:
+				pat_from = next_pat_from
+			v = record.v
+			v[i+9] = v[9][mat_from*2-2] + '|' + v[10][pat_from*2-2]
+	
+	def find_prev_record(self,
+						groups: list[tuple[FillType, list[VCFFillableRecord]]],
+						i: int, g: FillType) -> Optional[VCFFillableRecord]:
+		key, records = groups[i]
+		chr = records[0].v[0]
+		for j in range(i-1, -1, -1):
+			key, records = groups[j]
+			if records[0].v[0] != chr:
+				return None
+			if key == g:
+				return records[-1]
+		else:
+			return None
+	
+	def find_next_record(self,
+						groups: list[tuple[FillType, list[VCFFillableRecord]]],
+						i: int, g: FillType) -> Optional[VCFFillableRecord]:
+		key, records = groups[i]
+		chr = records[0].v[0]
+		for j in range(i+1, len(groups)):
+			key, records = groups[j]
+			if records[0].v[0] != chr:
+				return None
+			if key == g:
+				return records[0]
+		else:
+			return None
+	
+	@staticmethod
+	def classify_record(record: VCFRecord) -> tuple[ParentComb, FillType]:
+		i = 0 if record.v[9][0] != record.v[9][2] else 1
+		j = 0 if record.v[10][0] != record.v[10][2] else 1
+		if (i, j) == (0, 0):		# 0/1 x 0/1
+			return (ParentComb.P01x01, FillType.IMPUTABLE)
+		elif (i, j) == (1, 0):		# 0/0 x 0/1 or 1/1 x 0/1
+			if record.v[9][0] == '0':
+				return (ParentComb.P00x01, FillType.PAT)
+			else:
+				return (ParentComb.P01x11, FillType.PAT)
+		elif (i, j) == (0, 1):		# 0/1 x 0/0 or 0/1 x 1/1
+			if record.v[10][0] == '0':
+				return (ParentComb.P00x01, FillType.MAT)
+			else:
+				return (ParentComb.P01x11, FillType.MAT)
+		else:
+			if record.v[9][0] == '0' and record.v[10][0] == '0':	# 0/0 x 0/0
+				return (ParentComb.P00x00, FillType.FILLED)
+			elif record.v[9][0] == '1' and record.v[10][0] == '1':	# 1/1 x 1/1
+				return (ParentComb.P11x11, FillType.FILLED)
+			else:													# 0/0 x 1/1
+				return (ParentComb.P00x11, FillType.FILLED)
+	
 	@staticmethod
 	def classify_records(records: list[VCFFamilyRecord]
 									) -> list[list[VCFFillableRecord]]:
 		# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
 		rss: list[list[VCFFillableRecord]] = [ [] for _ in range(4) ]
 		for index, record in enumerate(records):
-			i = 0 if record.v[9][0] != record.v[9][2] else 1
-			j = 0 if record.v[10][0] != record.v[10][2] else 1
-			if i == 0 and j == 0:
-				pair = 3	# 1x1
-				type = 'IMPUTABLE'
-			elif i == 1 and j == 0:
-				# 0x1 or 2x1
-				pair = 1 if record.v[9][0] == '0' else 4
-				type = 'PAT'
-			elif i == 0 and j == 1:
-				# 1x0 or 1x2
-				pair = 1 if record.v[10][0] == '0' else 4
-				type = 'MAT'
-			else:
-				if record.v[9][0] == '0' and record.v[10][0] == '0':
-					pair = 0	# 0x0
-				elif record.v[9][0] == '1' and record.v[10][0] == '1':
-					pair = 5	# 2x2
-				else:
-					pair = 2	# 0x2
-				type = 'FIXED'
-			rss[i+j*2].append(VCFFillableRecord(record.v, record.samples,
-														index, type, pair))
+			pair, type = VCFHeteroHomoPP.classify_record(record)
+			rss[type.value].append(VCFFillableRecord(record.v, record.samples,
+															index, type, pair))
 		return rss
 	
 	@staticmethod
@@ -169,12 +260,51 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
 		# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
 		rss = VCFHeteroHomoPP.classify_records(vcf.records)
-		mat_vcf = VCFHeteroHomoPP(vcf.header, rss[2], gmap)
-		pat_vcf = VCFHeteroHomoPP(vcf.header, rss[1], gmap)
+		mat_vcf = VCFHeteroHomoPP(vcf.header, rss[FillType.MAT.value], gmap)
+		pat_vcf = VCFHeteroHomoPP(vcf.header, rss[FillType.PAT.value], gmap)
 		mat_vcf.impute()
 		pat_vcf.impute()
-		new_vcf = VCFHeteroHomoPP.merge_vcf(mat_vcf, pat_vcf, rss[3], rss[0])
+		new_vcf = VCFHeteroHomoPP.merge_vcf(mat_vcf, pat_vcf,
+											rss[FillType.FILLED.value],
+											rss[FillType.IMPUTABLE.value])
 		new_vcf.phase_hetero_hetero()
 		return new_vcf
+	
+	@staticmethod
+	def merge_record(record1: VCFRecord, record2: VCFRecord,
+						samples: list[str],
+						i: int, td: TypeDeterminer) -> VCFFillableRecord:
+		v = record1.v + record2.v[9:]
+		record = VCFFamilyRecord(v, samples)
+		pair, type = VCFHeteroHomoPP.classify_record(record)
+		return VCFFillableRecord(v, samples, i, type, pair)
+	
+	@staticmethod
+	def fill_NA(record1: VCFRecord,
+						samples: list[str], i: int) -> VCFFillableRecord:
+		NA_len = len(samples) - len(record1.samples)
+		v = record1.v + ['./.'] * NA_len
+		return VCFFillableRecord(v, samples, i, FillType.UNABLE, ParentComb.PNA)
+	
+	@staticmethod
+	def merge(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,
+				samples: list[str], m: Map, option: Option) -> VCFHeteroHomoPP:
+		td = ClassifyRecord.get_typedeterminer(len(samples)-2, option.ratio)
+		header = vcf_parents.trim_header(samples)
+		records: list[VCFFillableRecord] = []
+		j = 0
+		for i, record1 in enumerate(vcf_parents.records):
+			if j == len(vcf_progenies):
+				record = VCFHeteroHomoPP.fill_NA(record1, samples, i)
+			else:
+				record2 = vcf_progenies.records[j]
+				if record1.pos() == record2.pos():
+					record = VCFHeteroHomoPP.merge_record(record1, record2,
+																samples, i, td)
+					j += 1
+				else:
+					record = VCFHeteroHomoPP.fill_NA(record1, samples, i);
+			records.append(record)
+		return VCFHeteroHomoPP(header, records, m)
 
 __all__ = ['VCFHeteroHomoPP']

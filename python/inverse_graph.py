@@ -11,7 +11,6 @@ import random
 import time
 
 from graph import GraphBase, Node
-from common import flatten
 
 
 #################### Type ####################

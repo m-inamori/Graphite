@@ -25,7 +25,7 @@ from VCFImpFamily import VCFImpFamilyRecord
 from Map import *
 import ClassifyRecord as CR
 from KnownFamily import KnownFamily
-from TypeDeterminer import TypeDeterminer
+from TypeDeterminer import TypeDeterminer, ParentComb
 from Genotype import Genotype
 from option import *
 from common import *
@@ -40,9 +40,9 @@ def get_int_gt(gt: str) -> int:
 		return int(gt[0]) + int(gt[2])
 
 def create_heterohomo_record(v: list[str], family: KnownFamily, i: int,
-											wrong_type: str, pair: int):
+											wrong_type: str, pair: ParentComb):
 	# 片親が不明の時、Genotypeを補う
-	total_int_gt = 1 if pair == 1 else 3
+	total_int_gt = 1 if pair == ParentComb.P00x01 else 3
 	if not family.mat_known:
 		pat_int_gt: int = get_int_gt(v[10])
 		mat_int_gt: int = total_int_gt - pat_int_gt
@@ -67,16 +67,16 @@ def classify_record(i: int, vcf: VCFFamily, td: TypeDeterminer,
 	samples = record.samples
 	wrong_type, pair = CR.classify_record(record, td, family.is_one_unknown())
 	v = vcf.records[i].v
-	if pair == -1:	# 候補が無い
-		other_records[i] = VCFJunkRecord(v, samples, i, wrong_type)
-	elif pair == 0 or pair == 3 or pair == 5:
+	if pair.is_homohomo():
 		record_ = VCFHomoHomoRecord(v, samples, i, wrong_type, pair)
 		other_records[i] = record_.impute()
-	elif pair == 1 or pair == 4:		# 0/0 x 0/1 or 0/1 x 1/1
+	elif pair.is_heterohomo():
 		heho_records[i] = create_heterohomo_record(v, family, i,
 													wrong_type, pair)
-	else:		# 0/1 x 0/1
+	elif pair == ParentComb.P01x01:
 		other_records[i] = VCFHeteroHeteroLiteRecord(v, samples, i, wrong_type)
+	else:		# 候補が無い
+		other_records[i] = VCFJunkRecord(v, samples, i, wrong_type)
 
 def classify_records_parallel(v: tuple[VCFFamily, TypeDeterminer, KnownFamily,
 									   list[Optional[VCFHeteroHomoRecord]],
@@ -146,7 +146,7 @@ def sort_records(rs: list[tuple[list[VCFHeteroHomoRecord],
 			if r1.parents_wrong_type == 'Right':
 				recordss[r1.index].append(r1)
 		for r2 in rs2:
-			if r2.pair in (0, 3, 5):		# Homo x Homo
+			if r2.pair.is_homohomo():
 				recordss[r2.index].append(r2)
 	return recordss
 

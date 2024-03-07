@@ -10,13 +10,15 @@ import sys
 #################### Option ####################
 
 class Option:
-	def __init__(self, VCF: str, ped: str, m: str,
+	def __init__(self, VCF: str, prog: str, ped: str, m: str, r: str,
 						families: list[int], chroms: list[int],
 						num: int, lp: int, ol: bool, ii: bool,
 						ou: bool, ci: bool, out: str):
 		self.path_VCF: str						= VCF
 		self.path_ped: str						= ped
+		self.path_prog_VCF: str					= prog
 		self.path_map: str						= m
+		self.path_ref: str						= r
 		self.families: list[int]				= families
 		self.chroms: list[int]					= chroms
 		self.num_threads: int					= num
@@ -28,6 +30,12 @@ class Option:
 		self.outputs_unimputed_samples: bool	= ou
 		self.corrects_isolated_samples: bool	= ci
 	
+	def exists_ref(self) -> bool:
+		return self.path_ref != ''
+	
+	def exists_progeny_VCF(self) -> bool:
+		return self.path_prog_VCF != ''
+	
 	def print_info(self):
 		# required
 		print("input VCF : %s" % self.path_VCF, file=sys.stderr)
@@ -38,6 +46,10 @@ class Option:
 		print("number of threads : %s" % self.num_threads, file=sys.stderr)
 		print("number of progenies for large family : %s" % self.lower_progs,
 															file=sys.stderr)
+		if self.path_ref:
+			print("ref VCF : %s" % self.path_ref, file=sys.stderr)
+		else:
+			print("ref VCF is not specified.", file=sys.stderr)
 		
 		if not self.imputes_isolated_samples:
 			print("isolate samples will not be imputed.", file=sys.stderr)
@@ -120,7 +132,9 @@ class Option:
 				raise Exception('output VCF not specified.')
 			
 			# Optional
+			prog_vcf = Option.flag_value('--progeny-vcf', argv)
 			path_map = Option.flag_value('-m', argv)
+			path_ref = Option.flag_value('-r', argv)
 			families = Option.get_families(argv)
 			chroms = Option.get_chroms(argv)
 			num_threads = Option.get_num_threads(argv)
@@ -134,8 +148,8 @@ class Option:
 			
 			corrects_isolated_samples = Option.exists(
 												"--correct-isolated", argv)
-			return Option(path_vcf, path_ped, path_map, families,
-							chroms, num_threads, lower_progs,
+			return Option(path_vcf, prog_vcf, path_ped, path_map, path_ref,
+							families, chroms, num_threads, lower_progs,
 							only_large_families, impute_isolated,
 							out_isolated, corrects_isolated_samples, path_out)
 		except ValueError:
@@ -146,7 +160,8 @@ class Option:
 	
 	@staticmethod
 	def usage():
-		u = ('python graphite.py -i VCF -p ped [-m map] [-t num_threads] ' +
+		u = ('python graphite.py -i VCF [--progeny-vcf prog VCF] ' +
+				'-p ped [-m map] [-r ref] [-t num_threads] ' +
 				'[-f family indices] [-c chrom indices] ' +
 				'[--lower-progs lower num progenies] [--large-only] ' +
 				'[--not-impute-isolated [--out-isolated]] ' +
