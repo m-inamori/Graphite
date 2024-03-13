@@ -135,8 +135,121 @@ void VCFHeteroHomoPP::impute() {
 	}
 }
 
+// Integrate later with the same methods in VCFFillable
+vector<VCFFillable::Group> VCFHeteroHomoPP::group_records() const {
+	vector<VCFFillable::Group>	groups;
+	auto	current_type = records.front()->get_type();
+	vector<VCFFillableRecord *>	group(1U, records.front());
+	for(auto p = records.begin() + 1; p != records.end(); ++p) {
+		auto	*record = *p;
+		if(record->get_type() != current_type) {
+			groups.push_back(VCFFillable::Group(current_type, group));
+			group.clear();
+			current_type = record->get_type();
+		}
+		group.push_back(record);
+	}
+	groups.push_back(VCFFillable::Group(current_type, group));
+	return groups;
+}
+
+void VCFHeteroHomoPP::fill() {
+	const auto	groups = group_records();
+	for(size_t i = 0; i < groups.size(); ++i) {
+		const FillType	key = groups[i].first;
+		if(key != FillType::MAT && key != FillType::PAT)
+			phase(groups, i, true);
+	}
+}
+
+// このあたりはあとでVCFFillableと共通化する
+void VCFHeteroHomoPP::phase(const vector<VCFFillable::Group>& groups, int i,
+											bool necessary_parents_phasing) {
+	auto	*prev_mat_record = find_prev_record(groups, i, FillType::MAT);
+	auto	*next_mat_record = find_next_record(groups, i, FillType::MAT);
+	auto	*prev_pat_record = find_prev_record(groups, i, FillType::PAT);
+	auto	*next_pat_record = find_next_record(groups, i, FillType::PAT);
+	const auto	records = groups[i].second;
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		auto	*record = *p;
+		RecordSet	record_set(record, prev_mat_record, next_mat_record,
+											prev_pat_record, next_pat_record);
+		impute_core(record_set);
+	}
+}
+
+void VCFHeteroHomoPP::impute_core(const RecordSet& record_set) {
+	auto	record = record_set.record;
+	if(record == NULL)
+		return;
+	
+	for(size_t i = 2; i < record->num_samples(); ++i) {
+		const string	mat_gt1 = record_set.prev_mat_gt(i);
+		const string	mat_gt2 = record_set.next_mat_gt(i);
+		const string	pat_gt1 = record_set.prev_pat_gt(i);
+		const string	pat_gt2 = record_set.next_pat_gt(i);
+		int	prev_mat_from = record_set.from_which_chrom_prev_mat(mat_gt1);
+		int	next_mat_from = record_set.from_which_chrom_next_mat(mat_gt2);
+		int	prev_pat_from = record_set.from_which_chrom_prev_pat(pat_gt1);
+		int	next_pat_from = record_set.from_which_chrom_next_pat(pat_gt2);
+		// とりあえず、両側NULLはないと仮定する
+		int	mat_from, pat_from;
+		if(prev_mat_from == 0)
+			mat_from = next_mat_from;
+		else if(next_mat_from == 0)
+			mat_from = prev_mat_from;
+		else if(prev_mat_from == next_mat_from)
+			mat_from = prev_mat_from;
+		else if(record_set.is_prev_nearer(true))
+			mat_from = prev_mat_from;
+		else
+			mat_from = next_mat_from;
+		if(prev_pat_from == 0)
+			pat_from = next_pat_from;
+		else if(next_pat_from == 0)
+			pat_from = prev_pat_from;
+		else if(prev_pat_from == next_pat_from)
+			pat_from = prev_pat_from;
+		else if(record_set.is_prev_nearer(true))
+			pat_from = prev_pat_from;
+		else
+			pat_from = next_pat_from;
+		auto	v = record->get_v();
+		char	gt[4];
+		gt[0] = v[9].c_str()[mat_from*2-2];
+		gt[1] = '|';
+		gt[2] =  v[10].c_str()[pat_from*2-2];
+		gt[3] = '\0';
+		record->set_GT(i, gt);
+	}
+}
+
+VCFFillableRecord *VCFHeteroHomoPP::find_prev_record(
+									const vector<VCFFillable::Group>& groups,
+									int i, FillType g) {
+	for(int j = i - 1; j >= 0; --j) {
+		const FillType	key = groups[j].first;
+		const auto	records = groups[j].second;
+		if(key == g)
+			return records.back();
+	}
+	return NULL;
+}
+	
+VCFFillableRecord *VCFHeteroHomoPP::find_next_record(
+									const vector<VCFFillable::Group>& groups,
+									int i, FillType g) {
+	for(size_t j = i + 1; j < groups.size(); ++j) {
+		const FillType	key = groups[j].first;
+		const auto	records = groups[j].second;
+		if(key == g)
+			return records.front();
+	}
+	return NULL;
+}
+
 pair<ParentComb, FillType> VCFHeteroHomoPP::classify_record(
-												VCFFamilyRecord *record) {
+													VCFFamilyRecord *record) {
 	const int	i = record->is_mat_hetero() ? 0 : 1;
 	const int	j = record->is_pat_hetero() ? 0 : 1;
 	if(i == 0 && j == 0) {
@@ -207,8 +320,9 @@ VCFFillable *VCFHeteroHomoPP::merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 							mat_vcf->get_samples(), records);
 }
 
-VCFFillable *VCFHeteroHomoPP::impute_by_parents(const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
+VCFFillable *VCFHeteroHomoPP::impute_by_parents(
+									const VCFSmallBase *orig_vcf,
+									const VCFSmallBase *imputed_vcf,
 									const STRVEC& samples, const Map& gmap) {
 	VCFFamily	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 														orig_vcf, samples);
@@ -274,4 +388,60 @@ vector<VCFFillable *> VCFHeteroHomoPP::impute_vcfs(
 	
 	Common::delete_all(configs);
 	return results;
+}
+
+VCFFillableRecord *VCFHeteroHomoPP::merge_record(const VCFRecord *record1,
+												const VCFRecord *record2,
+												const STRVEC& samples, int i,
+												const TypeDeterminer *td) {
+	STRVEC	v = record1->get_v();
+	v.insert(v.end(), record2->get_v().begin() + 9, record2->get_v().end());
+	auto	*record = new VCFFamilyRecord(v, samples);
+	const auto	pair1 = VCFHeteroHomoPP::classify_record(record);
+	const ParentComb	pc = pair1.first;
+	const FillType		type = pair1.second;
+	return new VCFFillableRecord(v, samples, i, type, pc);
+}
+
+VCFFillableRecord *VCFHeteroHomoPP::fill_NA(VCFRecord *record1,
+											const STRVEC& samples, int i) {
+	const size_t	NA_len = samples.size() - record1->num_samples();
+	auto	v = record1->get_v();
+	for(size_t i = 0; i < NA_len; ++i)
+		v.push_back("./.");
+	return new VCFFillableRecord(v, samples, i,
+									FillType::UNABLE, ParentComb::PNA);
+}
+
+VCFHeteroHomoPP *VCFHeteroHomoPP::merge(const VCFSmallBase *vcf_parents,
+										const VCFSmallBase *vcf_progenies,
+										const STRVEC& samples,
+										const Map& m, const Option *option) {
+	ClassifyRecord	*CR = ClassifyRecord::get_instance();
+	const TypeDeterminer	*td = CR->get_TypeDeterminer(samples.size()-2,
+																option->ratio);
+	const auto	header = vcf_parents->trim_header(samples);
+	vector<VCFFillableRecord *>	records;
+	size_t	j = 0;
+	for(size_t i = 0; i < vcf_parents->size(); ++i) {
+		auto	*record1 = vcf_parents->get_record(i);
+		VCFFillableRecord	*record;
+		if(j == vcf_progenies->size()) {
+			record = VCFHeteroHomoPP::fill_NA(record1, samples, i);
+		}
+		else {
+			auto	*prog_record = vcf_progenies->get_record(j);
+			if(record1->pos() == prog_record->pos()) {
+				record = VCFHeteroHomoPP::merge_record(record1,
+															prog_record,
+															samples, i, td);
+				++j;
+			}
+			else {
+				record = VCFHeteroHomoPP::fill_NA(record1, samples, i);
+			}
+		}
+		records.push_back(record);
+	}
+	return new VCFHeteroHomoPP(header, samples, records, m);
 }

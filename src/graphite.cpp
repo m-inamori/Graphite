@@ -4,6 +4,7 @@
 #include "../include/SampleManager.h"
 #include "../include/LargeFamily.h"
 #include "../include/SmallFamily.h"
+#include "../include/impute_prog_only.h"
 #include "../include/VCFHeteroHomoPP.h"
 #include "../include/VCFOneParentPhased.h"
 #include "../include/VCFProgenyPhased.h"
@@ -110,12 +111,8 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	return merged_vcf;
 }
 
-void impute_VCF(const Option *option) {
-	option->print_info();
-	Materials	*materials = Materials::create(option);
-	materials->display_map_info();
-	
-	VCFHuge	*vcf = VCFHuge::read(option->path_vcf);
+void impute_all(VCFHuge *vcf, const Materials *materials,
+										const Option *option) {
 	SampleManager	*sample_man = SampleManager::create(
 										option->path_ped, vcf->get_samples(),
 										option->lower_progs, option->families);
@@ -135,8 +132,8 @@ void impute_VCF(const Option *option) {
 		}
 		
 		const Map	*gmap = materials->get_chr_map(chrom_index);
-		const VCFSmall	*vcf_imputed = impute_vcf_chr(vcf_chrom, sample_man,
-																*gmap, option);
+		const VCFSmall	*vcf_imputed = impute_vcf_chr(vcf_chrom,
+													sample_man, *gmap, option);
 		delete vcf_chrom;
 		if(first_chromosome) {
 			ofstream	ofs(option->path_out);
@@ -152,6 +149,56 @@ void impute_VCF(const Option *option) {
 	
 	delete vcf;
 	delete sample_man;
+}
+
+void impute_progenies(VCFHuge *vcf, const Materials *materials,
+												const Option *option) {
+	auto	*vcf_ref = VCFHuge::read(option->path_ref_vcf);
+	VCFHuge::ChromDivisor	divisor(vcf);
+	VCFHuge::ChromDivisor	divisor_ref(vcf_ref);
+	bool	first_chromosome = true;
+	// とりあえず、後代のVCFも同じ染色体があるとする
+	for(int	chrom_index = 0; ; ++chrom_index) {
+		// chrom_index is required only for because they can skip chromosomes
+		VCFSmall	*vcf_chrom = divisor.next();
+		VCFSmall	*vcf_ref_chrom = divisor_ref.next();
+		if(vcf_chrom == NULL)
+			break;
+		else if(!option->is_efficient_chrom(chrom_index)) {
+			delete vcf_chrom;
+			continue;
+		}
+		
+		const Map	*gmap = materials->get_chr_map(chrom_index);
+		const VCFSmallBase	*vcf_imputed = ImputeProgOnly::impute_prog_vcf_chr(
+													vcf_ref_chrom,
+													vcf_chrom, *gmap, option);
+		delete vcf_chrom;
+		delete vcf_ref_chrom;
+		if(first_chromosome) {
+			ofstream	ofs(option->path_out);
+			vcf_imputed->write(ofs, true);	// write header
+		}
+		else {
+			ofstream	ofs(option->path_out, ios_base::app);
+			vcf_imputed->write(ofs, false);
+		}
+		first_chromosome = false;
+		delete vcf_imputed;
+	}
+}
+
+void impute_VCF(const Option *option) {
+	option->print_info();
+	Materials	*materials = Materials::create(option);
+	materials->display_map_info();
+	VCFHuge	*vcf = VCFHuge::read(option->path_vcf);
+	
+	if(option->exists_ref())
+		impute_progenies(vcf, materials, option);
+	else
+		impute_all(vcf, materials, option);
+	
 	delete materials;
 }
 

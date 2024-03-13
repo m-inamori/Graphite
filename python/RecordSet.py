@@ -48,13 +48,13 @@ class RecordSet:
 				return False
 			else:
 				return (self.prev_mat_record.pos() + self.next_mat_record.pos()
-														>= self.record.pos()*2)
+														> self.record.pos()*2)
 		else:
 			if self.prev_pat_record is None or self.next_pat_record is None:
 				return False
 			else:
 				return (self.prev_pat_record.pos() + self.next_pat_record.pos()
-														>= self.record.pos()*2)
+														> self.record.pos()*2)
 	
 	def __select_phasing(self, candidates: list[tuple[int, int]]
 												) -> tuple[int, int]:

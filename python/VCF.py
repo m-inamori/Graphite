@@ -234,6 +234,10 @@ class VCFSmallBase(ABC):
 			hap.append(-1 if c == '.' else int(c))
 		return hap
 	
+	def write_header(self, out: IO):
+		for v in self.get_header():
+			write_tsv(v, out)
+	
 	def write(self, out: IO, with_header: bool=True):
 		if with_header:
 			self.write_header(out)

@@ -76,12 +76,12 @@ def impute_all(vcf: VCFHuge, geno_map: Map, option: Option):
 		first = False
 
 def impute_progenies(vcf: VCFHuge, geno_map: Map, option: Option):
-	vcf_prog = VCFHuge.read(option.path_prog_VCF)
+	vcf_ref = VCFHuge.read(option.path_ref_VCF)
 	iter = chroms_efficients(option)
 	first = True
 	# とりあえず、後代のVCFも同じ染色体があるとする
-	for b, vcf_chr, prog_chr, gmap in zip(iter, vcf.divide_into_chromosomes(),
-											vcf_prog.divide_into_chromosomes(),
+	for b, prog_chr, vcf_chr, gmap in zip(iter, vcf.divide_into_chromosomes(),
+											vcf_ref.divide_into_chromosomes(),
 											geno_map.iter_chr_maps()):
 		if not b:
 			continue
@@ -97,7 +97,7 @@ def impute_vcf(option: Option):
 	geno_map = Map.read(option.path_map)
 	geno_map.display_info(sys.stderr)
 	
-	if option.exists_progeny_VCF():
+	if option.exists_ref():
 		impute_progenies(vcf, geno_map, option)
 	else:
 		impute_all(vcf, geno_map, option)

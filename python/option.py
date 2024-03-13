@@ -10,13 +10,13 @@ import sys
 #################### Option ####################
 
 class Option:
-	def __init__(self, VCF: str, prog: str, ped: str, m: str, r: str,
+	def __init__(self, VCF: str, ref: str, ped: str, m: str, r: str,
 						families: list[int], chroms: list[int],
 						num: int, lp: int, ol: bool, ii: bool,
 						ou: bool, ci: bool, out: str):
 		self.path_VCF: str						= VCF
 		self.path_ped: str						= ped
-		self.path_prog_VCF: str					= prog
+		self.path_ref_VCF: str					= ref
 		self.path_map: str						= m
 		self.path_ref: str						= r
 		self.families: list[int]				= families
@@ -31,10 +31,10 @@ class Option:
 		self.corrects_isolated_samples: bool	= ci
 	
 	def exists_ref(self) -> bool:
-		return self.path_ref != ''
+		return self.path_ref_VCF != ''
 	
-	def exists_progeny_VCF(self) -> bool:
-		return self.path_prog_VCF != ''
+	def exists_reference(self) -> bool:
+		return self.path_VCF != ''
 	
 	def print_info(self):
 		# required
@@ -132,7 +132,7 @@ class Option:
 				raise Exception('output VCF not specified.')
 			
 			# Optional
-			prog_vcf = Option.flag_value('--progeny-vcf', argv)
+			ref_vcf = Option.flag_value('--ref', argv)
 			path_map = Option.flag_value('-m', argv)
 			path_ref = Option.flag_value('-r', argv)
 			families = Option.get_families(argv)
@@ -148,7 +148,7 @@ class Option:
 			
 			corrects_isolated_samples = Option.exists(
 												"--correct-isolated", argv)
-			return Option(path_vcf, prog_vcf, path_ped, path_map, path_ref,
+			return Option(path_vcf, ref_vcf, path_ped, path_map, path_ref,
 							families, chroms, num_threads, lower_progs,
 							only_large_families, impute_isolated,
 							out_isolated, corrects_isolated_samples, path_out)
@@ -160,7 +160,7 @@ class Option:
 	
 	@staticmethod
 	def usage():
-		u = ('python graphite.py -i VCF [--progeny-vcf prog VCF] ' +
+		u = ('python graphite.py -i VCF [--ref ref VCF] ' +
 				'-p ped [-m map] [-r ref] [-t num_threads] ' +
 				'[-f family indices] [-c chrom indices] ' +
 				'[--lower-progs lower num progenies] [--large-only] ' +

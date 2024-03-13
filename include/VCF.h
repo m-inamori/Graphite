@@ -123,7 +123,10 @@ public:
 	std::vector<std::size_t> extract_columns(STRVEC::const_iterator first,
 											STRVEC::const_iterator last) const;
 	VCFSmall *extract_samples(const STRVEC& samples) const;
+	void write(std::ostream& os, bool write_header=true) const;
+	void write_header(std::ostream& os) const;
 };
+
 
 //////////////////// VCFSmall ////////////////////
 
@@ -148,7 +151,6 @@ public:
 	///// non-virtual methods /////
 	const std::vector<VCFRecord *>& get_records() const { return records; }
 	bool is_empty() const { return records.empty(); }
-	void write(std::ostream& os, bool write_header=true) const;
 	
 	void add_record(VCFRecord *record) { records.push_back(record); }
 	void add_records(std::vector<VCFRecord *>& rs) {

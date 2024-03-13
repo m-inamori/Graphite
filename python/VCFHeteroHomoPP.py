@@ -5,7 +5,7 @@ from __future__ import annotations
 # 両親がphasingされたヘテロ×ホモファミリー
 
 from collections import defaultdict, Counter
-from typing import List, Tuple, Optional, IO, Dict, Iterator
+from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
 from VCFFamily import *
 from VCFFillable import *
@@ -123,15 +123,17 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	
 	def fill(self):
 		# FillTypeでrecordを分ける
-		groups: list[tuple[FillType, list[VCFFillableRecord]]] = [ (g, list(v))
-					for g, v in groupby(self.records, key=lambda r: r.type) ]
+		groups = []
+		for g, v in groupby(self.records, key=lambda r: r.type):
+			groups.append((g, list(v)))
+		
 		for i, (key, subrecords) in enumerate(groups):
 			if key != FillType.MAT and key != FillType.PAT:
 				self.__phase(groups, i, True)
 	
 	# このあたりはあとでVCFFillableと共通化する
 	def __phase(self, groups: list[tuple[FillType, list[VCFFillableRecord]]],
-											i: int, necessary_parents_phasing):
+									i: int, necessary_parents_phasing: bool):
 		prev_mat_record = self.find_prev_record(groups, i, FillType.MAT)
 		next_mat_record = self.find_next_record(groups, i, FillType.MAT)
 		prev_pat_record = self.find_prev_record(groups, i, FillType.PAT)
@@ -229,7 +231,7 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 				return (ParentComb.P00x11, FillType.FILLED)
 	
 	@staticmethod
-	def classify_records(records: list[VCFFamilyRecord]
+	def classify_records(records: Sequence[VCFFamilyRecord]
 									) -> list[list[VCFFillableRecord]]:
 		# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
 		rss: list[list[VCFFillableRecord]] = [ [] for _ in range(4) ]

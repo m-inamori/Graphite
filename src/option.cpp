@@ -120,6 +120,7 @@ Option *Option::create(int argc, char **argv) {
 			throw std::runtime_error("output VCF not specified.");
 		
 		// Optional
+		const string	ref = flag_value("--ref", argc, argv);
 		const string	path_map = flag_value("-m", argc, argv);
 		const vector<size_t>	families = get_families(argc, argv);
 		const vector<size_t>	chroms = get_chroms(argc, argv);
@@ -135,7 +136,7 @@ Option *Option::create(int argc, char **argv) {
 		const bool	corrects_isolated_samples
 							= !exists("--correct-isolated", argc, argv);
 		
-		return new Option(path_vcf, path_ped, path_map, families,
+		return new Option(path_vcf, ref, path_ped, path_map, families,
 							chroms, num_threads, lower_progs,
 							only_large_families, impute_isolated,
 							out_isolated, corrects_isolated_samples, path_out);
@@ -150,8 +151,8 @@ Option *Option::create(int argc, char **argv) {
 };
 
 void Option::usage(char **argv) {
-	cerr << argv[0] << " -i VCF -p ped [-m map] [-t num_threads] "
-				<< "[-f family indices] [-c chrom indices] "
+	cerr << argv[0] << " -i VCF [-ref ref VCF] -p ped [-m map] "
+				<< "[-t num_threads] [-f family indices] [-c chrom indices] "
 				<< "[--lower-progs lower num progenies] [--large-only] "
 				<< "[--not-impute-isolated [--out-isolated]] "
 				<< "[--correct-isolated] "

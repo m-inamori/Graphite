@@ -240,6 +240,19 @@ VCFSmall *VCFSmallBase::extract_samples(const STRVEC& samples) const {
 	return vcf;
 }
 
+void VCFSmallBase::write(ostream& os, bool write_header) const {
+	if(write_header)
+		this->write_header(os);
+	for(size_t i = 0; i < size(); ++i)
+		get_record(i)->write(os);
+}
+
+void VCFSmallBase::write_header(ostream& os) const {
+	const auto&	header = get_header();
+	for(auto p = header.begin(); p != header.end(); ++p)
+		Common::write_tsv(*p, os);
+}
+
 
 //////////////////// VCFSmall ////////////////////
 
@@ -255,13 +268,6 @@ VCFSmall::~VCFSmall() {
 		for(auto p = records.begin(); p != records.end(); ++p)
 			delete *p;
 	}
-}
-
-void VCFSmall::write(ostream& os, bool write_header) const {
-	if(write_header)
-		this->write_header(os);
-	for(auto p = records.begin(); p != records.end(); ++p)
-		(*p)->write(os);
 }
 
 VCFSmall *VCFSmall::read(const string& path) {
