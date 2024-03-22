@@ -92,19 +92,22 @@ public:
 	double compute_phasing_likelihood(int mat_phasing,
 										int pat_phasing) const;
 	std::pair<int, int> select_phasing(
-					const std::vector<std::pair<int, int>>& candidates);
+					const std::vector<std::pair<int, int>>& candidates) const;
 	std::pair<int, int> determine_phasing_core(
-					const std::vector<std::tuple<double, int, int>>& lls);
-	void determine_phasing();
+					const std::vector<std::tuple<double, int, int>>& lls) const;
+	void determine_phasing() const;
 	int select_from(int from1, int from2,
 								const VCFRecord *record1,
 								const VCFRecord *record2) const;
-	std::string modify_gt(size_t i);
-	void impute_core();
+	std::string modify_gt(size_t i) const;
+	void impute(bool necessary_parents_phasing) const;
+	void impute_core() const;
 	
 	int select_mat(const std::vector<Pair>& pairs) const;
 	void impute_NA_mat_each(std::size_t i) const;
 	int select_pat(const std::vector<Pair>& pairs) const;
 	void impute_NA_pat_each(std::size_t i) const;
+	int determine_mat_from(std::size_t i) const;
+	int determine_pat_from(std::size_t i) const;
 };
 #endif

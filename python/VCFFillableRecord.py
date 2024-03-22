@@ -133,11 +133,67 @@ class VCFFillableRecord(VCFFamilyRecord):
 			v[i_PGT] = v[i_GT]
 			self.v[j] = ':'.join(v)
 	
+	def inverse_gt(self, gt: str, inv: bool) -> str:
+		return ("1" if gt == "0" else "0") if inv else gt
+	
+	def inverse_prog_gt(self, gt: str, inv_mat: bool, inv_pat: bool) -> str:
+		return (self.inverse_gt(gt[0], inv_mat) + "|" +
+				self.inverse_gt(gt[2], inv_pat) + gt[3:])
+	
+	def inverse_prog_gts(self, prog_gts: list[str],
+							inv_mat: bool, inv_pat: bool) -> list[str]:
+		inv_prog_gts = [ self.inverse_prog_gt(gt, inv_mat, inv_pat)
+												for gt in prog_gts ]
+		return inv_prog_gts
+	
+	def inverse_parents_gts(self, inv_mat: bool, inv_pat: bool):
+		# both must be hetero
+		if inv_mat:
+			self.set_GT(0, self.v[9][2] + "|" + self.v[9][0])
+		if inv_pat:
+			self.set_GT(1, self.v[10][2] + "|" + self.v[10][0])
+	
+	def is_same_gts(self, gt1: str, gt2: str) -> bool:
+		if gt2 == "0/1":
+			return gt1 == "0|1" or gt1 == "1|0"
+		elif gt2 == "0/0":
+			return gt1 == "0|0"
+		elif gt2 == "1/1":
+			return gt1 == "1|1"
+		else:
+			return False;
+	
+	def is_near_prog_gts(self, gts: list[str]) -> bool:
+		num = 0
+		dist = 0
+		for i in range(len(gts)):
+			if self.v[i+11] != "0/1":
+				num += 1
+			if not self.is_same_gts(gts[i], self.v[i+11]):
+				dist += 1
+		return dist < max(1, num // 2)
+	
+	def modify_gts(self, new_prog_gts: list[str]):
+		for inv_mat, inv_pat in product((False, True), repeat=2):
+			inv_prog_gts = self.inverse_prog_gts(new_prog_gts, inv_mat, inv_pat)
+			if self.is_near_prog_gts(inv_prog_gts):
+				self.inverse_parents_gts(inv_mat, inv_pat)
+				for c in range(11, len(self.v)):
+					self.v[c] = inv_prog_gts[c-11]
+				return
+		for c in range(11, len(self.v)):
+			self.v[c] = new_prog_gts[c-11]
+
 	def modify_parents_type(self):
 		if (self.pair != ParentComb.P00x11 and
 				((self.v[9][:3] == '0|0' and self.v[10][:3] == '1|1') or
 				 (self.v[9][:3] == '1|1' and self.v[10][:3] == '0|0'))):
 			self.pair = ParentComb.P00x11
+	
+	def from_which_chrom(self, i: int, mat: bool) -> int:
+		j = 0 if mat else 1
+		parent_gt = self.v[j+9]
+		return 1 if parent_gt[0] == self.get_gt(i)[j*2] else 2
 	
 	@staticmethod
 	def convert(record: VCFImpFamilyRecord) -> VCFFillableRecord:

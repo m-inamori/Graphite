@@ -3,6 +3,7 @@
 #include <cassert>
 #include "../include/VCFFillable.h"
 #include "../include/VCFHeteroHomo.h"
+#include "../include/group.h"
 
 #include "../include/option.h"
 #include "../include/common.h"
@@ -23,20 +24,21 @@ VCFFillable::~VCFFillable() {
 
 void VCFFillable::phase_in_thread(void *config) {
 	auto	*c = (ConfigThreadPhase *)config;
-	const auto&	groups = c->groups;
-	const size_t	n = groups.size();
+	const auto&	record_sets = c->record_sets;
+	const size_t	n = record_sets.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
-		if(groups[i].second.front()->is_fillable_type())
-			c->vcf->phase(i, groups, true);
+		if(record_sets[i].record->is_fillable_type())
+			record_sets[i].impute(true);
 	}
 }
 
 void VCFFillable::modify(int T) {
-	vector<Group>	groups = group_records();
-#if 1
+	const Groups	*groups = Groups::create(records);
+	const auto	record_sets = groups->create_record_sets();
+	
 	vector<ConfigThreadPhase *>	configs(T);
 	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThreadPhase(i, T, groups, this);
+		configs[i] = new ConfigThreadPhase(i, T, record_sets, this);
 	
 #ifndef DEBUG
 	vector<pthread_t>	threads_t(T);
@@ -52,12 +54,8 @@ void VCFFillable::modify(int T) {
 #endif
 	
 	Common::delete_all(configs);
-#else
-	for(size_t i = 0U; i < groups.size(); ++i) {
-		if(groups[i].second.front()->is_fillable_type())
-			this->phase(i, groups, true);
-	}
-#endif
+	
+	delete groups;
 	
 	for(size_t i = 0U; i < records.size(); ++i) {
 		auto	*record = records[i];
@@ -75,10 +73,10 @@ void VCFFillable::modify(int T) {
 
 void VCFFillable::phase_hetero_hetero() {
 	// Group records with type 'IMPUTABLE', 'MAT', 'PAT' and 'FIXED'
-	vector<Group>	groups = this->group_records();
-	for(size_t i = 0; i < groups.size(); ++i) {
-		if(groups[i].first == FillType::IMPUTABLE)
-			this->phase(i, groups, false);
+	const Groups	*groups = Groups::create(records);
+	const auto	record_sets = groups->create_record_sets();
+	for(auto p = record_sets.begin(); p != record_sets.end(); ++p) {
+		p->impute(false);
 	}
 	
 	for(size_t i = 0U; i < records.size(); ++i) {
@@ -90,6 +88,7 @@ void VCFFillable::phase_hetero_hetero() {
 		else if(record->is_fillable_type())
 			this->impute_others(i);
 	}
+	delete groups;
 }
 
 VCFFillable *VCFFillable::create_from_header() const {
@@ -97,66 +96,6 @@ VCFFillable *VCFFillable::create_from_header() const {
 	VCFFillable	*vcf = new VCFFillable(header, samples, rs);
 	copy_chrs(vcf);
 	return vcf;
-}
-
-vector<VCFFillable::Group> VCFFillable::group_records() const {
-	vector<Group>	groups;
-	auto	current_type = records.front()->get_type();
-	vector<VCFFillableRecord *>	group(1U, records.front());
-	for(auto p = records.begin() + 1; p != records.end(); ++p) {
-		auto	*record = *p;
-		if(record->get_type() != current_type) {
-			groups.push_back(Group(current_type, group));
-			group.clear();
-			current_type = record->get_type();
-		}
-		group.push_back(record);
-	}
-	groups.push_back(Group(current_type, group));
-	return groups;
-}
-
-VCFFillableRecord *VCFFillable::find_prev_record(FillType type, int i,
-											const vector<Group>& groups) const {
-	const string&	chr = groups[i].second.front()->chrom();
-	for(int j = i - 1; j >= 0; --j) {
-		if(groups[j].second.front()->chrom() != chr)
-			return NULL;
-		else if(groups[j].first == type)
-			return groups[j].second.back();
-	}
-	return NULL;
-}
-
-VCFFillableRecord *VCFFillable::find_next_record(FillType type, int i,
-											const vector<Group>& groups) const {
-	const string&	chr = groups[i].second.front()->chrom();
-	for(int j = i + 1; j < (int)groups.size(); ++j) {
-		if(groups[j].second.front()->chrom() != chr)
-			return NULL;
-		else if(groups[j].first == type)
-			return groups[j].second.front();
-	}
-	return NULL;
-}
-
-void VCFFillable::phase(int i, const vector<Group>& groups,
-										bool necessary_parents_phasing) {
-	const auto	mat = FillType::MAT;
-	const auto	pat = FillType::PAT;
-	auto	*prev_mat_record = find_prev_record(mat, i, groups);
-	auto	*next_mat_record = find_next_record(mat, i, groups);
-	auto	*prev_pat_record = find_prev_record(pat, i, groups);
-	auto	*next_pat_record = find_next_record(pat, i, groups);
-	auto	group_records = groups[i].second;
-	for(auto p = group_records.begin(); p != group_records.end(); ++p) {
-		auto	*record = *p;
-		RecordSet	record_set(record, prev_mat_record, next_mat_record,
-											prev_pat_record, next_pat_record);
-		if(necessary_parents_phasing)
-			record_set.determine_phasing();
-		record_set.impute_core();
-	}
 }
 
 template<typename Iter>

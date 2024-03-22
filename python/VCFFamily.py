@@ -36,7 +36,7 @@ class VCFFamilyRecord(VCFRecord):
 		return self.get_int_gt(1)
 	
 	def progeny_gts(self) -> list[int]:
-		return [ self.get_gt(i) for i in range(2, len(self.v) - 9) ]
+		return [ self.get_int_gt(i) for i in range(2, len(self.v) - 9) ]
 	
 	def progeny_int_gts(self) -> list[int]:
 		return [ self.get_int_gt(i) for i in range(2, len(self.v) - 9) ]

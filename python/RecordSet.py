@@ -11,6 +11,7 @@ from VCF import VCFRecord
 from VCFFillableRecord import VCFFillableRecord
 from TypeDeterminer import ParentComb
 from Genotype import Genotype
+from common import unique_list
 
 
 #################### RecordSet ####################
@@ -28,6 +29,26 @@ class RecordSet:
 	def records(self) -> list[Optional[VCFFillableRecord]]:
 		return [self.record, self.prev_mat_record, self.next_mat_record,
 							 self.prev_pat_record, self.next_pat_record]
+	
+	def prev_mat_from(self, i: int) -> int:
+		if self.prev_mat_record is None:
+			return 0
+		return self.prev_mat_record.from_which_chrom(i, True)
+	
+	def next_mat_from(self, i: int) -> int:
+		if self.next_mat_record is None:
+			return 0
+		return self.next_mat_record.from_which_chrom(i, True)
+	
+	def prev_pat_from(self, i: int) -> int:
+		if self.prev_pat_record is None:
+			return 0
+		return self.prev_pat_record.from_which_chrom(i, False)
+	
+	def next_pat_from(self, i: int) -> int:
+		if self.next_pat_record is None:
+			return 0
+		return self.next_pat_record.from_which_chrom(i, False)
 	
 	def gt_each(self, i: int, record: Optional[VCFFillableRecord]) -> str:
 		return './.' if record is None else record.v[i+9]
@@ -138,9 +159,118 @@ class RecordSet:
 	def gen_gts(self) -> Iterator[tuple[str, str, str, str, str]]:
 		if self.record is None:
 			return
+		
 		for c in range(11, len(self.record.v)):
 			gts = [ r.v[c] if r else '' for r in self.records() ]
 			yield (gts[0], gts[1], gts[2], gts[3], gts[4])
+	
+	def is_mat_prev_near(self) -> bool:
+		if (self.record is None or self.prev_mat_record is None or
+										self.next_mat_record is None):
+			return False
+		return (self.record.pos() * 2 <
+					self.prev_mat_record.pos() + self.next_mat_record.pos())
+	
+	def is_pat_prev_near(self) -> bool:
+		if (self.record is None or self.prev_pat_record is None or
+										self.next_pat_record is None):
+			return False
+		return (self.record.pos() * 2 <
+					self.prev_pat_record.pos() + self.next_pat_record.pos())
+	
+	def near_mat_from(self, i: int) -> int:
+		return (self.prev_mat_from(i) if self.is_mat_prev_near()
+										else self.next_mat_from(i))
+	
+	def near_pat_from(self, i: int) -> int:
+		return (self.prev_pat_from(i) if self.is_pat_prev_near()
+										else self.next_pat_from(i))
+	
+	# [(mat_from, pat_from)] -> (mat_from, pat_from)
+	def select_nearest_froms(self, pairs: list[tuple[int, int]],
+											i: int) -> tuple[int, int]:
+		if len(pairs) == 4:		# N/Aのときにまれにあり得る
+			return (self.near_mat_from(i), self.near_pat_from(i))
+		elif pairs[0][0] == pairs[1][0]:		# matが同じ
+			if (self.record is None or self.prev_pat_record is None or
+											self.next_pat_record is None):
+				return (0, 0)
+			elif self.is_pat_prev_near():
+				return (pairs[0][0], self.prev_pat_from(i))
+			else:
+				return (pairs[0][0], self.next_pat_from(i))
+		elif pairs[0][1] == pairs[1][1]:	# patが同じ
+			if (self.record is None or self.prev_mat_record is None or
+											self.next_mat_record is None):
+				return (0, 0)
+			elif self.is_mat_prev_near():
+				return (self.prev_mat_from(i), pairs[0][1])
+			else:
+				return (self.next_mat_from(i), pairs[0][1])
+		else:	# 両親とも乗り換えている（滅多にない）
+			return (self.near_mat_from(i), self.near_pat_from(i))
+	
+	def select_pair(self, pairs: list[tuple[int, int]], i: int,
+							selected: bool = False) -> tuple[int, int]:
+		def sum_gt(gt: str) -> int:
+			try:
+				return int(gt[0]) + int(gt[2])
+			except ValueError:
+				return -1
+		
+		record = self.record
+		if record is None:	# for mypy
+			return (0, 0)
+		gt = record.get_gt(i)
+		if not pairs:
+			return (0, 0)
+		elif len(pairs) == 1:
+			return pairs[0]
+		elif not Genotype.is_valid(gt, record.mat_int_gt(),
+											record.pat_int_gt()):
+			return self.select_nearest_froms(pairs, i)
+		elif selected:
+			return self.select_nearest_froms(pairs, i)
+		else:
+			new_pairs = [ v for v in pairs
+						if sum_gt(gt) == sum_gt(record.gt_from_parent(*v)) ]
+			pair = self.select_pair(new_pairs, i, True)
+			if pair != (0, 0):
+				return pair
+			else:
+				return self.select_pair(pairs, i, True)
+	
+	def determine_mat_from(self, i: int) -> int:
+		_, mat_gt1, mat_gt2, pat_gt1, pat_gt2 = self.gts(i)
+		prev_mat_from = self.from_which_chrom_prev_mat(mat_gt1)
+		next_mat_from = self.from_which_chrom_next_mat(mat_gt2)
+		# とりあえず、両側Noneはないと仮定する
+		if prev_mat_from == 0:
+			return next_mat_from
+		elif next_mat_from == 0:
+			return prev_mat_from
+		elif prev_mat_from == next_mat_from:
+			return prev_mat_from
+		elif self.is_prev_nearer(True):
+			return prev_mat_from
+		else:
+			return next_mat_from
+	
+	def determine_pat_from(self, i: int) -> int:
+		_, mat_gt1, mat_gt2, pat_gt1, pat_gt2 = self.gts(i)
+		prev_pat_from = self.from_which_chrom_prev_pat(pat_gt1)
+		next_pat_from = self.from_which_chrom_next_pat(pat_gt2)
+		# とりあえず、両側Noneはないと仮定する
+		if prev_pat_from == 0:
+			return next_pat_from
+		elif next_pat_from == 0:
+			return prev_pat_from
+		elif prev_pat_from == next_pat_from:
+			return prev_pat_from
+		elif self.is_prev_nearer(False):
+			return prev_pat_from
+		else:
+			return next_pat_from
 	
 	# mat_gt, pat_gt : 0|0 0|1 1|0 1|1を0～3で表す
 	def compute_phasing_likelihood(self, mat_gt: int, pat_gt: int) -> float:
@@ -191,3 +321,67 @@ class RecordSet:
 		gt = ['0|0', '1|0', '0|1', '1|1']
 		record.v[9] = gt[mat_gt] + record.v[9][3:]
 		record.v[10] = gt[pat_gt] + record.v[10][3:]
+	
+	# どちらから来たか決める
+	def select_from(self, froms: list[int], record1: Optional[VCFRecord],
+										  record2: Optional[VCFRecord]) -> int:
+		if len(froms) == 1:
+			return froms[0]
+		
+		# どちらかは0でない前提
+		if froms[0] == 0:
+			return froms[1]
+		elif froms[1] == 0:
+			return froms[0]
+		else:	# 両側にRecordがある
+			# 近い方を選ぶ
+			if self.record is None or record1 is None or record2 is None:
+				# ここには来ないはず
+				return 0
+			elif self.record.pos() * 2 < record1.pos() + record2.pos():
+				return froms[0]
+			else:
+				return froms[1]
+	
+	def modify_gt(self, i: int) -> str:
+		if self.record is None:
+			return ""
+		
+		gt = self.record.get_gt(i)
+		prev_mat_from = self.prev_mat_from(i)
+		next_mat_from = self.next_mat_from(i)
+		prev_pat_from = self.prev_pat_from(i)
+		next_pat_from = self.next_pat_from(i)
+		if ((prev_mat_from == 0 and next_mat_from == 0) or
+								(prev_pat_from == 0 and next_pat_from == 0)):
+			return gt
+		
+		mat_froms = unique_list(prev_mat_from, next_mat_from)
+		pat_froms = unique_list(prev_pat_from, next_pat_from)
+		pairs = [ x for x in product(mat_froms, pat_froms)
+									if x[0] != 0 and x[1] != 0 ]
+		mat_from, pat_from = self.select_pair(pairs, i, False)
+		if (mat_from, pat_from) == (0, 0):
+			if any(mat_from != 0 for mat_from in mat_froms):
+				mat_from_nz = self.select_from(mat_froms,
+									self.prev_mat_record, self.next_mat_record)
+				return self.record.gt_from_mat(mat_from_nz, i+9)
+			elif any(pat_from != 0 for pat_from in pat_froms):
+				pat_from_nz = self.select_from(pat_froms,
+									self.prev_pat_record, self.next_pat_record)
+				return self.record.gt_from_pat(pat_from_nz, i+9)
+			else:
+				return gt	# phasingしない
+		else:
+			return self.record.gt_from_parent(mat_from, pat_from)
+	
+	def impute_core(self):
+		new_gts = [ self.modify_gt(i)
+					for i in range(2, len(self.record.samples)) ]
+		self.record.modify_gts(new_gts)
+		self.record.modify_parents_type()
+	
+	def impute(self, necessary_parents_phasing: bool):
+		if necessary_parents_phasing:
+			self.determine_parents_phasing()
+		self.impute_core()

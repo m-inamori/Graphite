@@ -3,6 +3,7 @@
 
 #include "VCFImpFamily.h"
 #include "VCFFillable.h"
+#include "group.h"
 #include "Map.h"
 #include "option.h"
 #include "graph.h"
@@ -71,7 +72,6 @@ public:
 	
 	void impute();
 	void clear_records() { records.clear(); }
-	std::vector<VCFFillable::Group> group_records() const;
 	void fill();
 	
 private:
@@ -82,15 +82,11 @@ private:
 	std::string update_each(std::size_t i, std::size_t j, char c);
 	void update(std::size_t i, const STRVEC& seqs);
 	
-	void phase(const std::vector<VCFFillable::Group>& groups, int i,
-											bool necessary_parents_phasing);
 	void impute_core(const RecordSet& record_set);
 	VCFFillableRecord *find_prev_record(
-							const std::vector<VCFFillable::Group>& groups,
-							int i, FillType g);
+							const Groups *groups, int i, FillType g);
 	VCFFillableRecord *find_next_record(
-							const std::vector<VCFFillable::Group>& groups,
-							int i, FillType g);
+							const Groups *groups, int i, FillType g);
 	
 public:
 	static std::map<FillType, std::vector<VCFFillableRecord *>>

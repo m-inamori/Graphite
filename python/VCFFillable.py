@@ -12,6 +12,7 @@ from VCFFamily import *
 from VCFImpFamily import FillType, VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from VCFHeteroHomo import *
+from group import Groups
 from RecordSet import RecordSet
 from Genotype import Genotype
 from option import *
@@ -38,11 +39,10 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 	
 	def modify(self) -> None:
 		# FillTypeでrecordを分ける
-		groups: list[tuple[FillType, list[VCFFillableRecord]]] = [ (g, list(v))
-					for g, v in groupby(self.records, key=lambda r: r.type) ]
-		for i, (key, subrecords) in enumerate(groups):
-			if key == FillType.IMPUTABLE or key == FillType.UNABLE:
-				self.__phase(groups, i, True)
+		groups = Groups.create(self.records)
+		for record_set in groups.generate_record_sets():
+			record_set.determine_parents_phasing()
+			self.__impute_core(record_set)
 		
 		for i, record in enumerate(self.records):
 			# 家系ごとで./.にしたGenotypeを補完
@@ -58,11 +58,10 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 	
 	def phase_hetero_hetero(self) -> None:
 		# FillTypeでrecordを分ける
-		groups: list[tuple[FillType, list[VCFFillableRecord]]] = [ (g, list(v))
-					for g, v in groupby(self.records, key=lambda r: r.type) ]
-		for i, (key, subrecords) in enumerate(groups):
-			if key == FillType.IMPUTABLE:
-				self.__phase(groups, i, False)
+		groups = Groups.create(self.records)
+		for record_set in groups.generate_record_sets():
+			record_set.impute(False)
+#			self.__impute_core(record_set)
 		
 		# この部分はフルで必要？
 		for i, record in enumerate(self.records):
@@ -74,49 +73,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 			elif record.type in (FillType.IMPUTABLE, FillType.UNABLE):
 				self.__impute_others(i)
 	
-	def __phase(self, groups: list[tuple[FillType, list[VCFFillableRecord]]],
-											i: int, necessary_parents_phasing):
-		prev_mat_record = self.find_prev_record(groups, i, FillType.MAT)
-		next_mat_record = self.find_next_record(groups, i, FillType.MAT)
-		prev_pat_record = self.find_prev_record(groups, i, FillType.PAT)
-		next_pat_record = self.find_next_record(groups, i, FillType.PAT)
-		key, records = groups[i]
-		for record in records:
-			record_set = RecordSet(record, prev_mat_record,
-							next_mat_record, prev_pat_record, next_pat_record)
-			if necessary_parents_phasing:
-				record_set.determine_parents_phasing()
-			self.__impute_core(record_set)
-	
-	def find_prev_record(self,
-						groups: list[tuple[FillType, list[VCFFillableRecord]]],
-						i: int, g: FillType) -> Optional[VCFFillableRecord]:
-		key, records = groups[i]
-		chr = records[0].v[0]
-		for j in range(i-1, -1, -1):
-			key, records = groups[j]
-			if records[0].v[0] != chr:
-				return None
-			if key == g:
-				return records[-1]
-		else:
-			return None
-	
-	def find_next_record(self,
-						groups: list[tuple[FillType, list[VCFFillableRecord]]],
-						i: int, g: FillType) -> Optional[VCFFillableRecord]:
-		key, records = groups[i]
-		chr = records[0].v[0]
-		for j in range(i+1, len(groups)):
-			key, records = groups[j]
-			if records[0].v[0] != chr:
-				return None
-			if key == g:
-				return records[0]
-		else:
-			return None
-	
-	def __impute_core(self, recordset: RecordSet):
+	def __impute_core(self, record_set: RecordSet):
 		def gts(record: Optional[VCFFillableRecord]) -> list[str]:
 			return record.v[11:] if record else [''] * (len(self.samples) - 2)
 		
@@ -131,7 +88,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 			if (record is None or mat_record1 is None or mat_record2 is None
 							   or pat_record1 is None or pat_record2 is None):
 				return (0, 0)
-			if record.pos() * 2 < mat_record1.pos() + mat_record2.pos():
+			if record_set.is_prev_nearer(True):
 				mat_from = prev_mat_from
 			else:
 				mat_from = next_mat_from
@@ -268,16 +225,16 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 				record.modify_parents_type()
 		
 		record, mat_record1, mat_record2, pat_record1, pat_record2 = \
-															recordset.records()
+															record_set.records()
 		if record is None:
 			return
 		new_gts = record.v[11:]
 		for c, gt, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in zip(count(11),
-												*map(gts, recordset.records())):
-			prev_mat_from = recordset.from_which_chrom_prev_mat(mat_gt1)
-			next_mat_from = recordset.from_which_chrom_next_mat(mat_gt2)
-			prev_pat_from = recordset.from_which_chrom_prev_pat(pat_gt1)
-			next_pat_from = recordset.from_which_chrom_next_pat(pat_gt2)
+											*map(gts, record_set.records())):
+			prev_mat_from = record_set.from_which_chrom_prev_mat(mat_gt1)
+			next_mat_from = record_set.from_which_chrom_next_mat(mat_gt2)
+			prev_pat_from = record_set.from_which_chrom_prev_pat(pat_gt1)
+			next_pat_from = record_set.from_which_chrom_next_pat(pat_gt2)
 			if ((prev_mat_from == 0 and next_mat_from == 0) or
 					(prev_pat_from == 0 and next_pat_from == 0)):
 				new_gts[c-11] = record.v[c]

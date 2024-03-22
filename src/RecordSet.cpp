@@ -72,6 +72,7 @@ RecordSet::Pair RecordSet::select_nearest_froms(
 
 
 // Select a pair from both parent's Haplotype
+// Prefer pairs that do not change the genotype
 RecordSet::Pair RecordSet::select_pair(const vector<Pair>& pairs,
 												size_t i, bool selected) const {
 	if(pairs.empty())
@@ -176,7 +177,7 @@ bool RecordSet::is_prev_nearer(bool is_mat) const {
 }
 
 pair<int, int> RecordSet::select_phasing(
-									const vector<pair<int, int>>& candidates) {
+							const vector<pair<int, int>>& candidates) const {
 	if(candidates.size() == 1)
 		return candidates.front();
 	
@@ -198,7 +199,7 @@ pair<int, int> RecordSet::select_phasing(
 }
 
 pair<int, int> RecordSet::determine_phasing_core(
-								const vector<tuple<double, int, int>>& lls) {
+							const vector<tuple<double, int, int>>& lls) const {
 	// collect max or near likelihoods
 	// for numerical error
 	vector<pair<int, int>>	candidates;
@@ -214,7 +215,7 @@ pair<int, int> RecordSet::determine_phasing_core(
 	return this->select_phasing(candidates);
 }
 
-void RecordSet::determine_phasing() {
+void RecordSet::determine_phasing() const {
 	if(this->record == NULL)
 		return;
 	
@@ -255,7 +256,7 @@ int RecordSet::select_from(int from1, int from2,
 	}
 }
 
-string RecordSet::modify_gt(size_t i) {
+string RecordSet::modify_gt(size_t i) const {
 	const int	prev_mat_from = this->prev_mat_from(i);
 	const int	next_mat_from = this->next_mat_from(i);
 	const int	prev_pat_from = this->prev_pat_from(i);
@@ -303,7 +304,13 @@ string RecordSet::modify_gt(size_t i) {
 	}
 }
 
-void RecordSet::impute_core() {
+void RecordSet::impute(bool necessary_parents_phasing) const {
+	if(necessary_parents_phasing)
+		this->determine_phasing();
+	this->impute_core();
+}
+
+void RecordSet::impute_core() const {
 	STRVEC	new_gts;
 	for(size_t i = 2; i < record->num_samples(); ++i) {
 		new_gts.push_back(modify_gt(i));
@@ -369,4 +376,40 @@ void RecordSet::impute_NA_pat_each(size_t i) const {
 	
 	const int	pat_from = this->select_pat(pairs);
 	this->record->set_GT(i, this->record->gt_from_parent(1, pat_from));
+}
+
+int RecordSet::determine_mat_from(size_t i) const {
+	const string	mat_gt1 = gt_each(i, prev_mat_record);
+	const string	mat_gt2 = gt_each(i, next_mat_record);
+	const int	prev_mat_from = from_which_chrom_prev_mat(mat_gt1);
+	const int	next_mat_from = from_which_chrom_next_mat(mat_gt2);
+	// とりあえず、両側Noneはないと仮定する
+	if(prev_mat_from == 0)
+		return next_mat_from;
+	else if(next_mat_from == 0)
+		return prev_mat_from;
+	else if(prev_mat_from == next_mat_from)
+		return prev_mat_from;
+	else if(is_prev_nearer(true))
+		return prev_mat_from;
+	else
+		return next_mat_from;
+}
+
+int RecordSet::determine_pat_from(size_t i) const {
+	const string	pat_gt1 = gt_each(i, prev_pat_record);
+	const string	pat_gt2 = gt_each(i, next_pat_record);
+	const int	prev_pat_from = from_which_chrom_prev_pat(pat_gt1);
+	const int	next_pat_from = from_which_chrom_next_pat(pat_gt2);
+	// とりあえず、両側Noneはないと仮定する
+	if(prev_pat_from == 0)
+		return next_pat_from;
+	else if(next_pat_from == 0)
+		return prev_pat_from;
+	else if(prev_pat_from == next_pat_from)
+		return prev_pat_from;
+	else if(is_prev_nearer(false))
+		return prev_pat_from;
+	else
+		return next_pat_from;
 }

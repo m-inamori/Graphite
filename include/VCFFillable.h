@@ -15,7 +15,6 @@ class VCFFillable : public VCFBase, public VCFSmallBase, public VCFFamilyBase {
 	
 public:
 	using Position = std::tuple<int, ll, std::string>;
-	using Group = std::pair<FillType, std::vector<VCFFillableRecord *>>;
 	using Item = std::pair<std::vector<VCFHeteroHomo *>,
 							std::vector<VCFImpFamilyRecord *>>;
 	using ImpRecords = std::map<Parents, std::vector<VCFImpFamilyRecord *>>;
@@ -23,12 +22,12 @@ public:
 	struct ConfigThreadPhase {
 		const std::size_t	first;
 		const std::size_t	num_threads;
-		const std::vector<Group>&	groups;
+		const std::vector<RecordSet>&	record_sets;
 		VCFFillable	*vcf;
 		
 		ConfigThreadPhase(std::size_t f, std::size_t n,
-							const std::vector<Group>& g, VCFFillable *v) :
-								first(f), num_threads(n), groups(g), vcf(v) { }
+							const std::vector<RecordSet>& r, VCFFillable *v) :
+							first(f), num_threads(n), record_sets(r), vcf(v) { }
 	};
 	
 public:
@@ -72,14 +71,6 @@ public:
 	void clear_records() { records.clear(); }
 	
 private:
-	std::vector<Group> group_records() const;
-	VCFFillableRecord *find_prev_record(FillType type, int i,
-										const std::vector<Group>& groups) const;
-	VCFFillableRecord *find_next_record(FillType type, int i,
-										const std::vector<Group>& groups) const;
-	void phase(int i, const std::vector<Group>& groups,
-								bool necessary_parents_phasing);
-	
 	template<typename Iter>
 	VCFFillableRecord *find_neighbor_same_type_record(
 					std::size_t i, std::size_t c, Iter first, Iter last) const;

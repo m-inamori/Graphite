@@ -9,6 +9,7 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
 from VCFFamily import *
 from VCFFillable import *
+from group import Groups
 from RecordSet import RecordSet
 from VCFImpFamily import FillType
 from Map import *
@@ -123,25 +124,8 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	
 	def fill(self):
 		# FillTypeでrecordを分ける
-		groups = []
-		for g, v in groupby(self.records, key=lambda r: r.type):
-			groups.append((g, list(v)))
-		
-		for i, (key, subrecords) in enumerate(groups):
-			if key != FillType.MAT and key != FillType.PAT:
-				self.__phase(groups, i, True)
-	
-	# このあたりはあとでVCFFillableと共通化する
-	def __phase(self, groups: list[tuple[FillType, list[VCFFillableRecord]]],
-									i: int, necessary_parents_phasing: bool):
-		prev_mat_record = self.find_prev_record(groups, i, FillType.MAT)
-		next_mat_record = self.find_next_record(groups, i, FillType.MAT)
-		prev_pat_record = self.find_prev_record(groups, i, FillType.PAT)
-		next_pat_record = self.find_next_record(groups, i, FillType.PAT)
-		key, records = groups[i]
-		for record in records:
-			record_set = RecordSet(record, prev_mat_record,
-							next_mat_record, prev_pat_record, next_pat_record)
+		groups = Groups.create(self.records)
+		for record_set in groups.generate_record_sets():
 			self.__impute_core(record_set)
 	
 	def __impute_core(self, record_set: RecordSet):
@@ -149,62 +133,10 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		if record is None:
 			return
 		for i in range(2, len(record.samples)):
-			_, mat_gt1, mat_gt2, pat_gt1, pat_gt2 = record_set.gts(i)
-			prev_mat_from = record_set.from_which_chrom_prev_mat(mat_gt1)
-			next_mat_from = record_set.from_which_chrom_next_mat(mat_gt2)
-			prev_pat_from = record_set.from_which_chrom_prev_pat(pat_gt1)
-			next_pat_from = record_set.from_which_chrom_next_pat(pat_gt2)
-			# とりあえず、両側Noneはないと仮定する
-			if prev_mat_from == 0:
-				mat_from = next_mat_from
-			elif next_mat_from == 0:
-				mat_from = prev_mat_from
-			elif prev_mat_from == next_mat_from:
-				mat_from = prev_mat_from
-			elif record_set.is_prev_nearer(True):
-				mat_from = prev_mat_from
-			else:
-				mat_from = next_mat_from
-			if prev_pat_from == 0:
-				pat_from = next_pat_from
-			elif next_pat_from == 0:
-				pat_from = prev_pat_from
-			elif prev_pat_from == next_pat_from:
-				pat_from = prev_pat_from
-			elif record_set.is_prev_nearer(True):
-				pat_from = prev_pat_from
-			else:
-				pat_from = next_pat_from
+			mat_from = record_set.determine_mat_from(i)
+			pat_from = record_set.determine_pat_from(i)
 			v = record.v
 			v[i+9] = v[9][mat_from*2-2] + '|' + v[10][pat_from*2-2]
-	
-	def find_prev_record(self,
-						groups: list[tuple[FillType, list[VCFFillableRecord]]],
-						i: int, g: FillType) -> Optional[VCFFillableRecord]:
-		key, records = groups[i]
-		chr = records[0].v[0]
-		for j in range(i-1, -1, -1):
-			key, records = groups[j]
-			if records[0].v[0] != chr:
-				return None
-			if key == g:
-				return records[-1]
-		else:
-			return None
-	
-	def find_next_record(self,
-						groups: list[tuple[FillType, list[VCFFillableRecord]]],
-						i: int, g: FillType) -> Optional[VCFFillableRecord]:
-		key, records = groups[i]
-		chr = records[0].v[0]
-		for j in range(i+1, len(groups)):
-			key, records = groups[j]
-			if records[0].v[0] != chr:
-				return None
-			if key == g:
-				return records[0]
-		else:
-			return None
 	
 	@staticmethod
 	def classify_record(record: VCFRecord) -> tuple[ParentComb, FillType]:

@@ -209,6 +209,7 @@ map<InverseGraph::Node, bool>
 	auto	removed_nodes = p.second;
 	auto	dic_bs = graph->optimize_inversions_connected_core();
 	this->add_removed_nodes(dic_bs, removed_nodes);
+	delete graph;
 	return dic_bs;
 }
 

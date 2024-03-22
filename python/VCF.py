@@ -71,9 +71,8 @@ class VCFRecord(object):
 		gt = self.v[i+9]
 		return gt[0] != '.' and gt[0] != gt[2]
 	
-	# for compatibility
-	def get_gt(self, i: int) -> int:
-		return self.get_int_gt(i)
+	def get_gt(self, i: int) -> str:
+		return self.v[i+9]
 	
 	def write(self, out: IO):
 		write_tsv(self.v, out)
