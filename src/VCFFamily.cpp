@@ -132,11 +132,11 @@ VCFFamily *VCFFamily::create_by_two_vcfs(const VCFSmallBase *vcf1,
 		const auto	*record1 = vcf1->get_record(i);
 		const auto	*record2 = vcf2->get_record(i);
 		STRVEC	v(record1->get_v().begin(), record1->get_v().begin() + 9);
-		for(size_t i = 0; i < samples.size(); ++i) {
-			if(columns1[i] != string::npos)
-				v.push_back(record1->get_v()[columns1[i]]);
-			else if(columns2[i] != string::npos)
-				v.push_back(record2->get_v()[columns2[i]]);
+		for(size_t j = 0; j < samples.size(); ++j) {
+			if(columns1[j] != string::npos)
+				v.push_back(record1->get_v()[columns1[j]]);
+			else if(columns2[j] != string::npos)
+				v.push_back(record2->get_v()[columns2[j]]);
 			else
 				v.push_back("./.");
 		}

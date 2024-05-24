@@ -9,7 +9,7 @@
 #include "ClassifyRecord.h"
 
 
-//////////////////// enum ////////////////////
+//////////////////// FillType ////////////////////
 
 enum class FillType {
 	MAT, PAT, FILLED, IMPUTABLE, UNABLE

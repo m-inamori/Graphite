@@ -145,6 +145,25 @@ def paint(seq: str, cMs: list[float], min_c: float) -> str:
 
 #################### impute ####################
 
+def is_all_same_without_N(seq: str) -> bool:
+	prev_c = '-'
+	for c in seq:
+		if c == 'N':
+			continue
+		elif prev_c == '-':
+			prev_c = c
+		elif c != prev_c:
+			return False
+	else:
+		return True
+
+def create_same_color_string(seq: str, default_color: str):
+	if all(c == 'N' for c in seq):
+		c_base = default_color
+	else:
+		c_base = next(c for c in seq if c != 'N')
+	return c_base * len(seq)
+
 def compute_T(p: float, hidden_states: list[str]
 							) -> Dict[tuple[str, str], float]:
 	return { (h1, h2): 1.0-p if h1 == h2 else p
@@ -163,4 +182,5 @@ def impute(seq: str, hidden_states: list[str],
 
 #################### main ####################
 
-__all__ = ['paint', 'impute']
+__all__ = ['paint', 'impute', 'is_all_same_without_N',
+								'create_same_color_string']

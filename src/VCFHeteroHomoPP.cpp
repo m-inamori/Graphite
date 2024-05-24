@@ -67,36 +67,12 @@ string VCFHeteroHomoPP::make_seq(size_t i) const {
 string VCFHeteroHomoPP::impute_sample_seq(size_t i,
 								const vector<double>& cMs, double min_c) {
 	const string	seq = this->make_seq(i);
-	if(is_all_same_without_N(seq))
-		return create_same_color_string(seq);
+	if(Imputer::is_all_same_without_N(seq))
+		return Imputer::create_same_color_string(seq, '0');
 	
 	const string	hidden_seq = Imputer::impute(seq, cMs);
 	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);
 	return painted_seq;
-}
-
-bool VCFHeteroHomoPP::is_all_same_without_N(const string& seq) {
-	char	c = '.';
-	for(auto p = seq.begin(); p != seq.end(); ++p) {
-		if(*p != 'N') {
-			if(c == '.')	// initial
-				c = *p;
-			else if(*p != c)
-				return false;
-		}
-	}
-	return true;
-}
-
-string VCFHeteroHomoPP::create_same_color_string(const string& seq) {
-	char	c = '0';	// dummy
-	for(auto p = seq.begin(); p != seq.end(); ++p) {
-		if(*p != 'N') {
-			c = *p;
-			break;
-		}
-	}
-	return std::string(seq.size(), c);
 }
 
 string VCFHeteroHomoPP::update_each(size_t i, size_t j, char c) {
@@ -142,16 +118,17 @@ void VCFHeteroHomoPP::fill() {
 		impute_core(*p);
 	}
 	delete groups;
+	Common::delete_all(record_sets);
 }
 
-void VCFHeteroHomoPP::impute_core(const RecordSet& record_set) {
-	auto	record = record_set.record;
+void VCFHeteroHomoPP::impute_core(const RecordSet *record_set) {
+	auto	record = record_set->record;
 	if(record == NULL)
 		return;
 	
 	for(size_t i = 2; i < record->num_samples(); ++i) {
-		const int	mat_from = record_set.determine_mat_from(i);
-		const int	pat_from = record_set.determine_pat_from(i);
+		const int	mat_from = record_set->determine_mat_from(i);
+		const int	pat_from = record_set->determine_pat_from(i);
 		auto	v = record->get_v();
 		char	gt[4];
 		gt[0] = v[9].c_str()[mat_from*2-2];

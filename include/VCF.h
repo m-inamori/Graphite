@@ -15,6 +15,15 @@ typedef std::vector<std::string>	STRVEC;
 typedef std::pair<int, ll>			POSITION;
 
 
+//////////////////// WrongRecordType ////////////////////
+
+enum class WrongRecordType {
+	RIGHT,
+	GENOTYPEERROR,
+	NUMCOLUMNERROR
+};
+
+
 //////////////////// VCFRecord ////////////////////
 
 class VCFRecord {
@@ -35,6 +44,10 @@ public:
 	const std::string	format() const { return this->v[8]; }
 	std::string	gt(const std::string& sample) const;
 	bool is_NA(std::size_t i) const { return Genotype::is_NA(v[i+9]); }
+	bool is_phased(std::size_t i) const {
+		const char	*gt = this->v[i+9].c_str();
+		return gt[0] != '.' && gt[1] == '|' && gt[2] != '.';
+	}
 	STRVEC gts() const;
 	const std::string& get_gt(std::size_t i) const { return v[i+9]; }
 	std::string& get_mut_gt(std::size_t i) { return v[i+9]; }
@@ -50,6 +63,7 @@ public:
 	void set_GT(std::size_t i, const std::string& gt);
 	void set_int_GT(std::size_t i, int gt);
 	void set(const STRVEC& new_v) { v = new_v; }
+	WrongRecordType check() const;
 };
 
 
@@ -59,7 +73,6 @@ class VCFBase {
 protected:
 	const std::vector<STRVEC>	header;
 	const STRVEC	samples;
-	const std::map<std::string,std::size_t>	sample_ids;
 	mutable std::map<std::string,int>	chrs;
 	
 public:
@@ -69,8 +82,6 @@ public:
 	const std::vector<STRVEC>& get_header() const { return header; }
 	const STRVEC& get_samples() const { return samples; }
 	size_t num_samples() const { return samples.size(); }
-	std::map<std::string,std::size_t>
-	number_samples(const STRVEC& samples_) const;
 	POSITION position(const std::pair<std::string,ll>& p) const;
 	POSITION record_position(const VCFRecord& record) const;
 	std::string chr(int chr_id) const;
@@ -157,6 +168,7 @@ public:
 		records.insert(records.end(), rs.begin(), rs.end());
 	}
 	void clear_records() { records.clear(); }
+	void check_records() const;
 	
 public:
 	static VCFSmall *read(const std::string& path);
@@ -181,6 +193,7 @@ public:
 		
 	public:
 		ChromDivisor(VCFHuge *v) : vcf(v), state(STATE::START) { }
+		~ChromDivisor();
 		VCFSmall *next();
 	};
 	
@@ -197,5 +210,19 @@ public:
 	
 public:
 	static VCFHuge *read(const std::string& path);
+};
+
+
+//////////////////// RecordException ////////////////////
+
+class RecordException : public std::exception {
+private:
+    std::string	message;
+	
+public:
+    RecordException(int counter,
+		    	const std::vector<std::pair<VCFRecord *, WrongRecordType>>& rs);
+    
+    const char *what() const noexcept override;
 };
 #endif

@@ -5,8 +5,51 @@
 #include <string>
 #include <set>
 #include <utility>
+#include <exception>
 
 class VCFBase;
+
+
+//////////////////// FormatException ////////////////////
+
+// for reading pedigree file
+class FormatException : public std::exception {
+private:
+    std::string	message;
+	
+public:
+    FormatException(const std::vector<std::string>& ls);
+    
+    const char *what() const noexcept override;
+};
+
+
+//////////////////// ParentsException ////////////////////
+
+// are all parents defined?
+class ParentsException : public std::exception {
+private:
+    std::string	message;
+	
+public:
+    ParentsException(const std::vector<std::string>& ps);
+    
+    const char *what() const noexcept override;
+};
+
+
+//////////////////// SamplesException ////////////////////
+
+// exists samples in pedigree?
+class SamplesException : public std::exception {
+private:
+    std::string	message;
+	
+public:
+    SamplesException(const std::vector<std::string>& ss);
+    
+    const char *what() const noexcept override;
+};
 
 
 //////////////////// Progeny ////////////////////
@@ -81,12 +124,19 @@ public:
 	std::vector<const Family *> extract_families() const;
 	std::vector<const Progeny *> get_progenies(const std::string& mat,
 												 const std::string& pat) const;
+	std::vector<std::string> check_samples_in_pedigree(
+								const std::vector<std::string>& samples) const;
 	const PedigreeTable *limit_samples(
 							const std::vector<std::string>& samples) const;
 	std::vector<const Family *> make_families(
 								const std::vector<std::string>& samples) const;
+	std::vector<std::string> check_parents() const;
 	
 public:
+	static std::vector<std::vector<std::string>>
+							read_lines(const std::string& path);
+	static const PedigreeTable *create(
+							const std::vector<const Progeny *>& progs);
 	static const PedigreeTable *read(const std::string& path);
 };
 #endif

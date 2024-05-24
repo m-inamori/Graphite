@@ -5,7 +5,9 @@
 #include "../include/VCFOneParentPhased.h"
 #include "../include/VCFProgenyPhased.h"
 #include "../include/VCFIsolated.h"
+#include "../include/OnePhasedFamily.h"
 #include "../include/SampleManager.h"
+#include "../include/KnownFamily.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -109,20 +111,32 @@ VCFSmall *SmallFamily::impute_vcf_by_parent_core(
 }
 
 VCFSmall *SmallFamily::impute_vcf_by_parent(const VCFSmall *orig_vcf,
-							const VCFSmall *merged_vcf, const Map& geno_map,
+							const VCFSmall *merged_vcf, const Map& gmap,
 							SampleManager *sample_man, const Option *option) {
 	auto	families = sample_man->extract_single_parent_phased_families();
 	if(families.empty())
 		return NULL;
 	
-	auto	*new_imputed_vcf = impute_vcf_by_parent_core(orig_vcf,
-												merged_vcf, families, geno_map,
-												sample_man, option);
-	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, new_imputed_vcf,
+	// families have already been selected
+	// in which one parent has been imputed and one parent has not been imputed
+	// collect not phased parents
+	STRVEC	samples;
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const Family	*f = *p;
+		if(!sample_man->is_imputed(f->get_mat()))
+			samples.push_back(f->get_mat());
+		if(!sample_man->is_imputed(f->get_pat()))
+			samples.push_back(f->get_pat());
+	}
+	
+	auto	*vcf = OnePhasedFamily::impute_by_parent(orig_vcf, merged_vcf,
+													families, samples, gmap);
+	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
 													orig_vcf->get_samples());
+//	merged_cvf->delete_records();
 	delete merged_vcf;
-	sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
-	delete new_imputed_vcf;
+	delete vcf;
+	sample_man->add_imputed_samples(new_merged_vcf->get_samples());
 	Common::delete_all(families);
 	return new_merged_vcf;
 }

@@ -2,7 +2,8 @@
 # pedigree.py
 
 from __future__ import annotations
-from typing import Iterator
+from typing import Iterator, Optional
+import sys
 
 from common import read_csv
 
@@ -63,11 +64,56 @@ class PedigreeTable:
 		parents = sorted(set((prog.mat, prog.pat) for prog in self.table))
 		return [ Family(*p, self.get_children(p)) for p in parents ]
 	
-	def limit_samples(self, samples: list[str]) -> PedigreeTable:
+	def limit_samples(self, samples: list[str]) -> Optional[PedigreeTable]:
+		ped_samples = set(p.name for p in self.table)
+		missing_samples = [ s for s in samples if s not in ped_samples ]
+		if missing_samples:
+			print('error : the following samples are not in Pedigree file :',
+																file=sys.stderr)
+			for s in missing_samples:
+				print(s)
+			return None
+		
 		set_samples = set(samples)
+		
 		progs = [ p for p in self.table if p.name in set_samples ]
 		return PedigreeTable(progs)
 	
+	def check_parents(self) -> list[str]:
+		missing_parents = set()
+		set_progs = set(prog.name for prog in self.table)
+		for prog in self.table:
+			for p in prog.parents():
+				if p != '0' and p not in set_progs:
+					missing_parents.add(p)
+		return list(missing_parents)
+	
 	@staticmethod
-	def read(path: str) -> PedigreeTable:
-		return PedigreeTable(list(map(Progeny, read_csv(path, ' '))))
+	def read(path: str) -> Optional[PedigreeTable]:
+		progs: list[Progeny] = []
+		errors: list[str] = []
+		with open(path, 'r') as f:
+			for line in f:
+				v = line.split()
+				if len(v) != 4:
+					errors.append(line.rstrip())
+				else:
+					progs.append(Progeny(v))
+		
+		if errors:
+			print('error : there are not four items in the following lines :',
+																file=sys.stderr)
+			for line in errors:
+				print(line, file=sys.stderr)
+			return None
+		
+		ped = PedigreeTable(progs)
+		missing_parents = ped.check_parents()
+		if missing_parents:
+			print('error : the following parents are not defined :',
+																file=sys.stderr)
+			for parent in missing_parents:
+				print(parent, file=sys.stderr)
+			return None
+		else:
+			return ped

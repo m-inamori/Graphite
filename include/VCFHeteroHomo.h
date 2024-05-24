@@ -150,8 +150,6 @@ private:
 	static std::pair<double, bool> distance(const std::vector<int>& gts1,
 											const std::vector<int>& gts2);
 	static double dist_with_NA(int right, int counter_NA, int N);
-	static bool is_all_same_without_N(const std::string& seq);
-	static std::string create_same_color_string(const std::string& seq);
 	static std::vector<bool> optimize_phase_inversions(
 			const std::vector<std::vector<std::tuple<int, int, int>>>& graph);
 	static void clean_in_thread(void *config);

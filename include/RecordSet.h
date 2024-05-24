@@ -29,6 +29,7 @@ public:
 			  VCFFillableRecord *pp, VCFFillableRecord *np) : record(r),
 					  			prev_mat_record(pm), next_mat_record(nm),
 					  			prev_pat_record(pp), next_pat_record(np) { }
+	virtual ~RecordSet() { }
 	
 	std::string gt_each(int i, const VCFFillableRecord *record) const {
 		return record == NULL ? "" : record->get_gt(i);
@@ -89,13 +90,14 @@ public:
 							const std::vector<double>& probs_mat,
 							const std::vector<double>& probs_pat,
 							int mat_phasing, int pat_phasing) const;
-	double compute_phasing_likelihood(int mat_phasing,
-										int pat_phasing) const;
+	virtual double compute_phasing_likelihood(int mat_phasing,
+												int pat_phasing) const;
 	std::pair<int, int> select_phasing(
 					const std::vector<std::pair<int, int>>& candidates) const;
 	std::pair<int, int> determine_phasing_core(
 					const std::vector<std::tuple<double, int, int>>& lls) const;
 	void determine_phasing() const;
+	virtual std::vector<std::pair<int, int>> possible_phasings() const;
 	int select_from(int from1, int from2,
 								const VCFRecord *record1,
 								const VCFRecord *record2) const;
@@ -109,5 +111,20 @@ public:
 	void impute_NA_pat_each(std::size_t i) const;
 	int determine_mat_from(std::size_t i) const;
 	int determine_pat_from(std::size_t i) const;
+};
+
+
+//////////////////// RecordSetSmall ////////////////////
+
+class RecordSetSmall : public RecordSet {
+public:
+	RecordSetSmall(VCFFillableRecord *r,
+				   VCFFillableRecord *pm, VCFFillableRecord *nm,
+				   VCFFillableRecord *pp, VCFFillableRecord *np) :
+								   	RecordSet(r, pm, nm, pp, np) { }
+	~RecordSetSmall() { }
+	
+	std::vector<std::pair<int, int>> possible_phasings() const;
+	double compute_phasing_likelihood(int mat_phasing, int pat_phasing) const;
 };
 #endif

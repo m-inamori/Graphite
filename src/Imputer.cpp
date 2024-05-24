@@ -252,3 +252,28 @@ string Imputer::impute(const string& seq, const vector<double>& cMs) {
 	const string	hidden_seq = BaumWelch::impute(seq, Ts);
 	return hidden_seq;
 }
+
+bool Imputer::is_all_same_without_N(const string& seq) {
+	char	c = '.';
+	for(auto p = seq.begin(); p != seq.end(); ++p) {
+		if(*p != 'N') {
+			if(c == '.')	// initial
+				c = *p;
+			else if(*p != c)
+				return false;
+		}
+	}
+	return true;
+}
+
+string Imputer::create_same_color_string(const string& seq,
+											char default_color) {
+	char	c = default_color;
+	for(auto p = seq.begin(); p != seq.end(); ++p) {
+		if(*p != 'N') {
+			c = *p;
+			break;
+		}
+	}
+	return std::string(seq.size(), c);
+}

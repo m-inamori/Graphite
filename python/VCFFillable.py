@@ -37,21 +37,21 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
-	def modify(self) -> None:
+	def modify(self, is_phased_changable: bool) -> None:
 		# FillTypeでrecordを分ける
 		groups = Groups.create(self.records)
 		for record_set in groups.generate_record_sets():
 			record_set.determine_parents_phasing()
-			self.__impute_core(record_set)
+			self.impute_core(record_set)
 		
 		for i, record in enumerate(self.records):
 			# 家系ごとで./.にしたGenotypeを補完
 			if record.type == FillType.MAT:
-				self.__impute_NA_mat(i)
+				self.impute_NA_mat(i)
 			elif record.type == FillType.PAT:
-				self.__impute_NA_pat(i)
+				self.impute_NA_pat(i)
 			elif record.type in (FillType.IMPUTABLE, FillType.UNABLE):
-				self.__impute_others(i)
+				self.impute_others(i)
 		
 		for record in self.records:
 			record.fill_PGT()
@@ -61,19 +61,18 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		groups = Groups.create(self.records)
 		for record_set in groups.generate_record_sets():
 			record_set.impute(False)
-#			self.__impute_core(record_set)
 		
 		# この部分はフルで必要？
 		for i, record in enumerate(self.records):
 			# 家系ごとで./.にしたGenotypeを補完
 			if record.type == FillType.MAT:
-				self.__impute_NA_mat(i)
+				self.impute_NA_mat(i)
 			elif record.type == FillType.PAT:
-				self.__impute_NA_pat(i)
+				self.impute_NA_pat(i)
 			elif record.type in (FillType.IMPUTABLE, FillType.UNABLE):
-				self.__impute_others(i)
+				self.impute_others(i)
 	
-	def __impute_core(self, record_set: RecordSet):
+	def impute_core(self, record_set: RecordSet):
 		def gts(record: Optional[VCFFillableRecord]) -> list[str]:
 			return record.v[11:] if record else [''] * (len(self.samples) - 2)
 		
@@ -290,13 +289,23 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 			return None
 	
 	# 家系ごとで./.にしたGenotypeを補完
-	def __impute_NA_mat(self, i: int):
+	def impute_NA_mat(self, i: int):
 		record = self.records[i]
 		for c in range(11, len(record.v)):
-			if record.v[c][:3] == '.|.':
-				self.__impute_NA_mat_each(i, c)
+			if record.is_NA(c-9):
+				self.impute_NA_mat_each(i, c)
 	
-	def __impute_NA_mat_each(self, i: int, c: int):
+	def create_recordset_mat(self, record: Optional[VCFFillableRecord],
+						prev_record: Optional[VCFFillableRecord],
+						next_record: Optional[VCFFillableRecord]) -> RecordSet:
+		return RecordSet(record, prev_record, next_record, None, None)
+	
+	def create_recordset_pat(self, record: Optional[VCFFillableRecord],
+						prev_record: Optional[VCFFillableRecord],
+						next_record: Optional[VCFFillableRecord]) -> RecordSet:
+		return RecordSet(record, None, None, prev_record, next_record)
+	
+	def impute_NA_mat_each(self, i: int, c: int):
 		def select_mat(pairs: list[tuple[int, int]]) -> int:
 			if len(pairs) == 1:
 				return pairs[0][0]
@@ -315,7 +324,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		record = self.records[i]
 		prev_record = self.find_prev_same_type_record(i, c)
 		next_record = self.find_next_same_type_record(i, c)
-		recordset = RecordSet(record, prev_record, next_record, None, None)
+		recordset = self.create_recordset_mat(record, prev_record, next_record)
 		prev_gt = prev_record.v[c] if prev_record is not None else ''
 		next_gt = next_record.v[c] if next_record is not None else ''
 		prev_mat_from = recordset.from_which_chrom_prev_mat(prev_gt)
@@ -332,13 +341,13 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		record.v[c] = record.gt_from_parent(mat_from, 1) + record.v[c][3:]
 	
 	# 家系ごとで./.にしたGenotypeを補完
-	def __impute_NA_pat(self, i: int):
+	def impute_NA_pat(self, i: int):
 		record = self.records[i]
 		for c in range(11, len(record.v)):
 			if record.v[c][:3] == './.':
-				self.__impute_NA_pat_each(i, c)
+				self.impute_NA_pat_each(i, c)
 	
-	def __impute_NA_pat_each(self, i: int, c: int):
+	def impute_NA_pat_each(self, i: int, c: int):
 		def select_pat(pairs: list[tuple[int, int]]) -> int:
 			if len(pairs) == 1:
 				return pairs[0][1]
@@ -356,7 +365,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		record = self.records[i]
 		prev_record = self.find_prev_same_type_record(i, c)
 		next_record = self.find_next_same_type_record(i, c)
-		recordset = RecordSet(record, None, None, prev_record, next_record)
+		recordset = self.create_recordset_pat(record, prev_record, next_record)
 		prev_gt = prev_record.v[c] if prev_record is not None else ''
 		next_gt = next_record.v[c] if next_record is not None else ''
 		prev_pat_from = recordset.from_which_chrom_prev_pat(prev_gt)
@@ -369,7 +378,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		pat_from = select_pat(pairs)
 		record.v[c] = record.gt_from_parent(1, pat_from) + record.v[c][3:]
 	
-	def __impute_others(self, i: int):
+	def impute_others(self, i: int):
 		def correct(GT: str, c: int, record: VCFFillableRecord) -> str:
 			int_gt = record.get_int_gt(c-9)
 			if int_gt == -1:
@@ -495,7 +504,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 					records: list[VCFImpFamilyRecord]) -> VCFFillable:
 		merged_records = VCFFillable.merge_records(vcfs, records)
 		vcf: VCFFillable = VCFFillable(vcfs[0].header, merged_records)
-		vcf.modify()
+		vcf.modify(True)
 		return vcf
 	
 	@staticmethod
@@ -550,4 +559,4 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		return VCFFillable.integrate(vcfs[0], rss, orig_samples)
 
 
-__all__ = ['VCFFillableRecord', 'VCFFillable']
+__all__ = ['VCFFillable']

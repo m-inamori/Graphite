@@ -18,6 +18,12 @@ def read_tsv(path):
 	for v in read_csv(path, '\t'):
 		yield v
 
+# separeted by white space
+def read_wsv(path):
+	with open(path, 'r') as f:
+		for line in f:
+			yield line.split()
+
 def write_csv(v, out):
 	print(','.join(map(str_with_NA, v)), file=out)
 

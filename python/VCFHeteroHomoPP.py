@@ -8,6 +8,7 @@ from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
 from VCFFamily import *
+from VCFFillableRecord import *
 from VCFFillable import *
 from group import Groups
 from RecordSet import RecordSet

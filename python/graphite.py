@@ -62,6 +62,9 @@ def chroms_efficients(option: Option) -> Iterator[bool]:
 def impute_all(vcf: VCFHuge, geno_map: Map, option: Option):
 	sample_man = SampleManager.create(option.path_ped, vcf.samples,
 										option.lower_progs, option.families)
+	if sample_man is None:
+		exit(1)
+	
 	sample_man.display_info(sys.stderr)
 	
 	iter = chroms_efficients(option)

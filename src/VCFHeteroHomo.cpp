@@ -244,35 +244,11 @@ string VCFHeteroHomo::make_seq(size_t i) const {
 	return seq;
 }
 
-bool VCFHeteroHomo::is_all_same_without_N(const string& seq) {
-	char	c = '.';
-	for(auto p = seq.begin(); p != seq.end(); ++p) {
-		if(*p != 'N') {
-			if(c == '.')	// initial
-				c = *p;
-			else if(*p != c)
-				return false;
-		}
-	}
-	return true;
-}
-
-string VCFHeteroHomo::create_same_color_string(const string& seq) {
-	char	c = '0';	// dummy
-	for(auto p = seq.begin(); p != seq.end(); ++p) {
-		if(*p != 'N') {
-			c = *p;
-			break;
-		}
-	}
-	return std::string(seq.size(), c);
-}
-
 string VCFHeteroHomo::clean_each_sample_seq(size_t i,
 								const vector<double>& cMs, double min_c) {
 	const string	seq = this->make_seq(i);
-	if(is_all_same_without_N(seq))
-		return create_same_color_string(seq);
+	if(Imputer::is_all_same_without_N(seq))
+		return Imputer::create_same_color_string(seq, '0');
 	
 	const string	hidden_seq = Imputer::impute(seq, cMs);
 	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);

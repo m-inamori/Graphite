@@ -215,11 +215,38 @@ pair<int, int> RecordSet::determine_phasing_core(
 	return this->select_phasing(candidates);
 }
 
+#define P(a,b) make_pair(a,b)
+
+vector<pair<int, int>> RecordSet::possible_phasings() const {
+	if(record == NULL)
+		return vector<pair<int, int>>();
+	
+	switch(this->record->get_comb()) {
+		case ParentComb::P00x00: return { P(0, 0) };
+		case ParentComb::P00x01: return { P(0, 1), P(0, 2), P(1, 0), P(2, 0),
+										  P(1, 1), P(1, 2), P(2, 1), P(2, 2) };
+		case ParentComb::P01x01: return { P(1, 1), P(1, 2), P(2, 1), P(2, 2),
+										  P(0, 1), P(0, 2), P(1, 0), P(2, 0),
+										  P(1, 3), P(2, 3), P(3, 1), P(3, 2) };
+		case ParentComb::P00x11: return { P(0, 3), P(3, 0) };
+		case ParentComb::P01x11: return { P(1, 3), P(2, 3), P(3, 1), P(3, 2),
+										  P(1, 1), P(1, 2), P(2, 1), P(2, 2) };
+		case ParentComb::P11x11: return { P(3, 3) };
+		default: break;
+	}
+	
+	// any pair is possible
+	vector<pair<int, int>>	pairs;
+	for(int i = 0; i < 16; ++i)
+		pairs.push_back(P(i >> 2, i & 3));
+	return pairs;
+}
+
 void RecordSet::determine_phasing() const {
 	if(this->record == NULL)
 		return;
 	
-	const vector<pair<int, int>>	phasing = record->possible_phasings();
+	const vector<pair<int, int>>	phasing = this->possible_phasings();
 	vector<tuple<double, int, int>>	lls;
 	for(auto p = phasing.begin(); p != phasing.end(); ++p) {
 		const double	ll = compute_phasing_likelihood(p->first, p->second);
@@ -412,4 +439,44 @@ int RecordSet::determine_pat_from(size_t i) const {
 		return prev_pat_from;
 	else
 		return next_pat_from;
+}
+
+
+//////////////////// RecordSetSmall ////////////////////
+
+vector<pair<int, int>> RecordSetSmall::possible_phasings() const {
+	if(record == NULL)
+		return vector<pair<int, int>>();
+	
+	if(!this->record->is_phased(0) && !this->record->is_phased(1))
+		return RecordSet::possible_phasings();
+	
+	const char	*gts[] = { "0|0", "1|0", "0|1", "1|1" };
+	for(int i = 0; i < 4; ++i) {
+		if(record->get_GT(0) == gts[i]) {
+			vector<pair<int, int>>	pairs;
+			for(int g = 0; g < 4; ++g)
+				pairs.push_back(P(i, g));
+			return pairs;
+		}
+		if(record->get_GT(1) == gts[i]) {
+			vector<pair<int, int>>	pairs;
+			for(int g = 0; g < 4; ++g)
+				pairs.push_back(P(g, i));
+			return pairs;
+		}
+	}
+	return vector<pair<int, int>>();
+}
+
+double RecordSetSmall::compute_phasing_likelihood(int mat_phasing,
+													int pat_phasing) const {
+	if(this->record == NULL)
+		return 0.0;
+	
+	double	ll = RecordSet::compute_phasing_likelihood(mat_phasing,
+														pat_phasing);
+	ll +=  log(this->record->mat_int_gt() == mat_phasing ? 0.9 : 0.1);
+	ll +=  log(this->record->pat_int_gt() == pat_phasing ? 0.9 : 0.1);
+	return ll;
 }

@@ -18,6 +18,8 @@ namespace Common {
 	std::vector<std::vector<std::string>> read_csv(
 							const std::string& path, char delim=',');
 	std::vector<std::vector<std::string>> read_tsv(const std::string& path);
+	// read whitespace separeted file
+	std::vector<std::vector<std::string>> read_wsv(const std::string& path);
 	void write_tsv(const std::vector<std::string>& v, std::ostream& os);
 	
 	// e.g. [2, 5, 7], [3, 5, 6] -> [2, 5, 7, 3, 6]

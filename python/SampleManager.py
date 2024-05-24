@@ -3,7 +3,7 @@ from __future__ import annotations
 # coding: utf-8
 # SampleManager.py
 
-from typing import Dict, List, Tuple, Set, IO
+from typing import Set, IO, Optional
 
 from pedigree import PedigreeTable, Family
 from KnownFamily import KnownFamily
@@ -149,10 +149,15 @@ class SampleManager:
 		return families
 	
 	@staticmethod
-	def create(path_ped: str, samples: list[str],
-				lower_progs: int, family_indices: list[int]) -> SampleManager:
+	def create(path_ped: str, samples: list[str], lower_progs: int,
+						family_indices: list[int]) -> Optional[SampleManager]:
 		ped_ = PedigreeTable.read(path_ped)
+		if ped_ is None:
+			return None
+		
 		ped = ped_.limit_samples(samples)
+		if ped is None:
+			return None
 		
 		set_samples = set(samples)
 		families = SampleManager.make_families(ped, set_samples, lower_progs)

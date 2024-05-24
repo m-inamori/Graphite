@@ -116,6 +116,9 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 	SampleManager	*sample_man = SampleManager::create(
 										option->path_ped, vcf->get_samples(),
 										option->lower_progs, option->families);
+	if(sample_man == NULL)
+		return;
+	
 	sample_man->display_info();
 	
 	// process chromosome by chromosome
@@ -123,7 +126,14 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 	bool	first_chromosome = true;
 	for(int	chrom_index = 0; ; ++chrom_index) {
 		// chrom_index is required only for because they can skip chromosomes
-		VCFSmall	*vcf_chrom = divisor.next();
+		VCFSmall	*vcf_chrom;
+		try {
+			vcf_chrom = divisor.next();
+		}
+		catch(const std::exception& e) {
+			cerr << e.what() << endl;
+			break;
+		}
 		if(vcf_chrom == NULL)
 			break;
 		else if(!option->is_efficient_chrom(chrom_index)) {
@@ -147,7 +157,6 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 		delete vcf_imputed;
 	}
 	
-	delete vcf;
 	delete sample_man;
 }
 
@@ -199,6 +208,7 @@ void impute_VCF(const Option *option) {
 	else
 		impute_all(vcf, materials, option);
 	
+	delete vcf;
 	delete materials;
 }
 

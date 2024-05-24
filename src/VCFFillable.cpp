@@ -27,8 +27,8 @@ void VCFFillable::phase_in_thread(void *config) {
 	const auto&	record_sets = c->record_sets;
 	const size_t	n = record_sets.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
-		if(record_sets[i].record->is_fillable_type())
-			record_sets[i].impute(true);
+		if(record_sets[i]->record->is_fillable_type())
+			record_sets[i]->impute(true);
 	}
 }
 
@@ -56,6 +56,7 @@ void VCFFillable::modify(int T) {
 	Common::delete_all(configs);
 	
 	delete groups;
+	Common::delete_all(record_sets);
 	
 	for(size_t i = 0U; i < records.size(); ++i) {
 		auto	*record = records[i];
@@ -76,7 +77,7 @@ void VCFFillable::phase_hetero_hetero() {
 	const Groups	*groups = Groups::create(records);
 	const auto	record_sets = groups->create_record_sets();
 	for(auto p = record_sets.begin(); p != record_sets.end(); ++p) {
-		p->impute(false);
+		(*p)->impute(false);
 	}
 	
 	for(size_t i = 0U; i < records.size(); ++i) {
@@ -88,6 +89,7 @@ void VCFFillable::phase_hetero_hetero() {
 		else if(record->is_fillable_type())
 			this->impute_others(i);
 	}
+	Common::delete_all(record_sets);
 	delete groups;
 }
 

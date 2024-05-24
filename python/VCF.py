@@ -47,6 +47,10 @@ class VCFRecord(object):
 	def is_NA(self, i):
 		return self.v[i+9][0] == '.' or self.v[i+9][2] == '.'
 	
+	def is_phased(self, i):
+		gt = self.v[i+9]
+		return gt[0] in '01' and gt[2] in '01' and gt[1] == '|'
+	
 	def gts(self) -> list[str]:
 		return self.v[9:]
 	
@@ -79,6 +83,16 @@ class VCFRecord(object):
 	
 	def set_GT(self, i: int, GT: str):
 		self.v[i+9] = GT + self.v[i+9][3:]
+	
+	def is_valid(self) -> bool:
+		if len(self.v) != len(self.samples) + 9:
+			return False
+		
+		for gt in self.v[9:]:
+			if len(gt) < 3 or (gt[1] != '/' and gt[1] != '|'):
+				return False
+		
+		return True
 
 
 #################### VCFBase ####################
@@ -149,6 +163,10 @@ class VCFHuge(VCFBase):
 	
 	def __next__(self):
 		record = VCFRecord(next(self.g), self.samples)
+		if not record.is_valid():
+			print('error : VCF line is invalid :', file=sys.stderr)
+			print(record.v)
+			exit(1)
 		self.record_position(record)	# self.chrsを作るために必要
 		return record
 	

@@ -1,0 +1,36 @@
+#ifndef __VCFIMPHETEROHOMO
+#define __VCFIMPHETEROHOMO
+
+#include "VCFHeteroHomoOnePhased.h"
+
+class Map;
+
+
+//////////////////// VCFImpHeteroHomo ////////////////////
+
+class VCFImpHeteroHomo : public VCFHeteroHomoOnePhased {
+public:
+	VCFImpHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
+						std::vector<VCFFillableRecord *> rs,
+						bool is_mat_hetero, const Map& m) :
+				VCFHeteroHomoOnePhased(h, s, rs, is_mat_hetero, m) { }
+	~VCFImpHeteroHomo() { }
+	
+	///// non-virtual methods /////
+	std::size_t imputed_index() const { return is_mat_hetero ? 0 : 1; }
+	std::size_t non_imputed_index() const { return is_mat_hetero ? 1 : 0; }
+	
+	std::string update_each(std::size_t i, std::size_t j, char c) const;
+	void update(std::size_t i, const std::vector<std::string>& seqs);
+	char determine_haplotype(int which_zero,
+								int homo_int_gt, int prog_int_gt) const;
+	std::string make_seq(std::size_t i) const;
+	std::string impute_sample_seq(std::size_t j, const std::vector<double>& cMs,
+															double min_c) const;
+	void determine_gts_from_unimputed_parent(std::size_t j,
+										const std::vector<std::size_t>& hap);
+	
+	///// virtual methods /////
+	void impute();
+};
+#endif

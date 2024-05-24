@@ -219,28 +219,9 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 									for record in self.records)
 	
 	def impute_each_sample_seq(self, i: int, cMs: list[float], min_c: float):
-		def is_all_same_without_N(seq):
-			prev_c = '-'
-			for c in seq:
-				if c == 'N':
-					continue
-				elif prev_c == '-':
-					prev_c = c
-				elif c != prev_c:
-					return False
-			else:
-				return True
-		
-		def create_same_color_string(seq):
-			if all(c == 'N' for c in seq):
-				c_base = '0'
-			else:
-				c_base = next(c for c in seq if c != 'N')
-			return c_base * len(seq)
-		
 		seq = self.make_seq(i)
-		if is_all_same_without_N(seq):
-			return create_same_color_string(seq)
+		if Imputer.is_all_same_without_N(seq):
+			return Imputer.create_same_color_string(seq, '0')
 		
 		hidden_states = ['0', '1']
 		states = ['0', '1', 'N']

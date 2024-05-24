@@ -8,9 +8,12 @@ from itertools import *
 
 from VCFImpFamily import FillType, VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
-from RecordSet import RecordSet
+from RecordSet import RecordSet, RecordSetSmall
 
 Group = Tuple[FillType, List[VCFFillableRecord]]
+
+
+#################### Groups ####################
 
 class Groups:
 	def __init__(self, groups: list[Group]):
@@ -55,6 +58,18 @@ class Groups:
 			next_pat_record = self.find_next_record(i, FillType.PAT)
 			for record in records:
 				yield RecordSet(record, prev_mat_record,
+							next_mat_record, prev_pat_record, next_pat_record)
+	
+	def generate_record_sets_small(self) -> Iterator[RecordSet]:
+		for i, (key, records) in enumerate(self.groups):
+			if key == FillType.MAT or key == FillType.PAT:
+				continue
+			prev_mat_record = self.find_prev_record(i, FillType.MAT)
+			next_mat_record = self.find_next_record(i, FillType.MAT)
+			prev_pat_record = self.find_prev_record(i, FillType.PAT)
+			next_pat_record = self.find_next_record(i, FillType.PAT)
+			for record in records:
+				yield RecordSetSmall(record, prev_mat_record,
 							next_mat_record, prev_pat_record, next_pat_record)
 	
 	@staticmethod

@@ -30,8 +30,8 @@ VCFFillableRecord *Groups::find_next_record(size_t i, FillType g) const {
 	return NULL;
 }
 
-vector<RecordSet> Groups::create_record_sets() const {
-	vector<RecordSet>	record_sets;
+vector<RecordSet *> Groups::create_record_sets() const {
+	vector<RecordSet *>	record_sets;
 	for(size_t i = 0; i < size(); ++i) {
 		const FillType	key = get_group(i).first;
 		const auto&	records = get_group(i).second;
@@ -42,7 +42,26 @@ vector<RecordSet> Groups::create_record_sets() const {
 		auto	*prev_pat_record = find_prev_record(i, FillType::PAT);
 		auto	*next_pat_record = find_next_record(i, FillType::PAT);
 		for(auto p = records.begin(); p != records.end(); ++p) {
-			record_sets.push_back(RecordSet(*p, prev_mat_record,
+			record_sets.push_back(new RecordSet(*p, prev_mat_record,
+						next_mat_record, prev_pat_record, next_pat_record));
+		}
+	}
+	return record_sets;
+}
+
+vector<RecordSetSmall *> Groups::create_record_sets_small() const {
+	vector<RecordSetSmall *>	record_sets;
+	for(size_t i = 0; i < size(); ++i) {
+		const FillType	key = get_group(i).first;
+		const auto&	records = get_group(i).second;
+		if(key == FillType::MAT || key == FillType::PAT)
+			continue;
+		auto	*prev_mat_record = find_prev_record(i, FillType::MAT);
+		auto	*next_mat_record = find_next_record(i, FillType::MAT);
+		auto	*prev_pat_record = find_prev_record(i, FillType::PAT);
+		auto	*next_pat_record = find_next_record(i, FillType::PAT);
+		for(auto p = records.begin(); p != records.end(); ++p) {
+			record_sets.push_back(new RecordSetSmall(*p, prev_mat_record,
 						next_mat_record, prev_pat_record, next_pat_record));
 		}
 	}

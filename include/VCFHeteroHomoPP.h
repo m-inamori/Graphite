@@ -82,7 +82,7 @@ private:
 	std::string update_each(std::size_t i, std::size_t j, char c);
 	void update(std::size_t i, const STRVEC& seqs);
 	
-	void impute_core(const RecordSet& record_set);
+	void impute_core(const RecordSet *record_set);
 	VCFFillableRecord *find_prev_record(
 							const Groups *groups, int i, FillType g);
 	VCFFillableRecord *find_next_record(
@@ -114,10 +114,7 @@ public:
 									const STRVEC& samples,
 									const Map& m, const Option *option);
 	
-	
 private:
-	static bool is_all_same_without_N(const std::string& seq);
-	static std::string create_same_color_string(const std::string& seq);
 	static std::pair<ParentComb, FillType> classify_record(
 												VCFFamilyRecord *record);
 	static void impute_in_thread(void *config);

@@ -293,9 +293,16 @@ SampleManager *SampleManager::create(const string& path_ped,
 									const vector<string>& samples,
 									size_t lower_progs,
 									const vector<size_t>& family_indices) {
-	const PedigreeTable	*ped_ = PedigreeTable::read(path_ped);
-	const PedigreeTable	*ped = ped_->limit_samples(samples);
-	delete ped_;
+	const PedigreeTable	*ped;
+	try {
+		const PedigreeTable	*ped_ = PedigreeTable::read(path_ped);
+		ped = ped_->limit_samples(samples);
+		delete ped_;
+	}
+	catch(const std::exception& e) {
+		cerr << e.what() << endl;
+		return NULL;
+	}
 	
 	const auto	families = make_families(ped, samples,
 											lower_progs, family_indices);

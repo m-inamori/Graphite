@@ -1,9 +1,71 @@
+#include <fstream>
+#include <sstream>
 #include <cassert>
 #include "../include/common.h"
 #include "../include/Pedigree.h"
 #include "../include/VCF.h"
 
 using namespace std;
+
+
+//////////////////// FormatException ////////////////////
+
+FormatException::FormatException(const vector<string>& lines) {
+	stringstream	ss;
+	if(lines.size() == 1)
+		ss << "error : the following line doesn't have four columns :";
+	else
+		ss << "error : the following lines don't have four columns :";
+	
+	for(auto p = lines.begin(); p != lines.end(); ++p)
+		ss << '\n' << *p;
+	
+	message = ss.str();
+}
+
+const char *FormatException::what() const noexcept {
+	return message.c_str();
+}
+
+
+//////////////////// ParentsException ////////////////////
+
+ParentsException::ParentsException(const vector<string>& parents) {
+	stringstream	ss;
+	if(parents.size() == 1)
+		ss << "error : the following parent isn't defined :";
+	else
+		ss << "error : the following parents aren't defined :";
+	
+	for(auto p = parents.begin(); p != parents.end(); ++p)
+		ss << '\n' << *p;
+	
+	message = ss.str();
+}
+
+const char *ParentsException::what() const noexcept {
+	return message.c_str();
+}
+
+
+//////////////////// SamplesException ////////////////////
+
+SamplesException::SamplesException(const vector<string>& samples) {
+	stringstream	ss;
+	if(samples.size() == 1)
+		ss << "error : the following sample isn't in pedigree :";
+	else
+		ss << "error : the following samples aren't in pedigree :";
+	
+	for(auto p = samples.begin(); p != samples.end(); ++p)
+		ss << '\n' << *p;
+	
+	message = ss.str();
+}
+
+const char *SamplesException::what() const noexcept {
+	return message.c_str();
+}
 
 
 //////////////////// Family ////////////////////
@@ -126,8 +188,27 @@ vector<const Family *> PedigreeTable::make_families(
 	return families;
 }
 
+vector<string> PedigreeTable::check_samples_in_pedigree(
+								const vector<string>& samples) const {
+	set<string>	ped_samples;
+	for(auto p = table.begin(); p != table.end(); ++p)
+		ped_samples.insert((*p)->get_name());
+	vector<string>	missing_samples;
+	for(auto p = samples.begin(); p != samples.end(); ++p) {
+		if(ped_samples.find(*p) == ped_samples.end())
+			missing_samples.push_back(*p);
+	}
+	return missing_samples;
+}
+
 const PedigreeTable *PedigreeTable::limit_samples(
 								const vector<string>& samples) const {
+	const auto	missing_samples = check_samples_in_pedigree(samples);
+	if(!missing_samples.empty()) {
+		delete this;
+		throw SamplesException(missing_samples);
+	}
+	
 	set<string>	set_samples(samples.begin(), samples.end());
 	vector<const Progeny *>	progs;
 	for(auto p = table.begin(); p != table.end(); ++p) {
@@ -137,10 +218,69 @@ const PedigreeTable *PedigreeTable::limit_samples(
 	return new PedigreeTable(progs);
 }
 
+vector<string> PedigreeTable::check_parents() const {
+	set<string>	set_progs;
+	for(auto p = table.begin(); p != table.end(); ++p)
+		set_progs.insert((*p)->get_name());
+	
+	set<string>	missing_parents;
+	for(auto p = table.begin(); p != table.end(); ++p) {
+		const string&	mat = (*p)->get_mat();
+		if(mat != "0" && set_progs.find(mat) == set_progs.end())
+			missing_parents.insert(mat);
+		const string&	pat = (*p)->get_pat();
+		if(pat != "0" && set_progs.find(pat) == set_progs.end())
+			missing_parents.insert(pat);
+	}
+	return vector<string>(missing_parents.begin(), missing_parents.end());
+}
+
+vector<vector<string>> PedigreeTable::read_lines(const string& path) {
+	ifstream	ifs(path.c_str());
+	if(!ifs) {
+		stringstream	ss;
+		ss << "error : can't open " << path << "." << endl;
+		throw std::runtime_error(ss.str());
+	}
+	
+	vector<vector<string>>	table;
+	vector<string>	not_four_columns_lines;
+	string	line;
+	while(getline(ifs, line)) {
+		if(line.c_str()[line.length()-1] == '\r')
+			line = line.substr(0, line.length()-1);
+		istringstream	iss(line);
+		vector<string>	v;
+		string	token;
+		while(iss >> token) {
+			v.push_back(token);
+		}
+		if(v.size() != 4) {
+			not_four_columns_lines.push_back(line);
+		}
+		table.push_back(v);
+	}
+	if(!not_four_columns_lines.empty()) {
+		throw FormatException(not_four_columns_lines);
+	}
+	return table;
+}
+
+const PedigreeTable *PedigreeTable::create(
+								const vector<const Progeny *>& progs) {
+	const auto	ped = new PedigreeTable(progs);
+	const auto	missing_parents = ped->check_parents();
+	if(!missing_parents.empty()) {
+		delete ped;
+		throw ParentsException(missing_parents);
+	}
+	return ped;
+}
+
 const PedigreeTable *PedigreeTable::read(const string& path) {
-	const auto	table = Common::read_csv(path, ' ');
+	const auto	table = PedigreeTable::read_lines(path);
 	vector<const Progeny *>	progs;
 	for(auto p = table.begin(); p != table.end(); ++p)
 		progs.push_back(Progeny::create(*p));
-	return new PedigreeTable(progs);
+	return create(progs);
 }

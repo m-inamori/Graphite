@@ -124,6 +124,8 @@ std::string paint(const std::string& seq, const std::vector<double>& cMs,
 std::vector<char> create_states(const std::string& seq);
 BaumWelch::TransitionMatrix compute_T(double p);
 std::string impute(const std::string& seq, const std::vector<double>& cMs);
+bool is_all_same_without_N(const std::string& seq);
+std::string create_same_color_string(const std::string& seq, char default_color);
 
 }
 #endif

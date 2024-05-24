@@ -9,30 +9,6 @@ using namespace std;
 
 //////////////////// VCFFillableRecord ////////////////////
 
-#define P(a,b) make_pair(a,b)
-
-vector<pair<int, int>> VCFFillableRecord::possible_phasings() const {
-	switch(this->comb) {
-		case ParentComb::P00x00: return { P(0, 0) };
-		case ParentComb::P00x01: return { P(0, 1), P(0, 2), P(1, 0), P(2, 0),
-										  P(1, 1), P(1, 2), P(2, 1), P(2, 2) };
-		case ParentComb::P01x01: return { P(1, 1), P(1, 2), P(2, 1), P(2, 2),
-										  P(0, 1), P(0, 2), P(1, 0), P(2, 0),
-										  P(1, 3), P(2, 3), P(3, 1), P(3, 2) };
-		case ParentComb::P00x11: return { P(0, 3), P(3, 0) };
-		case ParentComb::P01x11: return { P(1, 3), P(2, 3), P(3, 1), P(3, 2),
-										  P(1, 1), P(1, 2), P(2, 1), P(2, 2) };
-		case ParentComb::P11x11: return { P(3, 3) };
-		default: break;
-	}
-	
-	// any pair is possible
-	vector<pair<int, int>>	pairs;
-	for(int i = 0; i < 16; ++i)
-		pairs.push_back(P(i >> 2, i & 3));
-	return pairs;
-}
-
 STRVEC VCFFillableRecord::prog_gts() const {
 	STRVEC	vec(v.size() - 11);
 	std::copy(v.begin() + 11, v.end(), vec.begin());

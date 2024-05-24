@@ -118,6 +118,30 @@ vector<vector<string>> Common::read_tsv(const string& path) {
 	return read_csv(path, '\t');
 }
 
+// read whitespace separeted file
+vector<vector<string>> Common::read_wsv(const string& path) {
+	ifstream	ifs(path.c_str());
+	if(!ifs) {
+		cerr << "error : can't open " << path << "." << endl;
+		exit(1);
+	}
+	
+	vector<vector<string>>	table;
+	string	line;
+	while(getline(ifs, line)) {
+		if(line.c_str()[line.length()-1] == '\r')
+			line = line.substr(0, line.length()-1);
+		istringstream	iss(line);
+		vector<string>	v;
+		string	token;
+		while(iss >> token) {
+			v.push_back(token);
+		}
+		table.push_back(v);
+	}
+	return table;
+}
+
 void Common::write_tsv(const vector<string>& v, ostream& os) {
 	if(!v.empty()) {
 		os << v.front();

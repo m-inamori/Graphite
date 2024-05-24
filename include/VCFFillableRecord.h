@@ -39,8 +39,6 @@ public:
 	bool is_00x11() const { return comb == ParentComb::P00x11; }
 	void set_00x11() { comb = ParentComb::P00x11; }
 	
-	std::vector<std::pair<int, int>>	possible_phasings() const;
-	
 	STRVEC prog_gts() const;
 	VCFFillableRecord *copy() const;
 	std::tuple<int,int,int> count_gts() const;

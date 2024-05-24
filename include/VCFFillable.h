@@ -22,11 +22,11 @@ public:
 	struct ConfigThreadPhase {
 		const std::size_t	first;
 		const std::size_t	num_threads;
-		const std::vector<RecordSet>&	record_sets;
+		const std::vector<RecordSet *>&	record_sets;
 		VCFFillable	*vcf;
 		
 		ConfigThreadPhase(std::size_t f, std::size_t n,
-							const std::vector<RecordSet>& r, VCFFillable *v) :
+							const std::vector<RecordSet *>& r, VCFFillable *v) :
 							first(f), num_threads(n), record_sets(r), vcf(v) { }
 	};
 	
@@ -37,7 +37,7 @@ public:
 public:
 	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
 									std::vector<VCFFillableRecord *> rs);
-	~VCFFillable();
+	virtual ~VCFFillable();
 	
 	///// virtual methods for VCFSmallBase /////
 	std::size_t size() const { return records.size(); }
@@ -70,7 +70,7 @@ public:
 	}
 	void clear_records() { records.clear(); }
 	
-private:
+protected:
 	template<typename Iter>
 	VCFFillableRecord *find_neighbor_same_type_record(
 					std::size_t i, std::size_t c, Iter first, Iter last) const;
@@ -111,7 +111,7 @@ public:
 							const std::vector<VCFImpFamilyRecord *>& records,
 							bool all_out);
 	
-private:
+protected:
 	static std::vector<std::vector<VCFFillableRecord *>>
 		collect_records(const std::vector<VCFFillable *>& vcfs);
 	static std::pair<STRVEC, std::vector<std::vector<std::pair<int, int>>>>

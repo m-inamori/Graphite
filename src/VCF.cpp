@@ -1,3 +1,4 @@
+#include <sstream>
 #include <algorithm>
 #include "../include/VCF.h"
 #include "../include/common.h"
@@ -79,23 +80,24 @@ void VCFRecord::set_int_GT(size_t i, int gt) {
 	}
 }
 
+WrongRecordType VCFRecord::check() const {
+	if(v.size() != samples.size() + 9)
+		return WrongRecordType::NUMCOLUMNERROR;
+	
+	for(auto p = v.begin() + 9; p != v.end(); ++p) {
+		const string&	gt = *p;
+		if(gt.size() < 3 || (gt.c_str()[1] != '/' && gt.c_str()[1] != '|'))
+			return WrongRecordType::GENOTYPEERROR;
+	}
+	return WrongRecordType::RIGHT;
+}
+
 
 //////////////////// VCFBase ////////////////////
 
 VCFBase::VCFBase(const vector<STRVEC>& h, const STRVEC& s) : 
-								header(h), samples(s),
-								sample_ids(number_samples(s)) {
+								header(h), samples(s) {
 	determine_chromosome_id();
-}
-
-map<string,size_t> VCFBase::number_samples(const STRVEC& samples_) const {
-	map<string,size_t>	dic;
-	size_t	id = 0U;
-	for(auto p = samples_.begin(); p != samples_.end(); ++p) {
-		dic[*p] = id;
-		++id;
-	}
-	return dic;
 }
 
 POSITION VCFBase::position(const pair<string,ll>& p) const {
@@ -270,6 +272,25 @@ VCFSmall::~VCFSmall() {
 	}
 }
 
+void VCFSmall::check_records() const {
+	int	wrong_counter = 0;
+	vector<pair<VCFRecord *, WrongRecordType>>	wrong_records;
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		const WrongRecordType	type = (*p)->check();
+		if(type != WrongRecordType::RIGHT) {
+			wrong_counter += 1;
+			// Display errors for up to five records
+			if(wrong_counter <= 5)
+				wrong_records.push_back(make_pair(*p, type));
+		}
+	}
+	if(wrong_counter > 0) {
+		// fix this part later
+		delete this;
+		throw RecordException(wrong_counter, wrong_records);
+	}
+}
+
 VCFSmall *VCFSmall::read(const string& path) {
 	VCFReader	*reader = new VCFReader(path);
 	reader->read_header();
@@ -337,6 +358,10 @@ VCFSmall *VCFSmall::join(const VCFSmallBase *vcf1, const VCFSmallBase *vcf2,
 
 //////////////////// VCFHuge::ChromDivisor ////////////////////
 
+VCFHuge::ChromDivisor::~ChromDivisor() {
+	Common::delete_all(this->records);
+}
+
 VCFSmall *VCFHuge::ChromDivisor::next() {
 	while(true) {
 		VCFRecord	*record = this->vcf->next();
@@ -357,6 +382,7 @@ VCFSmall *VCFHuge::ChromDivisor::next() {
 											this->vcf->samples, this->records);
 			this->records.clear();
 			state = STATE::END;
+			vcf_chrom->check_records();
 			return vcf_chrom;
 		}
 		else if(record->chrom() != this->chrom) {
@@ -365,6 +391,7 @@ VCFSmall *VCFHuge::ChromDivisor::next() {
 			this->records.clear();
 			this->records.push_back(record);
 			this->chrom = record->chrom();
+			vcf_chrom->check_records();
 			return vcf_chrom;
 		}
 		else {
@@ -380,7 +407,7 @@ VCFHuge::VCFHuge(const vector<STRVEC>& h, const STRVEC& s, VCFReader *r_) :
 												VCFBase(h, s), reader(r_) { }
 
 VCFHuge::~VCFHuge() {
-	delete reader;
+	delete this->reader;
 }
 
 VCFRecord *VCFHuge::next() {
@@ -413,4 +440,31 @@ VCFHuge *VCFHuge::read(const string& path) {
 	const vector<STRVEC>&	header = reader->get_header();
 	const STRVEC	samples = reader->get_samples();
 	return new VCFHuge(header, samples, reader);
+}
+
+
+//////////////////// RecordException ////////////////////
+
+RecordException::RecordException(int counter,
+						const vector<pair<VCFRecord *, WrongRecordType>>& rs) {
+	stringstream	ss;
+	if(counter == 1)
+		ss << "error : 1 record is wrong :";
+	else
+		ss << "error : " << counter << " records are wrong :";
+	
+	for(auto p = rs.begin(); p != rs.end(); ++p) {
+		const auto&	v = p->first->get_v();
+		ss << '\n' << v[0] << '\t' << v[1] << " : ";
+		if(p->second == WrongRecordType::GENOTYPEERROR)
+			ss << "wrong genotype.";
+		else
+			ss << "the number of items is wrong.";
+	}
+	
+	message = ss.str();
+}
+
+const char *RecordException::what() const noexcept {
+	return message.c_str();
 }

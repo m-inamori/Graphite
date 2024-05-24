@@ -111,10 +111,11 @@ class RecordSet:
 		return self.__select_phasing(candidates)
 	
 	def possible_phasings(self) -> list[tuple[int, int]]:
-		# pair 0: 0x0, 1: 0x1, 2: 0x2, 3: 1x1, 4: 1x2, 5: 2x2
 		if self.record is None:
 			return []
-		elif self.record.pair == ParentComb.P00x00:
+		
+		# pair 0: 0x0, 1: 0x1, 2: 0x2, 3: 1x1, 4: 1x2, 5: 2x2
+		if self.record.pair == ParentComb.P00x00:
 			return [(0, 0)]
 		elif self.record.pair == ParentComb.P00x01:
 			return [(0, 1), (0, 2), (1, 0), (2, 0),
@@ -385,3 +386,37 @@ class RecordSet:
 		if necessary_parents_phasing:
 			self.determine_parents_phasing()
 		self.impute_core()
+
+
+#################### RecordSetSmall ####################
+
+class RecordSetSmall(RecordSet):
+	def __init__(self, r: Optional[VCFFillableRecord],
+			pm: Optional[VCFFillableRecord], nm: Optional[VCFFillableRecord],
+			pp: Optional[VCFFillableRecord], np: Optional[VCFFillableRecord]):
+		RecordSet.__init__(self, r, pm, nm, pp, np)
+	
+	def possible_phasings(self) -> list[tuple[int, int]]:
+		if self.record is None:
+			return []
+		
+		if self.record.is_phased(0) or self.record.is_phased(1):
+			gts = ['0|0', '1|0', '0|1', '1|1']
+			for i, gt in enumerate(gts):
+				if self.record.get_GT(0) == gt:
+					return [ (i, g) for g in range(4) ]
+				if self.record.get_GT(1) == gt:
+					return [ (g, i) for g in range(4) ]
+			else:
+				return []
+		else:
+			return super().possible_phasings()
+	
+	def compute_phasing_likelihood(self, mat_gt: int, pat_gt: int) -> float:
+		if self.record is None:
+			return 0.0
+		
+		ll = super().compute_phasing_likelihood(mat_gt, pat_gt)
+		ll +=  log(0.9 if self.record.mat_int_gt() == mat_gt else 0.1)
+		ll +=  log(0.9 if self.record.pat_int_gt() == pat_gt else 0.1)
+		return ll
