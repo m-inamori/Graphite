@@ -4,9 +4,13 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include "../include/exception_with_code.h"
 #include "../include/common.h"
 
 using namespace std;
+
+
+//////////////////// Common ////////////////////
 
 string Common::strip(const string& s) {
 	size_t	p1 = 0U;
@@ -98,10 +102,8 @@ vector<string> Common::merge_vector(const vector<string>& v1,
 
 vector<vector<string>> Common::read_csv(const string& path, char delim) {
 	ifstream	ifs(path.c_str());
-	if(!ifs) {
-		cerr << "error : can't open " << path << "." << endl;
-		exit(1);
-	}
+	if(!ifs)
+		throw FileNotFoundException(path);
 	
 	vector<vector<string>>	table;
 	string	line;
@@ -121,10 +123,8 @@ vector<vector<string>> Common::read_tsv(const string& path) {
 // read whitespace separeted file
 vector<vector<string>> Common::read_wsv(const string& path) {
 	ifstream	ifs(path.c_str());
-	if(!ifs) {
-		cerr << "error : can't open " << path << "." << endl;
-		exit(1);
-	}
+	if(!ifs)
+		throw FileNotFoundException(path);
 	
 	vector<vector<string>>	table;
 	string	line;

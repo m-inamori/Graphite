@@ -185,7 +185,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	
 	def determine_haplotype(self, option: OptionImpute
 					) -> tuple[list[VCFHeteroHomo], list[VCFHeteroHomoRecord]]:
-		max_dist = min(option.max_dist, (self.num_samples() - 2) * 0.1)
+		max_dist = min(option.max_dist, (self.num_samples() - 2) * 0.1) * 2
 		graph = self.make_graph(max_dist)
 		subgraphs = graph.divide_into_connected()
 		

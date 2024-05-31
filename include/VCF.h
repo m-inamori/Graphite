@@ -8,6 +8,7 @@
 
 #include "filereader.h"
 #include "Genotype.h"
+#include "exception_with_code.h"
 
 
 typedef long long					ll;
@@ -215,7 +216,7 @@ public:
 
 //////////////////// RecordException ////////////////////
 
-class RecordException : public std::exception {
+class RecordException : public ExceptionWithCode {
 private:
     std::string	message;
 	
@@ -223,6 +224,9 @@ public:
     RecordException(int counter,
 		    	const std::vector<std::pair<VCFRecord *, WrongRecordType>>& rs);
     
+	ErrorCode::Type get_error_code() const override {
+		return ErrorCode::VCF_INVALID_FORMAT;
+	}
     const char *what() const noexcept override;
 };
 #endif

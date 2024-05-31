@@ -285,8 +285,6 @@ void VCFSmall::check_records() const {
 		}
 	}
 	if(wrong_counter > 0) {
-		// fix this part later
-		delete this;
 		throw RecordException(wrong_counter, wrong_records);
 	}
 }
@@ -382,7 +380,6 @@ VCFSmall *VCFHuge::ChromDivisor::next() {
 											this->vcf->samples, this->records);
 			this->records.clear();
 			state = STATE::END;
-			vcf_chrom->check_records();
 			return vcf_chrom;
 		}
 		else if(record->chrom() != this->chrom) {
@@ -391,7 +388,6 @@ VCFSmall *VCFHuge::ChromDivisor::next() {
 			this->records.clear();
 			this->records.push_back(record);
 			this->chrom = record->chrom();
-			vcf_chrom->check_records();
 			return vcf_chrom;
 		}
 		else {

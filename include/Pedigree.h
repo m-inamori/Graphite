@@ -5,50 +5,58 @@
 #include <string>
 #include <set>
 #include <utility>
-#include <exception>
 
-class VCFBase;
+#include "exception_with_code.h"
 
 
 //////////////////// FormatException ////////////////////
 
 // for reading pedigree file
-class FormatException : public std::exception {
+class FormatException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    FormatException(const std::vector<std::string>& ls);
-    
-    const char *what() const noexcept override;
+	FormatException(const std::vector<std::string>& ls);
+	
+	ErrorCode::Type get_error_code() const override {
+		return ErrorCode::PEDIGREE_INVALID_FORMAT;
+	}
+	const char *what() const noexcept override;
 };
 
 
 //////////////////// ParentsException ////////////////////
 
 // are all parents defined?
-class ParentsException : public std::exception {
+class ParentsException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    ParentsException(const std::vector<std::string>& ps);
-    
-    const char *what() const noexcept override;
+	ParentsException(const std::vector<std::string>& ps);
+	
+	ErrorCode::Type get_error_code() const override {
+		return ErrorCode::PARENT_NOT_DEFINED;
+	}
+	const char *what() const noexcept override;
 };
 
 
 //////////////////// SamplesException ////////////////////
 
 // exists samples in pedigree?
-class SamplesException : public std::exception {
+class SamplesException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    SamplesException(const std::vector<std::string>& ss);
-    
-    const char *what() const noexcept override;
+	SamplesException(const std::vector<std::string>& ss);
+	
+	ErrorCode::Type get_error_code() const override {
+		return ErrorCode::SAMPLES_NOT_IN_PEDIGREE;
+	}
+	const char *what() const noexcept override;
 };
 
 

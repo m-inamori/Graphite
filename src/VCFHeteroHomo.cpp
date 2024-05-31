@@ -194,7 +194,7 @@ bool operator <(const InvGraph& g1, const InvGraph& g2) {
 pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 		VCFHeteroHomo::determine_haplotype(const OptionImpute *option) const {
 	const double	max_dist = std::min((double)option->max_dist,
-										this->num_progenies() * 0.1);
+										this->num_progenies() * 0.1) * 2;
 	const InvGraph	graph = this->make_graph(max_dist);
 	const vector<InvGraph>	subgraphs = graph.divide_into_connected();
 	

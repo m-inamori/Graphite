@@ -1,9 +1,9 @@
 #include <fstream>
 #include <sstream>
+#include <map>
 #include <cassert>
 #include "../include/common.h"
 #include "../include/Pedigree.h"
-#include "../include/VCF.h"
 
 using namespace std;
 
@@ -205,6 +205,7 @@ const PedigreeTable *PedigreeTable::limit_samples(
 								const vector<string>& samples) const {
 	const auto	missing_samples = check_samples_in_pedigree(samples);
 	if(!missing_samples.empty()) {
+		// fix later
 		delete this;
 		throw SamplesException(missing_samples);
 	}
@@ -237,11 +238,8 @@ vector<string> PedigreeTable::check_parents() const {
 
 vector<vector<string>> PedigreeTable::read_lines(const string& path) {
 	ifstream	ifs(path.c_str());
-	if(!ifs) {
-		stringstream	ss;
-		ss << "error : can't open " << path << "." << endl;
-		throw std::runtime_error(ss.str());
-	}
+	if(!ifs)
+		throw FileNotFoundException(path);
 	
 	vector<vector<string>>	table;
 	vector<string>	not_four_columns_lines;
@@ -255,7 +253,7 @@ vector<vector<string>> PedigreeTable::read_lines(const string& path) {
 		while(iss >> token) {
 			v.push_back(token);
 		}
-		if(v.size() != 4) {
+		if(v.size() != 4 && not_four_columns_lines.size() < 5) {
 			not_four_columns_lines.push_back(line);
 		}
 		table.push_back(v);

@@ -289,19 +289,16 @@ vector<const KnownFamily *> SampleManager::make_families(
 	return new_families2;
 }
 
-SampleManager *SampleManager::create(const string& path_ped,
+SampleManager *SampleManager::create(const PedigreeTable *ped_,
 									const vector<string>& samples,
 									size_t lower_progs,
 									const vector<size_t>& family_indices) {
-	const PedigreeTable	*ped;
+	const PedigreeTable	*ped = NULL;
 	try {
-		const PedigreeTable	*ped_ = PedigreeTable::read(path_ped);
 		ped = ped_->limit_samples(samples);
-		delete ped_;
 	}
-	catch(const std::exception& e) {
-		cerr << e.what() << endl;
-		return NULL;
+	catch(const ExceptionWithCode& e) {
+		throw;
 	}
 	
 	const auto	families = make_families(ped, samples,

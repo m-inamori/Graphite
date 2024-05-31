@@ -6,6 +6,9 @@
 #include <string>
 #include <algorithm>
 
+
+//////////////////// Common ////////////////////
+
 namespace Common {
 	std::string strip(const std::string& s);
 	bool empty_line(const std::string& s);

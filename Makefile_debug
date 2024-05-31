@@ -1,5 +1,5 @@
-CC      = g++
-CFLAGS  = -O0 -fno-inline-functions -g3 -Wall -DDEBUG
+CC		= g++
+CFLAGS	= -O0 -fno-inline-functions -g3 -Wall -std=c++11 -DDEBUG
 LDFLAGS = 
 LIBS	= -lz -lpthread
 DEBUG_DIR = debug

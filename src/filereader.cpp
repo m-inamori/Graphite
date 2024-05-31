@@ -1,4 +1,5 @@
 #include "../include/filereader.h"
+#include "../include/exception_with_code.h"
 
 using namespace std;
 
@@ -17,9 +18,8 @@ FileReaderBase *FileReaderBase::create(const string& path) {
 
 FileReader::FileReader(const string& path_) : FileReaderBase(),
 											path(path_), ifs(path_.c_str()) {
-	if(!ifs) {
-		cerr << "error : can't open " << path << "." << endl;
-	}
+	if(!ifs)
+		throw FileNotFoundException(path);
 	
 	iter = buffer.begin();
 }
@@ -50,9 +50,8 @@ bool FileReader::getline(std::string& line) {
 FileReaderGZ::FileReaderGZ(const string& path_) :
 								FileReaderBase(), path(path_) {
 	fz = gzopen(path_.c_str(), "r");
-	if(fz == NULL) {
-		cerr << "error : can't open " << path << "." << endl;
-	}
+	if(fz == NULL)
+		throw FileNotFoundException(path);
 	
 	iter = buffer.begin();
 }

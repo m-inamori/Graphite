@@ -7,33 +7,13 @@
 #include "VCFFillable.h"
 #include "Pedigree.h"
 #include "Map.h"
+#include "error_codes.h"
 
 class Option;
 class SampleManager;
 class VCFFamily;
 class VCFHeteroHomo;
-
-
-//////////////////// Materials ////////////////////
-
-class Materials {
-	const std::string	path_map;
-	const Map	*geno_map;
-	const std::vector<const Map *>	chr_maps;
-	
-public:
-	Materials(const std::string& path, const Map *m);
-	~Materials();
-	
-	const std::string& get_path_map() const { return path_map; }
-	const Map& get_map() const { return *geno_map; }
-	const Map *get_chr_map(int i) const;
-	double total_cM() const;
-	void display_map_info() const;
-	
-public:
-	static Materials *create(const Option *option);
-};
+class Materials;
 
 
 //////////////////// process ////////////////////

@@ -9,53 +9,11 @@
 #include "../include/VCFOneParentPhased.h"
 #include "../include/VCFProgenyPhased.h"
 #include "../include/VCFIsolated.h"
+#include "../include/materials.h"
 #include "../include/option.h"
 #include "../include/common.h"
 
 using namespace std;
-
-
-//////////////////// Materials ////////////////////
-
-Materials::Materials(const string& path, const Map *m) : path_map(path),
-										geno_map(m),
-										chr_maps(Map::create_chr_maps(m)) { }
-
-Materials::~Materials() {
-	delete geno_map;
-	Common::delete_all(chr_maps);
-}
-
-const Map *Materials::get_chr_map(int i) const {
-	if(geno_map->is_empty())
-		return chr_maps[0];
-	else
-		return chr_maps[i];
-}
-
-double Materials::total_cM() const {
-	double	length = 0.0;
-	for(auto p = chr_maps.begin(); p != chr_maps.end(); ++p)
-		length += (*p)->total_cM();
-	return length;
-}
-
-void Materials::display_map_info() const {
-	cerr << "Genetic Map : ";
-	if(geno_map->is_empty()) {
-		cerr << "default map(1Mbp=1cM)." << endl;
-	}
-	else {
-		cerr << path_map << endl;
-		cerr << chr_maps.size() << " chrmosomes "
-								<< total_cM() << " cM." << endl;
-	}
-}
-
-Materials *Materials::create(const Option *option) {
-	const auto	*geno_map = Map::read(option->path_map);
-	return new Materials(option->path_map, geno_map);
-}
 
 
 //////////////////// process ////////////////////
@@ -114,10 +72,8 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 void impute_all(VCFHuge *vcf, const Materials *materials,
 										const Option *option) {
 	SampleManager	*sample_man = SampleManager::create(
-										option->path_ped, vcf->get_samples(),
-										option->lower_progs, option->families);
-	if(sample_man == NULL)
-		return;
+									materials->get_ped(), vcf->get_samples(),
+									option->lower_progs, option->families);
 	
 	sample_man->display_info();
 	
@@ -127,16 +83,18 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 	for(int	chrom_index = 0; ; ++chrom_index) {
 		// chrom_index is required only for because they can skip chromosomes
 		VCFSmall	*vcf_chrom;
-		try {
-			vcf_chrom = divisor.next();
-		}
-		catch(const std::exception& e) {
-			cerr << e.what() << endl;
-			break;
-		}
+		vcf_chrom = divisor.next();
 		if(vcf_chrom == NULL)
 			break;
-		else if(!option->is_efficient_chrom(chrom_index)) {
+		try {
+			vcf_chrom->check_records();
+		}
+		catch(const std::exception& e) {
+			delete vcf_chrom;
+			delete sample_man;
+			throw;
+		}
+		if(!option->is_efficient_chrom(chrom_index)) {
 			delete vcf_chrom;
 			continue;
 		}
@@ -199,16 +157,25 @@ void impute_progenies(VCFHuge *vcf, const Materials *materials,
 
 void impute_VCF(const Option *option) {
 	option->print_info();
-	Materials	*materials = Materials::create(option);
+	Materials	*materials = Materials::create(option->path_map,
+												option->path_ped);
 	materials->display_map_info();
-	VCFHuge	*vcf = VCFHuge::read(option->path_vcf);
 	
-	if(option->exists_ref())
-		impute_progenies(vcf, materials, option);
-	else
-		impute_all(vcf, materials, option);
-	
-	delete vcf;
+	VCFHuge	*vcf = NULL;
+	try {
+		vcf = VCFHuge::read(option->path_vcf);
+		if(option->exists_ref())
+			impute_progenies(vcf, materials, option);
+		else
+			impute_all(vcf, materials, option);
+		delete vcf;
+	}
+	catch(const ExceptionWithCode& e) {
+		if(vcf != NULL)
+			delete vcf;
+		delete materials;
+		throw;
+	}
 	delete materials;
 }
 
@@ -216,9 +183,18 @@ int main(int argc, char **argv) {
 	const Option	*option = Option::create(argc, argv);
 	if(option == NULL) {
 		Option::usage(argv);
-		exit(1);
+		exit(ErrorCode::WRONG_ARGUMENT);
 	}
 	
-	impute_VCF(option);
+	try {
+		impute_VCF(option);
+	}
+	catch(const ExceptionWithCode& e) {
+		delete option;
+		cerr << e.what() << endl;
+		exit(e.get_error_code());
+	}
+	
 	delete option;
+	return 0;
 }
