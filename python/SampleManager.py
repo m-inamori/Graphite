@@ -123,8 +123,9 @@ class SampleManager:
 			print("%d small families" % len(self.small_families), file=out)
 	
 	@staticmethod
-	def make_families(ped: PedigreeTable, set_samples: Set[str],
+	def make_families(ped: PedigreeTable, samples: list[str],
 										lower_progs: int) -> list[KnownFamily]:
+		set_samples = set(samples)
 		dic = classify((prog.parents(), prog.name) for prog in ped.table)
 		families = []
 		for (mat, pat), progs in dic.items():
@@ -149,18 +150,9 @@ class SampleManager:
 		return families
 	
 	@staticmethod
-	def create(path_ped: str, samples: list[str], lower_progs: int,
-						family_indices: list[int]) -> Optional[SampleManager]:
-		ped_ = PedigreeTable.read(path_ped)
-		if ped_ is None:
-			return None
-		
-		ped = ped_.limit_samples(samples)
-		if ped is None:
-			return None
-		
-		set_samples = set(samples)
-		families = SampleManager.make_families(ped, set_samples, lower_progs)
+	def create(ped: PedigreeTable, samples: list[str], lower_progs: int,
+								family_indices: list[int]) -> SampleManager:
+		families = SampleManager.make_families(ped, samples, lower_progs)
 		if family_indices:	# debug用にFamilyを絞って問題を小さくする
 			families = [ families[i] for i in family_indices ]
 		

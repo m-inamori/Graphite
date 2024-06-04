@@ -10,7 +10,6 @@ using namespace std;
 //////////////////// SampleManager ////////////////////
 
 SampleManager::~SampleManager() {
-	delete ped;
 	Common::delete_all(large_families);
 	Common::delete_all(small_families);
 }
@@ -289,18 +288,10 @@ vector<const KnownFamily *> SampleManager::make_families(
 	return new_families2;
 }
 
-SampleManager *SampleManager::create(const PedigreeTable *ped_,
+SampleManager *SampleManager::create(const PedigreeTable *ped,
 									const vector<string>& samples,
 									size_t lower_progs,
 									const vector<size_t>& family_indices) {
-	const PedigreeTable	*ped = NULL;
-	try {
-		ped = ped_->limit_samples(samples);
-	}
-	catch(const ExceptionWithCode& e) {
-		throw;
-	}
-	
 	const auto	families = make_families(ped, samples,
 											lower_progs, family_indices);
 	

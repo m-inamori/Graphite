@@ -8,11 +8,18 @@ from itertools import *
 from math import log
 import re
 import gzip
+from enum import Enum
 
+from exception_with_code import *
 from common import *
 
 
-#################### library ####################
+#################### WrongRecordType ####################
+
+class WrongRecordType(Enum):
+	RIGHT = 1
+	GENOTYPEERROR = 2
+	NUMCOLUMNERROR = 3
 
 
 #################### VCFRecord ####################
@@ -93,6 +100,16 @@ class VCFRecord(object):
 				return False
 		
 		return True
+	
+	def check(self) -> WrongRecordType:
+		if len(self.v) != len(self.samples) + 9:
+			return WrongRecordType.NUMCOLUMNERROR
+		
+		for gt in self.v[9:]:
+			if len(gt) < 3 or gt[1] not in '/|':
+				return WrongRecordType.GENOTYPEERROR
+		
+		return WrongRecordType.RIGHT
 
 
 #################### VCFBase ####################
@@ -163,10 +180,6 @@ class VCFHuge(VCFBase):
 	
 	def __next__(self):
 		record = VCFRecord(next(self.g), self.samples)
-		if not record.is_valid():
-			print('error : VCF line is invalid :', file=sys.stderr)
-			print(record.v)
-			exit(1)
 		self.record_position(record)	# self.chrsを作るために必要
 		return record
 	
@@ -286,6 +299,20 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		for chr, v in groupby(self.records, key=VCFRecord.chrom):
 			yield VCFSmall(self.header, list(v))
 	
+	def check_records(self):
+		wrong_counter = 0
+		wrong_records: list[tuple[VCFRecord, WrongRecordType]] = []
+		for record in self.records:
+			type = record.check()
+			if type != WrongRecordType.RIGHT:
+				wrong_counter += 1;
+				# Display errors for up to five records
+				if wrong_counter <= 5:
+					wrong_records.append((record, type))
+		
+		if wrong_counter > 0:
+			raise RecordException(wrong_counter, wrong_records)
+	
 	@staticmethod
 	def read(path: str) -> VCFSmall:
 		g_vecs = read_tsv(path)
@@ -322,6 +349,27 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		records: list[VCFRecord] = [ vcf.get_record(i)
 											for i in range(len(vcf)) ]
 		return VCFSmall(vcf.get_header(), records)
+
+
+#################### RecordException ####################
+
+class RecordException(ExceptionWithCode):
+	def __init__(self, counter: int, rs: list[tuple[VCFRecord, WrongRecordType]]):
+		if counter == 1:
+			s = 'error : 1 record is wrong :'
+		else:
+			s = 'error : %d records are wrong :' % counter
+		
+		for r, type in rs:
+			s += '\n' + r.v[0] + '\t' + r.v[1] + ' : '
+			if type == WrongRecordType.GENOTYPEERROR:
+				s += 'wrong genotype.'
+			else:
+				s += 'the number of items is wrong.'
+		super().__init__(s)
+	
+	def get_error_code(self) -> error_codes.Type:
+		return error_codes.Type.VCF_INVALID_FORMAT
 
 
 #################### main ####################

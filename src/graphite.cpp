@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 #include <cassert>
 #include "../include/graphite.h"
 #include "../include/SampleManager.h"
@@ -71,9 +72,17 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 
 void impute_all(VCFHuge *vcf, const Materials *materials,
 										const Option *option) {
-	SampleManager	*sample_man = SampleManager::create(
-									materials->get_ped(), vcf->get_samples(),
-									option->lower_progs, option->families);
+	const vector<string>&	samples = vcf->get_samples();
+	std::unique_ptr<const PedigreeTable> ped = nullptr;
+	try {
+		ped.reset(materials->get_ped()->limit_samples(samples));
+	}
+	catch(const ExceptionWithCode& e) {
+		throw;
+	}
+	
+	SampleManager	*sample_man = SampleManager::create(ped.get(), samples,
+										option->lower_progs, option->families);
 	
 	sample_man->display_info();
 	

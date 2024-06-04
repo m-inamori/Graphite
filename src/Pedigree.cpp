@@ -205,8 +205,6 @@ const PedigreeTable *PedigreeTable::limit_samples(
 								const vector<string>& samples) const {
 	const auto	missing_samples = check_samples_in_pedigree(samples);
 	if(!missing_samples.empty()) {
-		// fix later
-		delete this;
 		throw SamplesException(missing_samples);
 	}
 	

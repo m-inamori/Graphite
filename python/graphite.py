@@ -12,6 +12,7 @@ from pedigree import PedigreeTable, Family
 from LargeFamily import correct_large_family_VCFs
 import SmallFamily
 from impute_prog_only import *
+from materials import *
 from SampleManager import SampleManager
 from Map import *
 from option import *
@@ -59,33 +60,33 @@ def chroms_efficients(option: Option) -> Iterator[bool]:
 		v[i] = True
 	return (b for b in v)
 
-def impute_all(vcf: VCFHuge, geno_map: Map, option: Option):
-	sample_man = SampleManager.create(option.path_ped, vcf.samples,
+def impute_all(vcf: VCFHuge, materials: Materials, option: Option):
+	samples = vcf.samples
+	ped = materials.ped.limit_samples(samples)
+	sample_man = SampleManager.create(ped, samples,
 										option.lower_progs, option.families)
-	if sample_man is None:
-		exit(1)
-	
 	sample_man.display_info(sys.stderr)
 	
 	iter = chroms_efficients(option)
 	first = True
 	for b, vcf_chr, gmap in zip(iter, vcf.divide_into_chromosomes(),
-													geno_map.iter_chr_maps()):
+														materials.chr_maps):
 		if not b:
 			continue
+		vcf_chr.check_records()
 		vcf_imputed = impute_vcf_chr(vcf_chr, sample_man, gmap, option)
 		with open(option.path_out, 'w' if first else 'a') as out:
 			vcf_imputed.write(out, with_header=first)
 		first = False
 
-def impute_progenies(vcf: VCFHuge, geno_map: Map, option: Option):
+def impute_progenies(vcf: VCFHuge, materials: Materials, option: Option):
 	vcf_ref = VCFHuge.read(option.path_ref_VCF)
 	iter = chroms_efficients(option)
 	first = True
 	# とりあえず、後代のVCFも同じ染色体があるとする
 	for b, prog_chr, vcf_chr, gmap in zip(iter, vcf.divide_into_chromosomes(),
 											vcf_ref.divide_into_chromosomes(),
-											geno_map.iter_chr_maps()):
+											materials.chr_maps):
 		if not b:
 			continue
 		vcf_imputed = impute_prog_vcf_chr(vcf_chr, prog_chr, gmap, option)
@@ -95,15 +96,14 @@ def impute_progenies(vcf: VCFHuge, geno_map: Map, option: Option):
 
 def impute_vcf(option: Option):
 	option.print_info()
+	materials = Materials.create(option.path_map, option.path_ped)
+	materials.display_map_info()
 	vcf = VCFHuge.read(option.path_VCF)
 	
-	geno_map = Map.read(option.path_map)
-	geno_map.display_info(sys.stderr)
-	
 	if option.exists_ref():
-		impute_progenies(vcf, geno_map, option)
+		impute_progenies(vcf, materials, option)
 	else:
-		impute_all(vcf, geno_map, option)
+		impute_all(vcf, materials, option)
 
 
 #################### main ####################
@@ -113,4 +113,9 @@ if option is None:
 	Option.usage()
 	exit(1)
 
-impute_vcf(option)
+try:
+	impute_vcf(option)
+	exit(0)
+except ExceptionWithCode as e:
+	print(str(e), file=sys.stderr)
+	exit(e.get_error_code().value)

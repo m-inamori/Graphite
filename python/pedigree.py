@@ -5,7 +5,72 @@ from __future__ import annotations
 from typing import Iterator, Optional
 import sys
 
+import error_codes
+from exception_with_code import *
 from common import read_csv
+
+
+#################### FormatException ####################
+
+class FormatException(ExceptionWithCode):
+	def __init__(self, lines: list[str]):
+		super().__init__(FormatException.create_message(lines))
+	
+	def get_error_code(self) -> error_codes.Type:
+		return error_codes.Type.PEDIGREE_INVALID_FORMAT
+	
+	@staticmethod
+	def create_message(lines: list[str]):
+		if len(lines) == 1:
+			s = "error : the following line doesn't have four columns :"
+		else:
+			s = "error : the following lines don't have four columns :"
+		
+		for line in lines:
+			s += '\n' + line
+		return s
+
+
+#################### ParentsException ####################
+
+class ParentsException(ExceptionWithCode):
+	def __init__(self, lines: list[str]):
+		super().__init__(ParentsException.create_message(lines))
+	
+	def get_error_code(self) -> error_codes.Type:
+		return error_codes.Type.PARENT_NOT_DEFINED
+	
+	@staticmethod
+	def create_message(parents: list[str]):
+		if len(parents) == 1:
+			s = "error : the following parent isn't defined :"
+		else:
+			s = "error : the following parents aren't defined :"
+		
+		for parent in parents:
+			s += '\n' + parent
+		return s
+
+
+#################### SamplesException ####################
+
+class SamplesException(ExceptionWithCode):
+	def __init__(self, lines: list[str]):
+		super().__init__(SamplesException.create_message(lines))
+	
+	def get_error_code(self) -> error_codes.Type:
+		return error_codes.Type.SAMPLES_NOT_IN_PEDIGREE
+	
+	@staticmethod
+	def create_message(samples: list[str]):
+		if len(samples) == 1:
+			s = "error : the following sample isn't in pedigree :"
+		else:
+			s = "error : the following samples aren't in pedigree :"
+		
+		for sample in samples:
+			s += '\n' + sample
+		return s
 
 
 #################### Family ####################
@@ -64,15 +129,11 @@ class PedigreeTable:
 		parents = sorted(set((prog.mat, prog.pat) for prog in self.table))
 		return [ Family(*p, self.get_children(p)) for p in parents ]
 	
-	def limit_samples(self, samples: list[str]) -> Optional[PedigreeTable]:
+	def limit_samples(self, samples: list[str]) -> PedigreeTable:
 		ped_samples = set(p.name for p in self.table)
 		missing_samples = [ s for s in samples if s not in ped_samples ]
 		if missing_samples:
-			print('error : the following samples are not in Pedigree file :',
-																file=sys.stderr)
-			for s in missing_samples:
-				print(s)
-			return None
+			raise SamplesException(missing_samples)
 		
 		set_samples = set(samples)
 		
@@ -89,31 +150,34 @@ class PedigreeTable:
 		return list(missing_parents)
 	
 	@staticmethod
-	def read(path: str) -> Optional[PedigreeTable]:
-		progs: list[Progeny] = []
-		errors: list[str] = []
-		with open(path, 'r') as f:
-			for line in f:
-				v = line.split()
-				if len(v) != 4:
-					errors.append(line.rstrip())
-				else:
-					progs.append(Progeny(v))
+	def read_lines(path: str) -> list[list[str]]:
+		table: list[list[str]] = []
+		not_four_columns_lines: list[str] = []
+		try:
+			with open(path, 'r') as f:
+				for line in f:
+					v = line.split()
+					if len(v) != 4:
+						not_four_columns_lines.append(line.rstrip())
+					else:
+						table.append(v)
+		except FileNotFoundError:
+			raise FileNotFoundException(path)
+		except IOError:
+			raise FileNotFoundException(path)
 		
-		if errors:
-			print('error : there are not four items in the following lines :',
-																file=sys.stderr)
-			for line in errors:
-				print(line, file=sys.stderr)
-			return None
-		
+		return table
+	
+	@staticmethod
+	def create(progs: list[Progeny]) -> PedigreeTable:
 		ped = PedigreeTable(progs)
 		missing_parents = ped.check_parents()
 		if missing_parents:
-			print('error : the following parents are not defined :',
-																file=sys.stderr)
-			for parent in missing_parents:
-				print(parent, file=sys.stderr)
-			return None
-		else:
-			return ped
+			raise ParentsException(missing_parents)
+		return ped
+	
+	@staticmethod
+	def read(path: str) -> PedigreeTable:
+		table = PedigreeTable.read_lines(path)
+		progs: list[Progeny] = [ Progeny(v) for v in table ]
+		return PedigreeTable.create(progs)
