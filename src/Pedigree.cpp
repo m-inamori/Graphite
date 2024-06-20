@@ -251,7 +251,7 @@ vector<vector<string>> PedigreeTable::read_lines(const string& path) {
 		while(iss >> token) {
 			v.push_back(token);
 		}
-		if(v.size() != 4 && not_four_columns_lines.size() < 5) {
+		if(v.size() != 4) {
 			not_four_columns_lines.push_back(line);
 		}
 		table.push_back(v);

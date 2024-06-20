@@ -71,7 +71,7 @@ class Map:
 		else:
 			return list(self.divide_into_chromosomes())
 	
-	def check_in_order(self):
+	def check_in_order(self) -> None:
 		past_chrs: list[str] = []
 		for r1, r2 in zip(self.records, self.records[1:]):
 			if r1.chr != r2.chr:

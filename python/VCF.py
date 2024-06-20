@@ -299,7 +299,7 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		for chr, v in groupby(self.records, key=VCFRecord.chrom):
 			yield VCFSmall(self.header, list(v))
 	
-	def check_records(self):
+	def check_records(self) -> None:
 		wrong_counter = 0
 		wrong_records: list[tuple[VCFRecord, WrongRecordType]] = []
 		for record in self.records:

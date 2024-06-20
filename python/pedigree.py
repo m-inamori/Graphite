@@ -161,6 +161,8 @@ class PedigreeTable:
 						not_four_columns_lines.append(line.rstrip())
 					else:
 						table.append(v)
+			if not_four_columns_lines:
+				raise FormatException(not_four_columns_lines)
 		except FileNotFoundError:
 			raise FileNotFoundException(path)
 		except IOError:

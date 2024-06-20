@@ -295,7 +295,6 @@ SampleManager *SampleManager::create(const PedigreeTable *ped,
 	const auto	families = make_families(ped, samples,
 											lower_progs, family_indices);
 	
-	const set<string>	set_samples(samples.begin(), samples.end());
 	vector<const KnownFamily *>	large_families;
 	vector<const KnownFamily *>	small_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
