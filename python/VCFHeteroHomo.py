@@ -129,6 +129,15 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 				return (dist_with_NA(counter_diff, counter_NA), True)
 		
 		L = len(self)
+		
+		# このグラフを作る処理は全てのレコード対で行うと時間がかかるので、
+		# 10cM以内しかレコード対が繋がっているか調べない
+		# しかし、レコードが少ないとその範囲でグラフが繋がるかわからないので、
+		# 30レコードまでなら全てのレコード対を調べる
+		# レコード数がそれ以上ならcMを考慮しなければ計算量が同じになるようにする
+		# ただし、前後10レコード以上は調べる」
+		rng = max(10, min(L, 900//L))
+		
 		graph = InvGraph()
 		for k in range(L):
 			graph[Node(k)] = []
@@ -138,7 +147,9 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		for k in range(L):
 			for l in range(k+1, L):
 				cM = cMs[l] - cMs[k]
-				if cM > 10.0:	# 10cM以上離れていたら繋がりを見ない
+				# 10cM以上離れていたら繋がりを見ない
+				# ただし、一定の数のレコード分しか離れていなかったら見る
+				if cM > 10.0 and k + rng < l:
 					break
 				d, b = distance(gtss[k], gtss[l])
 				if d <= max_dist:

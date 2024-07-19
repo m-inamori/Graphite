@@ -84,6 +84,15 @@ InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 		cMs.push_back(this->record_cM(i));
 	}
 	
+	// Graph creation is time-consuming with all record pairs.
+	// Only pairs within 10cM are checked.
+	// If records are scarce, the graph may not connect within this range.
+	// All pairs are checked for up to 30 records.
+	// For larger record counts,
+	// the calculation is adjusted to be equivalent without considering cM.
+	// However, at least 10 preceding and following records are always checked.
+	const size_t	range = std::max(10UL, std::min(L, 900/L));
+	
 	InvGraph	graph;
 	// isolated nodes can not be represented without pre-registering the key
 	for(size_t k = 0U; k < L; ++k)
@@ -93,7 +102,7 @@ InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 			const double	cM = cMs[l] - cMs[k];
 			// don't see a connection
 			// if the records are more than 10 cM apart
-			if(cM > 10.0)
+			if(cM > 10.0 && k + range < l)
 				break;
 			const auto	p = distance(gtss[k], gtss[l]);
 			const double	dist = p.first;

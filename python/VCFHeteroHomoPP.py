@@ -224,6 +224,7 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	@staticmethod
 	def merge(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,
 				samples: list[str], m: Map, option: Option) -> VCFHeteroHomoPP:
+		# 後代で無いポジションはN/Aで埋める
 		td = ClassifyRecord.get_typedeterminer(len(samples)-2, option.ratio)
 		header = vcf_parents.trim_header(samples)
 		records: list[VCFFillableRecord] = []
