@@ -18,6 +18,7 @@ from VCFHeteroImpHomo import *
 from Map import *
 import ClassifyRecord
 from TypeDeterminer import *
+from VCFOneParentImputed import VCFOneParentImputed
 
 
 # VCFHeteroHomoPPを使わずにこれを使う あとで統合する
@@ -72,10 +73,17 @@ def merge_vcf(rss: list[list[VCFFillableRecord]],
 	return VCFSmallFillable(header, rs)
 
 def impute(family: Family, vcf: VCFFamily,
-					unimputed_parents: list[str], gmap: Map) -> VCFSmallBase:
+					non_imputed_parents: list[str], gmap: Map) -> VCFSmallBase:
 	header = vcf.header
+	is_mat_imp = family.pat in non_imputed_parents
+	N = family.num_progenies()
+	M = len(vcf)
+	if 4**(N*2+1)*N*M <= 10**8:
+		vcfopi = VCFOneParentImputed(header, vcf.records, is_mat_imp, gmap)
+		vcfopi.impute()
+		return
+	
 	rss = classify_records(vcf.records)
-	is_mat_imp = family.pat in unimputed_parents
 	mat_vcf = create(header, rss[FillType.MAT.value], True, is_mat_imp, gmap)
 	mat_vcf.impute()
 	pat_vcf = create(header, rss[FillType.PAT.value], False, is_mat_imp, gmap)
@@ -92,8 +100,8 @@ def impute_by_parent(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(merged_vcf,
 											orig_vcf, family.samples())
-		imputed_vcf = impute(family, vcf, unimputed_parents, gmap)
-		vcfs.append(imputed_vcf)
+		impute(family, vcf, unimputed_parents, gmap)
+		vcfs.append(vcf)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf

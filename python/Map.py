@@ -4,6 +4,7 @@ from __future__ import annotations
 # Map.py
 
 from itertools import *
+from math import tanh
 from typing import Iterator, List, Any, IO
 
 import error_codes
@@ -124,6 +125,10 @@ class Map:
 		r1 = Map.Record('1', 0.0, 0.0)
 		r2 = Map.Record('1', 1.0, 1.0)
 		return Map([r1, r2])
+	
+	@staticmethod
+	def Kosambi(d: float) -> float:
+		return tanh(2*d) / 2
 
 
 #################### VCFMeasurable ####################
