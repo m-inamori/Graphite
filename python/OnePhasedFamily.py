@@ -72,18 +72,18 @@ def merge_vcf(rss: list[list[VCFFillableRecord]],
 	rs.sort(key=lambda r: r.pos())
 	return VCFSmallFillable(header, rs)
 
-def impute(family: Family, vcf: VCFFamily,
-					non_imputed_parents: list[str], gmap: Map) -> VCFSmallBase:
-	header = vcf.header
-	is_mat_imp = family.pat in non_imputed_parents
+# HMMにrefを使っても計算量が十分に小さいか
+def is_small(family: Family, ref_haps: list[list[int]]) -> bool:
 	N = family.num_progenies()
-	M = len(vcf)
-	if 4**(N*2+1)*N*M <= 10**8:
-		vcfopi = VCFOneParentImputed(header, vcf.records, is_mat_imp, gmap)
-		vcfopi.impute()
-		return
-	
+	M = len(ref_haps[0])				# マーカー数
+	NH = len(ref_haps)
+	return M * 2 * NH**3 * 12**N < 10**8
+
+def impute(family: Family, vcf: VCFFamily,
+					unimputed_parents: list[str], gmap: Map) -> VCFSmallBase:
+	header = vcf.header
 	rss = classify_records(vcf.records)
+	is_mat_imp = family.pat in unimputed_parents
 	mat_vcf = create(header, rss[FillType.MAT.value], True, is_mat_imp, gmap)
 	mat_vcf.impute()
 	pat_vcf = create(header, rss[FillType.PAT.value], False, is_mat_imp, gmap)
@@ -92,16 +92,23 @@ def impute(family: Family, vcf: VCFFamily,
 	merged_vcf.modify(False)
 	return merged_vcf
 
-def impute_by_parent(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
-									families: list[Family],
-									unimputed_parents: list[str],
-									gmap: Map) -> VCFSmallBase:
+def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
+										ref_haps: list[list[int]],
+										families: list[Family],
+										non_imputed_parents: list[str],
+										gmap: Map) -> VCFSmallBase:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
-		vcf = VCFFamily.create_by_two_vcfs(merged_vcf,
+		vcf1 = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
-		impute(family, vcf, unimputed_parents, gmap)
-		vcfs.append(vcf)
+		if is_small(family, ref_haps):
+			vcf = VCFOneParentImputed(vcf1.header, vcf1.records, ref_haps,
+									family.pat in non_imputed_parents, gmap)
+			vcf.impute()
+			vcfs.append(vcf)
+		else:
+			imputed_vcf1 = impute(family, vcf1, non_imputed_parents, gmap)
+			vcfs.append(imputed_vcf1)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
