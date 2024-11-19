@@ -80,3 +80,12 @@ bool Genotype::is_all_NA(const vector<string>& GTs) {
 	}
 	return true;
 }
+
+string Genotype::int_to_phased_gt(int gt_int) {
+	switch(gt_int) {
+		case 0:  return "0|0";
+		case 1:  return "1|0";
+		case 2:  return "0|1";
+		default: return "1|1";
+	}
+}

@@ -80,8 +80,7 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 			Ec = 0.0
 			for j in range(N):
 				hc2, hc1 = divmod((h >> (j * 2)) & 3, 2)
-				gtc = gt_by_haplotypes(hc1, hc2, non_phased_parent_gt,
-														phased_parent_gt)
+				gtc = gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt)
 				Ec += E[gtc][ocs[j]]
 			return Ep + Ec
 		
@@ -101,20 +100,10 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 				dp[0][h] = (E_all, h)
 			return dp
 		
-		def update_dp(i: int, dp: list[DP]):
-			record = self.records[i]
-			phased_col = 9 if self.is_mat_imputed else 10
-			non_phased_col = 10 if self.is_mat_imputed else 9
-			cc = Cc[i-1]	# 遷移確率
-			cp = Cp[i-1]	# 親の遷移確率
-			phased_parent_gt = phased_gt_to_int(record.v[phased_col])
-			op = gt_to_int(record.v[non_phased_col])		# observed parent
-			# observed progs
-			ocs = [ gt_to_int(gt) for gt in record.v[11:] ]
-			
+		# hidden stateに対して、可能な前のhidden stateを集めておく
+		def collect_possible_previous_hidden_states(L: int) -> list[list[int]]:
+			prev_h_table = [ [] for _ in range(L) ]
 			for h in range(L):		# hidden state
-				E_all = emission_probability(i, h, op, ocs, phased_parent_gt)
-				
 				hc = h & (Lc - 1)
 				hp2, hp1 = divmod(h >> (N*2), NH)
 				# 両側乗り越えることはないとする
@@ -136,7 +125,29 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 						prev_hcs.append(hc1)
 				
 				for prev_hp, prev_hc in product(prev_hps, prev_hcs):
-					prev_h = prev_hp + prev_hc
+					prev_h = prev_hp | prev_hc
+					prev_h_table[h].append(prev_h)
+			
+			return prev_h_table
+		
+		def update_dp(i: int, dp: list[DP]):
+			record = self.records[i]
+			phased_col = 9 if self.is_mat_imputed else 10
+			non_phased_col = 10 if self.is_mat_imputed else 9
+			cc = Cc[i-1]	# 遷移確率
+			cp = Cp[i-1]	# 親の遷移確率
+			phased_parent_gt = phased_gt_to_int(record.v[phased_col])
+			op = gt_to_int(record.v[non_phased_col])		# observed parent
+			# observed progs
+			ocs = [ gt_to_int(gt) for gt in record.v[11:] ]
+			
+			for h in range(L):		# hidden state
+				E_all = emission_probability(i, h, op, ocs, phased_parent_gt)
+				
+				hc = h & (Lc - 1)
+				hp2, hp1 = divmod(h >> (N*2), NH)
+				
+				for prev_h in prev_h_table[h]:
 					t1 = prev_h ^ hc	# 乗り換えしていないかしたかをbitで
 					# 遷移確率 0なら(1-c)、1ならcを掛ける
 					Tc = 0.0
@@ -211,6 +222,8 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 			   [ w,       w,       1.0-3*w, w ] ]
 		
 		E = [ [ log(p) for p in v ] for v in E1 ]
+		
+		prev_h_table = collect_possible_previous_hidden_states(L)
 		
 		# DP
 		# 外側から、マーカー、ハプロタイプの状態
