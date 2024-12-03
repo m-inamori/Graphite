@@ -31,7 +31,9 @@ namespace SmallFamily {
 						const Map& geno_map,
 						SampleManager *sample_man, const Option *option);
 	VCFSmall *impute_vcf_by_parent(const VCFSmall *orig_vcf,
-							const VCFSmall *merged_vcf, const Map& geno_map,
+							const VCFSmall *merged_vcf,
+							const std::vector<std::vector<int>>& ref_haps,
+							const Map& geno_map,
 							SampleManager *sample_man, const Option *option);
 	
 	VCFSmall *impute_one_parent_vcf_core(const VCFSmall *orig_vcf,
@@ -44,6 +46,10 @@ namespace SmallFamily {
 								const Map& geno_map,
 								SampleManager *sample_man, int num_threads);
 	
+	std::vector<std::vector<int>> extract_haplotypes(
+										const VCFSmall *phased_vcf,
+										const SampleManager *sample_man);
+
 	VCFSmall *impute_small_family_VCFs(const VCFSmall *orig_vcf,
 										VCFSmall *merged_vcf,
 										const Map& geno_map,

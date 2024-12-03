@@ -70,7 +70,7 @@ def impute_all(vcf: VCFHuge, materials: Materials, option: Option):
 	iter = chroms_efficients(option)
 	first = True
 	for b, vcf_chr, gmap in zip(iter, vcf.divide_into_chromosomes(),
-														materials.chr_maps):
+													materials.iter_chr_maps()):
 		if not b:
 			continue
 		vcf_chr.check_records()

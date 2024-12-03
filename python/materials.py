@@ -18,6 +18,13 @@ class Materials:
 		self.path_ped: str = path_p
 		self.ped: PedigreeTable = p
 	
+	def iter_chr_maps(self) -> Iterator[Map]:
+		if self.chr_maps:
+			return iter(self.chr_maps)
+		else:
+			while True:
+				yield Map.default_map()
+	
 	def total_cM(self) -> float:
 		return sum(m.total_cM() for m in self.chr_maps)
 	

@@ -77,7 +77,8 @@ def is_small(family: Family, ref_haps: list[list[int]]) -> bool:
 	N = family.num_progenies()
 	M = len(ref_haps[0])				# マーカー数
 	NH = len(ref_haps)
-	return M * 2 * NH**3 * 12**N < 10**8
+	R = NH**2 * 4**N * (2*NH + 2*N - 1)
+	return R * M < 10**8 and R < 10**5
 
 def impute(family: Family, vcf: VCFFamily,
 					unimputed_parents: list[str], gmap: Map) -> VCFSmallBase:

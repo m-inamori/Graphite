@@ -111,7 +111,9 @@ VCFSmall *SmallFamily::impute_vcf_by_parent_core(
 }
 
 VCFSmall *SmallFamily::impute_vcf_by_parent(const VCFSmall *orig_vcf,
-							const VCFSmall *merged_vcf, const Map& gmap,
+							const VCFSmall *imputed_vcf,
+							const vector<vector<int>>& ref_haps,
+							const Map& gmap,
 							SampleManager *sample_man, const Option *option) {
 	auto	families = sample_man->extract_single_parent_phased_families();
 	if(families.empty())
@@ -129,12 +131,12 @@ VCFSmall *SmallFamily::impute_vcf_by_parent(const VCFSmall *orig_vcf,
 			samples.push_back(f->get_pat());
 	}
 	
-	auto	*vcf = OnePhasedFamily::impute_by_parent(orig_vcf, merged_vcf,
-													families, samples, gmap);
-	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
+	auto	*vcf = OnePhasedFamily::impute_by_parent(orig_vcf, imputed_vcf,
+											ref_haps, families, samples, gmap);
+	auto	*new_merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
 //	merged_cvf->delete_records();
-	delete merged_vcf;
+	delete imputed_vcf;
 	delete vcf;
 	sample_man->add_imputed_samples(new_merged_vcf->get_samples());
 	Common::delete_all(families);
@@ -240,11 +242,130 @@ VCFSmall *SmallFamily::impute_vcf_by_progenies(const VCFSmall *orig_vcf,
 	return new_merged_vcf;
 }
 
+vector<vector<int>> SmallFamily::extract_haplotypes(
+										const VCFSmall *phased_vcf,
+										const SampleManager *sample_man) {
+	const STRVEC	reference = sample_man->collect_reference();
+	const vector<size_t>	ref_columns = phased_vcf->extract_columns(
+																reference);
+	const vector<VCFRecord *>&	phased_records = phased_vcf->get_records();
+	
+	const size_t	NH = reference.size() * 2;
+	const size_t	M = phased_records.size();
+	
+	// collect haplotypes
+	vector<vector<int>>	gts(NH, vector<int>(M));
+	for(size_t i = 0; i < M; ++i) {
+		const STRVEC&	v = phased_records[i]->get_v();
+		for(size_t k = 0; k < NH; ++k) {
+			const size_t	c = ref_columns[k>>1];
+			gts[k][i] = (int)(v[c].c_str()[(k&1)<<1] - '0');
+		}
+	}
+	
+	// rolling hash
+	const size_t	K = std::min<size_t>(10, M);
+	vector<vector<int>>	a(NH, vector<int>(M-K+1, 0));
+	for(size_t h = 0; h < NH; ++h) {
+		int	n = 0;
+		for(size_t i = 0; i < M; ++i) {
+			const int	gt = gts[h][i];
+			if(i < K - 1) {
+				n = (n << 1) | gt;
+			}
+			else {
+				n = ((n << 1) & ((1 << 10) - 1)) | gt;
+				a[h][i-K+1] = n;
+			}
+		}
+	}
+	
+	// Check which haplotype and hash value are the same.
+	vector<vector<size_t>>	b(NH, vector<size_t>(M-K+1));
+	for(size_t i = 0; i < M-K+1; ++i) {
+		for(size_t h = 0; h < NH; ++h) {
+			b[h][i] = h;
+			for(size_t l = 0; l < h; ++l) {
+				if(a[l][i] == a[h][i]) {
+					b[h][i] = l;
+					break;
+				}
+			}
+		}
+	}
+	
+	// Even if the hash values are different,
+	// revert to the genotype
+	// and try to be as different from yourself as possible.
+	for(size_t k = 1; k < NH; ++k) {
+		// Group the same values
+		// and convert them into data of values and ranges.
+		vector<tuple<size_t, size_t, size_t>>	c;	// [(index, first, last)]
+		size_t	first = 0;
+		size_t	prev_h = b[k][0];
+		for(size_t i = 1; i < b[k].size(); ++i) {
+			const size_t	h = b[k][i];
+			if(h != prev_h) {
+				c.push_back(make_tuple(prev_h, first, i));
+				first = i;
+				prev_h = h;
+			}
+		}
+		c.push_back(make_tuple(prev_h, first, b[k].size()));
+		
+		// When the haplotype itself is different before and after,
+		// extend itself if possible.
+		for(size_t j = 0; j < c.size(); ++j) {
+			const size_t	h0     = get<0>(c[j]);
+			const size_t	first0 = get<1>(c[j]);
+			const size_t	last0  = get<2>(c[j]);
+			if(h0 != k)
+				continue;
+			if(j != 0) {
+				// look backward
+				const size_t	h1 = get<0>(c[j-1]);
+				for(size_t i = first0; i < last0; ++i) {
+					if(gts[h1][i] != gts[k][i])
+						break;
+					b[k][i] = h1;
+				}
+			}
+			if(j != c.size() - 1) {
+				// look forward
+				const size_t	h2 = get<0>(c[j+1]);
+				for(size_t i = last0-1; ; --i) {
+					if(gts[h2][i] != gts[k][i])
+						break;
+					b[k][i] = h2;
+					if(i == first0)
+						break;
+				}
+			}
+		}
+	}
+	
+	// If the difference between the two haplotypes is less than 10% in length,
+	// discard one haplotype.
+	map<size_t, size_t>	counter;
+	for(size_t i = 0; i < NH; ++i) {
+		for(auto p = b[i].begin(); p != b[i].end(); ++p)
+			counter[*p] += 1;
+	}
+	
+	vector<vector<int>>	ref_gts;
+	for(auto p = counter.begin(); p != counter.end(); ++p) {
+		if(p->second * 10 >= M)
+			ref_gts.push_back(gts[p->first]);
+	}
+	return ref_gts;
+}
+
 VCFSmall *SmallFamily::impute_small_family_VCFs(const VCFSmall *orig_vcf,
 												VCFSmall *merged_vcf,
 												const Map& geno_map,
 												SampleManager *sample_man,
 												const Option *option) {
+	const auto	ref_haps = extract_haplotypes(merged_vcf, sample_man);
 	// Repeat until there are no more families to impute
 	while(true) {
 		// Impute families in which parents are imputed but children are few
@@ -258,7 +379,7 @@ VCFSmall *SmallFamily::impute_small_family_VCFs(const VCFSmall *orig_vcf,
 		
 		// Impute families in which one parent is imputed
 		auto	new_merged_vcf2 = impute_vcf_by_parent(orig_vcf, merged_vcf,
-													   geno_map,
+													   ref_haps, geno_map,
 													   sample_man, option);
 		if(new_merged_vcf2 != NULL) {
 			merged_vcf = new_merged_vcf2;

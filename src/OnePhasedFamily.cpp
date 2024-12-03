@@ -2,6 +2,7 @@
 #include <cassert>
 #include "../include/OnePhasedFamily.h"
 #include "../include/VCFImpHeteroHomo.h"
+#include "../include/VCFOneParentImputed.h"
 #include "../include/VCFHeteroImpHomo.h"
 #include "../include/VCFSmallFillable.h"
 #include "../include/pedigree.h"
@@ -88,20 +89,11 @@ bool OnePhasedFamily::compare_record(const VCFRecord *a, const VCFRecord *b) {
 VCFSmallFillable *OnePhasedFamily::merge_vcf(
 					const std::vector<STRVEC>& header, const STRVEC& samples,
 					const array<vector<VCFFillableRecord *>, 4>& rss) {
-#if 0
-	vector<VCFFillableRecord *>	rs = rss[0];
-	for(int i = 1; i < 4; ++i) {
-		const size_t	prev_size = rs.size();
-		rs.resize(prev_size + rss[i].size());
-		std::copy(rss[i].begin(), rss[i].end(), rs.begin() + prev_size);
-	}
-#else
 	vector<VCFFillableRecord *>	rs;
 	for(int i = 0; i < 4; ++i) {
 		for(auto p = rss[i].begin(); p != rss[i].end(); ++p)
 			rs.push_back(*p);
 	}
-#endif
 	std::sort(rs.begin(), rs.end(), OnePhasedFamily::compare_record);
 	return new VCFSmallFillable(header, samples, rs);
 }
@@ -129,20 +121,50 @@ VCFSmallBase *OnePhasedFamily::impute(const Family& family, VCFFamily *vcf,
 	return merged_vcf;
 }
 
+// Is the computational cost sufficiently small even when using ref in HMM?
+bool OnePhasedFamily::is_small(const Family *family,
+								const vector<vector<int>>& ref_haps) {
+	const size_t	N = family->num_progenies();
+	const size_t	M = ref_haps[0].size();
+	const size_t	NH = ref_haps.size();
+	const size_t	R = NH * NH * (2*NH + 2*N - 1) << (N*2);
+	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
+}
+
 VCFSmallBase *OnePhasedFamily::impute_by_parent(
 									const VCFSmall *orig_vcf,
-									const VCFSmall *merged_vcf,
+									const VCFSmall *imputed_vcf,
+									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
 									const STRVEC& non_imputed_parents,
 									const Map& gmap) {
 	vector<const VCFSmallBase *>	vcfs;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const KnownFamily	*family = *p;
-		auto	*vcf = VCFFamily::create_by_two_vcfs(merged_vcf,
+		auto	*vcf1 = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
-		auto	*imputed_vcf = impute(*family, vcf, non_imputed_parents, gmap);
-		delete vcf;
-		vcfs.push_back(imputed_vcf);
+		if(is_small(family, ref_haps)) {
+			const bool	is_mat_imputed = std::find(non_imputed_parents.begin(),
+												   non_imputed_parents.end(),
+												   family->get_pat())
+											!= non_imputed_parents.end();
+			auto	*vcf = new VCFOneParentImputed(vcf1->get_header(),
+												   family->get_samples(),
+												   vcf1->get_family_records(),
+												   ref_haps,
+												   is_mat_imputed, gmap, 0.01);
+			vcf->impute();
+			vcfs.push_back(vcf);
+			// The records are being reused,
+			// so the original VCF is emptied before being deleted.
+			vcf1->clear_records();
+		}
+		else {
+			auto	*imputed_vcf = impute(*family, vcf1,
+											non_imputed_parents, gmap);
+			vcfs.push_back(imputed_vcf);
+		}
+		delete vcf1;
 	}
 	
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());

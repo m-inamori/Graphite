@@ -37,6 +37,13 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def get_samples(self) -> list[str]:
 		return self.samples
 	
+	def dist(self, r1: VCFRecord, r2: VCFRecord) -> float:
+		dist = (self.cM(r2.pos()) - self.cM(r1.pos())) / 100
+		if dist > 0.0:
+			return dist
+		else:
+			return (r2.pos() - r1.pos()) * 1e-6
+	
 	def impute(self):
 		def phased_gt_to_int(gt: str) -> int:
 			gt1 = 0 if gt[0] == '0' else 1
@@ -105,28 +112,32 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 			prev_h_table = [ [] for _ in range(L) ]
 			for h in range(L):		# hidden state
 				hc = h & (Lc - 1)
-				hp2, hp1 = divmod(h >> (N*2), NH)
+				hp = h >> (N*2)
+				hp2, hp1 = divmod(hp, NH)
 				# 両側乗り越えることはないとする
 				# non-phasedの親のあり得る前の状態
 				prev_hps = []
 				for h1 in range(NH):
-					prev_h1 = ((h1 + hp2 * NH) << (N*2))
+					prev_h1 = h1 + hp2 * NH
 					prev_hps.append(prev_h1)
 				for h2 in range(NH):
 					if h2 == hp2:	# for duplication
 						continue
-					prev_h1 = ((hp1 + h2 * NH) << (N*2))
+					prev_h1 = hp1 + h2 * NH
 					prev_hps.append(prev_h1)
 				
 				# 後代のあり得る前の状態
 				prev_hcs = []
 				for hc1 in range(1 << (N*2)):
-					if all((((hc1 >> (k*2)) & 3) ^ hc) != 3 for k in range(N)):
+					t = hc ^ hc1		# 乗り換えたかをビットで表す
+					# 乗り換えは合わせて1回まで許容できる
+					if sum(1 for k in range(N*2) if ((t >> k) & 1) == 1) <= 1:
 						prev_hcs.append(hc1)
 				
 				for prev_hp, prev_hc in product(prev_hps, prev_hcs):
-					prev_h = prev_hp | prev_hc
-					prev_h_table[h].append(prev_h)
+					if prev_hp == hp or prev_hc == hc:
+						prev_h = (prev_hp << (N*2)) | prev_hc
+						prev_h_table[h].append(prev_h)
 			
 			return prev_h_table
 		
@@ -155,11 +166,11 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 						Tc += log(cc if ((t1 >> j) & 1) == 1 else 1.0 - cc)
 					# 親側の遷移
 					prev_hp2, prev_hp1 = divmod(prev_h >> (N * 2), NH)
-					Tc += log(cp if prev_hp1 != hp1 else 1.0 - cp)
-					Tc += log(cp if prev_hp2 != hp2 else 1.0 - cp)
+					Tp = (log(cp if prev_hp1 != hp1 else 1.0 - cp) +
+						  log(cp if prev_hp2 != hp2 else 1.0 - cp))
 					
-					dp[i][h] = max(dp[i][h],
-									(dp[i-1][prev_h][0] + Tc + E_all, prev_h))
+					prob = dp[i-1][prev_h][0] + (Tc + Tp + E_all)
+					dp[i][h] = max(dp[i][h], (prob, prev_h))
 		
 		def trace_back(dps: list[list[float]]) -> list[int]:
 			hs = [ 0 ] * M
@@ -206,10 +217,10 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		
 		# crossover values
 		# 後代
-		Cc = [ Map.Kosambi((self.cM(r2.pos()) - self.cM(r1.pos())) / 100)
+		Cc = [ Map.Kosambi(self.dist(r1, r2))
 							for r1, r2 in zip(self.records, self.records[1:]) ]
 		# 親は直接の後代でないので、乗り換え確率を高くする
-		Cp = [ Map.Kosambi((self.cM(r2.pos()) - self.cM(r1.pos())) / 100 * K)
+		Cp = [ Map.Kosambi(self.dist(r1, r2) * K)
 							for r1, r2 in zip(self.records, self.records[1:]) ]
 		
 		# 排出確率

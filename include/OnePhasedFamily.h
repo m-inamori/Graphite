@@ -31,9 +31,13 @@ namespace OnePhasedFamily {
 					const std::array<std::vector<VCFFillableRecord *>, 4>& rss);
 	VCFSmallBase *impute(const Family& family, VCFFamily *vcf,
 							const STRVEC& non_imputed_parents, const Map& gmap);
+	// Is the computational cost sufficiently small even when using ref in HMM?
+	bool is_small(const Family *family,
+					const std::vector<std::vector<int>>& ref_haps);
 	VCFSmallBase *impute_by_parent(
 							const VCFSmall *orig_vcf,
-							const VCFSmall *merged_vcf,
+							const VCFSmall *imputed_vcf,
+							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
 							const STRVEC& non_imputed_parents,
 							const Map& gmap);

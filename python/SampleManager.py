@@ -30,10 +30,10 @@ class SampleManager:
 	def is_imputed(self, sample: str) -> bool:
 		return sample in self.imputed_samples
 	
-	def is_known(self, sample):
+	def is_known(self, sample: str) -> bool:
 		return sample != '0'
 	
-	def collet_references(self):
+	def collect_reference(self) -> list[str]:
 		return sorted(set(p for f in self.large_families
 							for p in f.known_parents()))
 	
@@ -42,7 +42,7 @@ class SampleManager:
 
 	
 	# 補完されていないが両親は補完されている家系
-	def extract_small_families(self):
+	def extract_small_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.small_families
 						if self.is_imputed(family.mat) and
 							self.is_imputed(family.pat) and
@@ -129,7 +129,8 @@ class SampleManager:
 		dic = classify((prog.parents(), prog.name) for prog in ped.table)
 		families = []
 		for (mat, pat), progs in dic.items():
-			filtered_progs = [ prog for prog in progs if prog in set_samples ]
+			set_progs = set(prog for prog in progs if prog in set_samples)
+			filtered_progs = sorted(set_progs)
 			if not filtered_progs:
 				continue
 			

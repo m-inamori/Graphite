@@ -30,22 +30,23 @@ public:
 	static std::string possible_gts(int gt);
 	static int sum_gt(const std::string& gt);
 	static bool is_all_NA(const std::vector<std::string>& GTs);
+	static std::string int_to_phased_gt(int gt_int);
 	
 	static int phased_gt_to_int(const std::string& gt) {
-		const int	gt1 = gt.c_str()[0] == '0' : 0 ? 1;
-		const int	gt2 = gt.c_str()[2] == '0' : 0 ? 1;
+		const int	gt1 = gt.c_str()[0] == '0' ? 0 : 1;
+		const int	gt2 = gt.c_str()[2] == '0' ? 0 : 1;
 		return gt1 | (gt2 << 1);
 	}
 	// 上のget_int_gtとN/Aのときが違う
-	static int gt_to_int(gt: str) {
+	static int gt_to_int(const std::string& gt) {
 		for(int i = 0; i < 3; ++i) {
 			switch(gt.c_str()[i]) {
 				case '.':  return 3;
 				case '\0': return 3;
 			}
 		}
-		const int	gt1 = gt.c_str()[0] == '0' : 0 ? 1;
-		const int	gt2 = gt.c_str()[2] == '0' : 0 ? 1;
+		const int	gt1 = gt.c_str()[0] == '0' ? 0 : 1;
+		const int	gt2 = gt.c_str()[2] == '0' ? 0 : 1;
 		return gt1 + gt2;
 	}
 };

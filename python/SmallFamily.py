@@ -76,7 +76,7 @@ def impute_one_parent_vcf_core(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 										families: list[Family], gmap: Map,
 										sample_man: SampleManager,
 										num_threads: int) -> VCFSmall:
-	references = sample_man.collet_references()
+	references = sample_man.collect_reference()
 	ref_vcf = merged_vcf.extract_samples(references)
 	
 	vcfs: list[VCFSmallBase] = []
@@ -114,7 +114,7 @@ def impute_vcf_by_progenies_core(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 											families: list[Family], gmap: Map,
 											sample_man: SampleManager,
 											num_threads: int) -> VCFSmall:
-	references = sample_man.collet_references()
+	references = sample_man.collect_reference()
 	ref_vcf = merged_vcf.extract_samples(references)
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
@@ -165,16 +165,15 @@ def impute_vcf_by_progenies(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 
 def extract_haplotypes(phased_vcf: VCFSmall,
 						sample_man: SampleManager) -> list[list[int]]:
-	references: list[str] = sample_man.collet_references()
-	ref_columns = phased_vcf.extract_columns(references)
-	header = phased_vcf.trim_header(references)
+	reference: list[str] = sample_man.collect_reference()
+	ref_columns = phased_vcf.extract_columns(reference)
 	records: list[VCFRecord] = []
 	for record in phased_vcf.records:
 		v = record.v[:9] + [ record.v[c] for c in ref_columns ]
-		new_record = VCFRecord(v, references)
+		new_record = VCFRecord(v, reference)
 		records.append(new_record)
 	
-	N = len(references)
+	N = len(reference)
 	M = len(records)
 	
 	def geno(h: int, i: int) -> int:
@@ -182,7 +181,7 @@ def extract_haplotypes(phased_vcf: VCFSmall,
 	
 	gts = [ [ geno(h, i) for i in range(M) ] for h in range(N*2) ]
 	
-	K = 10
+	K = min(10, M)
 	# ローリングハッシュ
 	a: list[list[int]] = [ [0] * (M-K+1) for _ in range(N*2) ]
 	for h in range(N*2):
@@ -282,10 +281,10 @@ def impute_isolated_samples(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 									sample_man: SampleManager,
 									samples: list[str],
 									gmap: Map, num_threads: int) -> VCFSmall:
-	references = sample_man.collet_references()
+	reference = sample_man.collect_reference()
 	# あとでマルチプロセス化するためにphasingすべきsample分割する
 	vcfs = VCFIsolated.create(orig_vcf, merged_vcf,
-								samples, references, gmap, num_threads)
+								samples, reference, gmap, num_threads)
 	new_vcfs: list[VCFSmallBase] = []
 	for vcf in vcfs:
 		vcf.impute()

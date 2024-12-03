@@ -1,5 +1,6 @@
 #include <fstream>
 #include <sstream>
+#include <cmath>
 #include <stdexcept>
 #include "../include/common.h"
 #include "../include/Map.h"
@@ -180,6 +181,10 @@ Map *Map::default_map() {
 	const Record	*r2 = new Record("1", 1.0, 1.0);
 	const vector<const Record *>	rs = { r1, r2 };
 	return new Map(rs);
+}
+
+double Map::Kosambi(double d) {
+	return tanh(2*d) / 2;
 }
 
 

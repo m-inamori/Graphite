@@ -44,6 +44,7 @@ public:
 	bool is_parent_imputed_and_progenies_not_imputed(
 												const Family *family) const;
 	bool is_progeny_imputed(const Family *family) const;
+	std::vector<std::string> collect_reference() const;
 	// families in which parents are phased and progenies are not phased
 	std::vector<const KnownFamily *> extract_small_families() const;
 	// families in which one parent is phased and the other is not

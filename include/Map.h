@@ -54,6 +54,7 @@ public:
 	static Map *read(const std::string& path);
 	static Map *default_map();
 	static std::vector<const Map *> create_chr_maps(const Map *m);
+	static double Kosambi(double d);
 };
 
 

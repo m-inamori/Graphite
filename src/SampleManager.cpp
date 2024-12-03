@@ -84,6 +84,15 @@ bool SampleManager::is_progeny_imputed(const Family *family) const {
 	return false;
 }
 
+vector<string> SampleManager::collect_reference() const {
+	set<string>	ref_samples;
+	for(auto p = large_families.begin(); p != large_families.end(); ++p) {
+		const auto	parents = (*p)->known_parents();
+		ref_samples.insert(parents.begin(), parents.end());
+	}
+	return vector<string>(ref_samples.begin(), ref_samples.end());
+}
+
 vector<const KnownFamily *> SampleManager::extract_small_families() const {
 	vector<const KnownFamily *>	families;
 	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
