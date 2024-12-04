@@ -131,16 +131,57 @@ bool OnePhasedFamily::is_small(const Family *family,
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
 }
 
+void OnePhasedFamily::impute_small_in_thread(void *config) {
+	auto	*c = (ConfigThread *)config;
+	const auto&	vcfs = c->vcfs;
+	const size_t	n = vcfs.size();
+	for(size_t i = c->first; i < n; i += c->num_threads) {
+		vcfs[i]->impute();
+	}
+}
+
+void OnePhasedFamily::impute_small_VCFs(
+						vector<VCFOneParentImputed *>& vcfs, int T) {
+	// VCFOneParentImputed is heavy for imputation,
+	// so make it multi-threaded and impute in order of processing load.
+	std::sort(vcfs.begin(), vcfs.end(),
+				[](const VCFOneParentImputed * a,
+					const VCFOneParentImputed * b) {
+						return a->num_progenies() > b->num_progenies();
+	});
+	
+	vector<ConfigThread *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThread(i, T, vcfs);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+			(void *(*)(void *))&impute_small_in_thread, (void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_small_in_thread(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+}
+
 VCFSmallBase *OnePhasedFamily::impute_by_parent(
 									const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
 									const STRVEC& non_imputed_parents,
-									const Map& gmap) {
-	vector<const VCFSmallBase *>	vcfs;
-	for(auto p = families.begin(); p != families.end(); ++p) {
-		const KnownFamily	*family = *p;
+									const Map& gmap, int num_threads) {
+	const size_t	N = families.size();
+	vector<const VCFSmallBase *>	vcfs(N);
+	vector<VCFOneParentImputed *>	small_vcfs;
+	for(size_t i = 0; i < N; ++i) {
+		const KnownFamily	*family = families[i];
 		auto	*vcf1 = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
 		if(is_small(family, ref_haps)) {
@@ -153,8 +194,8 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 												   vcf1->get_family_records(),
 												   ref_haps,
 												   is_mat_imputed, gmap, 0.01);
-			vcf->impute();
-			vcfs.push_back(vcf);
+			small_vcfs.push_back(vcf);
+			vcfs[i] = vcf;
 			// The records are being reused,
 			// so the original VCF is emptied before being deleted.
 			vcf1->clear_records();
@@ -162,11 +203,13 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 		else {
 			auto	*imputed_vcf = impute(*family, vcf1,
 											non_imputed_parents, gmap);
-			vcfs.push_back(imputed_vcf);
+			vcfs[i] = imputed_vcf;
 		}
 		delete vcf1;
 	}
 	
+	// Small VCFs are heavy to process, so it will be parallelized.
+	impute_small_VCFs(small_vcfs, num_threads);
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;

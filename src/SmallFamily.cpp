@@ -132,10 +132,10 @@ VCFSmall *SmallFamily::impute_vcf_by_parent(const VCFSmall *orig_vcf,
 	}
 	
 	auto	*vcf = OnePhasedFamily::impute_by_parent(orig_vcf, imputed_vcf,
-											ref_haps, families, samples, gmap);
+											ref_haps, families, samples, gmap,
+											option->num_threads);
 	auto	*new_merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
-//	merged_cvf->delete_records();
 	delete imputed_vcf;
 	delete vcf;
 	sample_man->add_imputed_samples(new_merged_vcf->get_samples());

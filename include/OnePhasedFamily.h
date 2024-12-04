@@ -6,6 +6,7 @@
 #include "VCFFillableRecord.h"
 #include "TypeDeterminer.h"
 
+class VCFOneParentImputed;
 class VCFHeteroHomoOnePhased;
 class VCFSmallFillable;
 class Family;
@@ -16,6 +17,18 @@ class Map;
 //////////////////// OnePhasedFamily ////////////////////
 
 namespace OnePhasedFamily {
+	struct ConfigThread {
+		std::size_t	first;
+		std::size_t	num_threads;
+		const std::vector<VCFOneParentImputed *>&	vcfs;
+		
+		ConfigThread(std::size_t i, std::size_t n,
+						const std::vector<VCFOneParentImputed *>& vcfs_) :
+									first(i), num_threads(n), vcfs(vcfs_) { }
+	};
+	
+	void create_in_thread(void *config);
+	
 	int get_gt_type(const VCFRecord *record, int i);
 	std::pair<ParentComb, FillType> classify_record(const VCFRecord *record);
 	std::array<std::vector<VCFFillableRecord *>, 4> classify_records(
@@ -34,12 +47,14 @@ namespace OnePhasedFamily {
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const Family *family,
 					const std::vector<std::vector<int>>& ref_haps);
+	void impute_small_in_thread(void *config);
+	void impute_small_VCFs(std::vector<VCFOneParentImputed *>& vcfs, int T);
 	VCFSmallBase *impute_by_parent(
 							const VCFSmall *orig_vcf,
 							const VCFSmall *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
 							const STRVEC& non_imputed_parents,
-							const Map& gmap);
+							const Map& gmap, int num_threads);
 };
 #endif
