@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <map>
@@ -262,6 +263,24 @@ vector<vector<string>> PedigreeTable::read_lines(const string& path) {
 	return table;
 }
 
+const vector<const Progeny *> PedigreeTable::remove_duplidated_progenies(
+										const vector<const Progeny *>& progs) {
+	vector<const Progeny *>	new_progs;
+	set<string>	used_names;
+	for(auto p = progs.begin(); p != progs.end(); ++p) {
+		const string&	prog_name = (*p)->get_name();
+		if(used_names.find(prog_name) == used_names.end()) {
+			new_progs.push_back(*p);
+			used_names.insert(prog_name);
+		}
+		else {
+			cerr << "Progeny " << prog_name << " is duplicated." << endl;
+			delete *p;
+		}
+	}
+	return new_progs;
+}
+
 const PedigreeTable *PedigreeTable::create(
 								const vector<const Progeny *>& progs) {
 	const auto	ped = new PedigreeTable(progs);
@@ -278,5 +297,6 @@ const PedigreeTable *PedigreeTable::read(const string& path) {
 	vector<const Progeny *>	progs;
 	for(auto p = table.begin(); p != table.end(); ++p)
 		progs.push_back(Progeny::create(*p));
-	return create(progs);
+	const auto	unique_progs = remove_duplidated_progenies(progs);
+	return create(unique_progs);
 }

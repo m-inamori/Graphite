@@ -171,6 +171,18 @@ class PedigreeTable:
 		return table
 	
 	@staticmethod
+	def remove_duplidated_progenies(progs: list[Progeny]) -> list[Progeny]:
+		new_progs: list[Progeny] = []
+		s = set()
+		for prog in progs:
+			if prog.name not in s:
+				new_progs.append(prog)
+				s.add(prog.name)
+			else:
+				print('Progeny %s is duplicated.' % prog.name)
+		return new_progs
+	
+	@staticmethod
 	def create(progs: list[Progeny]) -> PedigreeTable:
 		ped = PedigreeTable(progs)
 		missing_parents = ped.check_parents()
@@ -182,4 +194,5 @@ class PedigreeTable:
 	def read(path: str) -> PedigreeTable:
 		table = PedigreeTable.read_lines(path)
 		progs: list[Progeny] = [ Progeny(v) for v in table ]
-		return PedigreeTable.create(progs)
+		new_progs = PedigreeTable.remove_duplidated_progenies(progs)
+		return PedigreeTable.create(new_progs)

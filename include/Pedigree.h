@@ -140,9 +140,12 @@ public:
 								const std::vector<std::string>& samples) const;
 	std::vector<std::string> check_parents() const;
 	
-public:
+private:
 	static std::vector<std::vector<std::string>>
 							read_lines(const std::string& path);
+	static const std::vector<const Progeny *> remove_duplidated_progenies(
+									const std::vector<const Progeny *>& progs);
+public:
 	static const PedigreeTable *create(
 							const std::vector<const Progeny *>& progs);
 	static const PedigreeTable *read(const std::string& path);
