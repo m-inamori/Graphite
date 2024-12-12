@@ -2,6 +2,7 @@
 # error_codes.py
 
 from __future__ import annotations
+from typing import Iterator
 
 from Map import Map
 from pedigree import PedigreeTable
@@ -20,7 +21,9 @@ class Materials:
 	
 	def iter_chr_maps(self) -> Iterator[Map]:
 		if self.chr_maps:
-			return iter(self.chr_maps)
+			for gmap in self.chr_maps:
+				yield gmap
+#			return iter(self.chr_maps)
 		else:
 			while True:
 				yield Map.default_map()
