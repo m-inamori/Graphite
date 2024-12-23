@@ -19,6 +19,7 @@ from Map import *
 import ClassifyRecord
 from TypeDeterminer import *
 from VCFOneParentImputed import VCFOneParentImputed
+from VCFOneParentImputedMCMC import VCFOneParentImputedMCMC
 
 
 # VCFHeteroHomoPPを使わずにこれを使う あとで統合する
@@ -108,8 +109,14 @@ def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 			vcf.impute()
 			vcfs.append(vcf)
 		else:
+			"""
 			imputed_vcf1 = impute(family, vcf1, non_imputed_parents, gmap)
 			vcfs.append(imputed_vcf1)
+			"""
+			vcf = VCFOneParentImputedMCMC(vcf1.header, vcf1.records, ref_haps,
+										family.pat in non_imputed_parents, gmap)
+			vcf.impute()
+			vcfs.append(vcf)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf

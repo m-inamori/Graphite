@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from itertools import *
 from collections import defaultdict, Counter
-import random
-import csv
 import sys
 from multiprocessing import Pool
 
@@ -26,7 +24,7 @@ from Map import *
 import ClassifyRecord as CR
 from KnownFamily import KnownFamily
 from TypeDeterminer import TypeDeterminer, ParentComb
-from Genotype import Genotype
+import Genotype
 from option import *
 from common import *
 

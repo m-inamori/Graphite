@@ -56,3 +56,34 @@ class Genotype:
 			return ['1']
 		else:
 			return ['0', '1']
+	
+	@staticmethod
+	def gt_to_int(gt: str) -> int:
+		if '.' in gt:
+			return 3
+		gt1 = 0 if gt[0] == '0' else 1
+		gt2 = 0 if gt[2] == '0' else 1
+		return gt1 + gt2
+	
+	@staticmethod
+	def phased_gt_to_int(gt: str) -> int:
+		gt1 = 0 if gt[0] == '0' else 1
+		gt2 = 0 if gt[2] == '0' else 1
+		return gt1 | (gt2 << 1)
+	
+	@staticmethod
+	def int_to_phased_gt(gt_int: int) -> str:
+		if gt_int == 0:
+			return '0|0'
+		elif gt_int == 1:
+			return '1|0'
+		elif gt_int == 2:
+			return '0|1'
+		else:
+			return '1|1'
+	
+	# ハプロタイプを決めたときのGenotype
+	@staticmethod
+	def gt_by_haplotypes(hc1: int, hc2: int,
+							mat_gt: int, pat_gt: int) -> int:
+		return ((mat_gt >> hc1) & 1) | (((pat_gt >> hc2) & 1) << 1)
