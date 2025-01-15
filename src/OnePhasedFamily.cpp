@@ -3,10 +3,12 @@
 #include "../include/OnePhasedFamily.h"
 #include "../include/VCFImpHeteroHomo.h"
 #include "../include/VCFOneParentImputed.h"
+#include "../include/VCFOneParentImputedRough.h"
 #include "../include/VCFHeteroImpHomo.h"
 #include "../include/VCFSmallFillable.h"
 #include "../include/pedigree.h"
 #include "../include/KnownFamily.h"
+#include "../include/Genotype.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -121,6 +123,52 @@ VCFSmallBase *OnePhasedFamily::impute(const Family& family, VCFFamily *vcf,
 	return merged_vcf;
 }
 
+vector<vector<int>> OnePhasedFamily::filter_ref_haps(
+							const vector<vector<int>>& ref_haps,
+							const Family *family, bool is_mat_imputed,
+							const VCFFamily *vcf) {
+	const size_t	c = is_mat_imputed ? 10 : 9;
+	// collect homo indices
+	vector<size_t>	ks;
+	for(size_t k = 0; k < vcf->size(); ++k) {
+		if(Genotype::is_homo(vcf->get_record(k)->get_gt(c-9)))
+			ks.push_back(k);
+	}
+	
+	// tiling
+	const size_t	L = 10;
+	vector<size_t>	firsts;		// ranges [first, first+L)
+	for(size_t first = 0; first < ks.size() - L; first += L) {
+		firsts.push_back(first);
+	}
+	if(ks.size() % L != 0 && ks.size() > L)
+		firsts.push_back(ks.size() - L);
+	
+	set<size_t>	ref_indices_set;
+	for(auto p = firsts.begin(); p != firsts.end(); ++p) {
+		int	code = 0;
+		for(size_t j = *p; j < *p + L; ++j) {
+			const string&	gt = vcf->get_record(ks[j])->get_gt(c-9);
+			code = code * 2 + (gt.c_str()[0] - '0');
+		}
+		
+		for(size_t i = 0; i < ref_haps.size(); ++i) {
+			int	ref_code = 0;
+			for(size_t j = *p; j < *p + L; ++j) {
+				code = code * 2 + ref_haps[i][ks[j]];
+			}
+			if(ref_code == code)
+				ref_indices_set.insert(i);
+		}
+	}
+	
+	vector<vector<int>>	new_ref_haps;
+	for(auto p = ref_indices_set.begin(); p != ref_indices_set.end(); ++p) {
+		new_ref_haps.push_back(ref_haps[*p]);
+	}
+	return new_ref_haps;
+}
+
 // Is the computational cost sufficiently small even when using ref in HMM?
 bool OnePhasedFamily::is_small(const Family *family,
 								const vector<vector<int>>& ref_haps) {
@@ -128,6 +176,13 @@ bool OnePhasedFamily::is_small(const Family *family,
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
 	const size_t	R = NH * NH * (2*NH + 2*N - 1) << (N*2);
+	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
+}
+
+bool OnePhasedFamily::is_small_ref(const vector<vector<int>>& ref_haps) {
+	const size_t	M = ref_haps[0].size();
+	const size_t	NH = ref_haps.size();
+	const size_t	R = NH * NH * (2*NH - 1);
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
 }
 
@@ -184,11 +239,11 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 		const KnownFamily	*family = families[i];
 		auto	*vcf1 = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
+		const bool	is_mat_imputed = std::find(non_imputed_parents.begin(),
+											   non_imputed_parents.end(),
+											   family->get_pat())
+										!= non_imputed_parents.end();
 		if(is_small(family, ref_haps)) {
-			const bool	is_mat_imputed = std::find(non_imputed_parents.begin(),
-												   non_imputed_parents.end(),
-												   family->get_pat())
-											!= non_imputed_parents.end();
 			auto	*vcf = new VCFOneParentImputed(vcf1->get_header(),
 												   family->get_samples(),
 												   vcf1->get_family_records(),
@@ -198,6 +253,16 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 			vcfs[i] = vcf;
 			// The records are being reused,
 			// so the original VCF is emptied before being deleted.
+			vcf1->clear_records();
+		}
+		else if(is_small_ref(ref_haps)) {
+			auto	*vcf2 = new VCFOneParentImputedRough(vcf1->get_header(),
+												family->get_samples(),
+												vcf1->get_family_records(),
+												ref_haps,
+												is_mat_imputed, gmap, 0.01);
+			vcf2->impute();
+			vcfs[i] = vcf2;
 			vcf1->clear_records();
 		}
 		else {

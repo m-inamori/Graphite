@@ -109,7 +109,7 @@ class VCFOneParentImputed(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		
 		# hidden stateに対して、可能な前のhidden stateを集めておく
 		def collect_possible_previous_hidden_states(L: int) -> list[list[int]]:
-			prev_h_table = [ [] for _ in range(L) ]
+			prev_h_table: list[list[int]] = [ [] for _ in range(L) ]
 			for h in range(L):		# hidden state
 				hc = h & (Lc - 1)
 				hp = h >> (N*2)

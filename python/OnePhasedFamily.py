@@ -4,6 +4,7 @@ from __future__ import annotations
 # OnePhasedFamily.py
 # 片親がphasingされて片親は分っているがphasingされていない家系を補完する
 
+from functools import reduce
 from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
@@ -19,7 +20,8 @@ from Map import *
 import ClassifyRecord
 from TypeDeterminer import *
 from VCFOneParentImputed import VCFOneParentImputed
-from VCFOneParentImputedMCMC import VCFOneParentImputedMCMC
+from VCFOneParentImputedRough import VCFOneParentImputedRough
+from Genotype import Genotype
 
 
 # VCFHeteroHomoPPを使わずにこれを使う あとで統合する
@@ -81,6 +83,12 @@ def is_small(family: Family, ref_haps: list[list[int]]) -> bool:
 	R = NH**2 * 4**N * (2*NH + 2*N - 1)
 	return R * M < 10**8 and R < 10**5
 
+def is_small_ref(ref_haps: list[list[int]]) -> bool:
+	M = len(ref_haps[0])				# マーカー数
+	NH = len(ref_haps)
+	R = NH**2 * (2*NH - 1)
+	return R * M < 10**8 and R < 10**5
+
 def impute(family: Family, vcf: VCFFamily,
 					unimputed_parents: list[str], gmap: Map) -> VCFSmallBase:
 	header = vcf.header
@@ -103,20 +111,20 @@ def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 	for family in families:
 		vcf1 = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
+		is_mat_imputed = family.pat in non_imputed_parents
 		if is_small(family, ref_haps):
-			vcf = VCFOneParentImputed(vcf1.header, vcf1.records, ref_haps,
-									family.pat in non_imputed_parents, gmap)
+			vcf = VCFOneParentImputed(vcf1.header, vcf1.records,
+										ref_haps, is_mat_imputed, gmap)
 			vcf.impute()
 			vcfs.append(vcf)
+		elif is_small_ref(ref_haps):
+			vcf2 = VCFOneParentImputedRough(vcf1.header, vcf1.records,
+										ref_haps, is_mat_imputed, gmap)
+			vcf2.impute()
+			vcfs.append(vcf2)
 		else:
-			"""
 			imputed_vcf1 = impute(family, vcf1, non_imputed_parents, gmap)
 			vcfs.append(imputed_vcf1)
-			"""
-			vcf = VCFOneParentImputedMCMC(vcf1.header, vcf1.records, ref_haps,
-										family.pat in non_imputed_parents, gmap)
-			vcf.impute()
-			vcfs.append(vcf)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf

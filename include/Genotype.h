@@ -21,6 +21,11 @@ public:
 	bool conflicts(const Genotype& mat_gt, const Genotype& pat_gt,
 													bool considers_phasing);
 	
+	static bool is_homo(const std::string& gt) {
+		return gt.length() >= 3 &&
+				(gt.c_str()[0] == '0' or gt.c_str()[0] == '1') &&
+				gt[0] == gt[2];
+	}
 	static int get_int_gt(const std::string& s);
 	static std::string int_to_gt(int n);
 	static bool is_NA(const std::string& gt) {

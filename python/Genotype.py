@@ -19,6 +19,12 @@ class Genotype:
 		return self.gt1 + ('|' if self.phasing else '/') + self.gt2
 	
 	@staticmethod
+	def is_homo(gt: str) -> bool:
+		return (len(gt) >= 3 and
+				(gt[0] == '0' or gt[0] == '1') and
+				gt[0] == gt[2])
+	
+	@staticmethod
 	def int_to_gt(n: int) -> str:
 		if n == 0:
 			return '0/0'
