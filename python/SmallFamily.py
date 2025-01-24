@@ -18,6 +18,7 @@ from pedigree import PedigreeTable, Family
 from VCFHeteroHomoPP import *
 import OnePhasedFamily
 from VCFOneParentPhased import VCFOneParentPhased
+import NoPhasedFamily 
 from VCFProgenyPhased import VCFProgenyPhased
 from VCFIsolated import VCFIsolated
 from SampleManager import *
@@ -27,7 +28,7 @@ from common import *
 
 
 def impute_vcf_by_parents_core(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
-								families: list[Family], gmap: Map) -> VCFSmall:
+							families: list[KnownFamily], gmap: Map) -> VCFSmall:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
 		family_vcf = VCFHeteroHomoPP.impute_by_parents(
@@ -68,6 +69,18 @@ def impute_vcf_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 	
 	vcf = OnePhasedFamily.impute_by_parent(orig_vcf, imputed_vcf,
 											ref_haps, families, samples, gmap)
+	merged_vcf = VCFSmall.join([imputed_vcf, vcf], orig_vcf.samples)
+	sample_man.set(vcf.get_samples())
+	return merged_vcf
+
+def impute_vcf_by_non_imputed_parents(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
+							ref_haps: list[list[int]], gmap: Map,
+							sample_man: SampleManager) -> Optional[VCFSmall]:
+	families = sample_man.extract_no_parent_phased_families()
+	if not families:
+		return None
+	
+	vcf = NoPhasedFamily.impute(orig_vcf, imputed_vcf, ref_haps, families, gmap)
 	merged_vcf = VCFSmall.join([imputed_vcf, vcf], orig_vcf.samples)
 	sample_man.set(vcf.get_samples())
 	return merged_vcf
@@ -260,17 +273,25 @@ def impute_small_family_VCFs(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 			merged_vcf = new_merged_vcf2
 			continue
 		
-		new_merged_vcf3 = impute_one_parent_vcf(orig_vcf, merged_vcf,
-											geno_map, sample_man, num_threads)
+		# 両親が補完されていない家系を補完する
+		new_merged_vcf3 = impute_vcf_by_non_imputed_parents(orig_vcf,
+														merged_vcf, ref_haps,
+														geno_map, sample_man)
 		if new_merged_vcf3 is not None:
 			merged_vcf = new_merged_vcf3
 			continue
 		
-		# Impute families whose progenies have been imputed
-		new_merged_vcf4 = impute_vcf_by_progenies(orig_vcf, merged_vcf,
-											geno_map, sample_man, num_threads);
+		new_merged_vcf4 = impute_one_parent_vcf(orig_vcf, merged_vcf,
+											geno_map, sample_man, num_threads)
 		if new_merged_vcf4 is not None:
 			merged_vcf = new_merged_vcf4
+			continue
+		
+		# Impute families whose progenies have been imputed
+		new_merged_vcf5 = impute_vcf_by_progenies(orig_vcf, merged_vcf,
+											geno_map, sample_man, num_threads);
+		if new_merged_vcf5 is not None:
+			merged_vcf = new_merged_vcf5
 			continue
 		
 		break

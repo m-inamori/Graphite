@@ -66,6 +66,19 @@ class SampleManager:
 									self.extract_unimputed_progenies(f))
 														for f in families ]
 	
+	# 両親が補完されていない家系
+	def extract_no_parent_phased_families(self):
+		families = [ family for family in self.small_families
+						if not self.is_imputed(family.mat) and
+							not self.is_imputed(family.pat) and
+							family.mat_known and family.pat_known and
+							any(not self.is_imputed(prog)
+											for prog in family.progenies) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.pat_known,
+									self.extract_unimputed_progenies(f))
+														for f in families ]
+	
 	# 片親が補完されていて片親がunknownな家系
 	def extract_phased_and_unknown_parents_family(self):
 		families = [ family for family in self.small_families

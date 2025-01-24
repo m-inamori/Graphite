@@ -6,6 +6,7 @@
 #include "../include/VCFProgenyPhased.h"
 #include "../include/VCFIsolated.h"
 #include "../include/OnePhasedFamily.h"
+#include "../include/NoPhasedFamily.h"
 #include "../include/SampleManager.h"
 #include "../include/KnownFamily.h"
 #include "../include/common.h"
@@ -185,6 +186,28 @@ VCFSmall *SmallFamily::impute_one_parent_vcf(const VCFSmall *orig_vcf,
 	delete new_imputed_vcf;
 	Common::delete_all(families);
 	return new_merged_vcf;
+}
+
+VCFSmall *SmallFamily::impute_vcf_by_non_imputed_parents(
+								const VCFSmall *orig_vcf,
+								const VCFSmall *imputed_vcf,
+								const vector<vector<int>>& ref_haps,
+								const Map& geno_map,
+								SampleManager *sample_man, int num_threads) {
+	auto	families = sample_man->extract_no_parent_phased_families();
+	if(families.empty())
+		return NULL;
+	
+	auto	*vcf = NoPhasedFamily::impute(orig_vcf, imputed_vcf, ref_haps,
+													families, geno_map);
+//													num_threads);
+	auto	*merged_vcf = VCFSmall::join(imputed_vcf, vcf,
+													orig_vcf->get_samples());
+	sample_man->add_imputed_samples(vcf->get_samples());
+	delete imputed_vcf;
+	delete vcf;
+	Common::delete_all(families);
+	return merged_vcf;
 }
 
 VCFSmall *SmallFamily::impute_vcf_by_progenies_core(const VCFSmall *orig_vcf,
@@ -386,7 +409,9 @@ VCFSmall *SmallFamily::impute_small_family_VCFs(const VCFSmall *orig_vcf,
 			continue;
 		}
 		
-		auto	*new_merged_vcf3 = impute_one_parent_vcf(orig_vcf, merged_vcf,
+		auto	*new_merged_vcf3 = impute_vcf_by_non_imputed_parents(
+														orig_vcf, merged_vcf,
+														ref_haps,
 														geno_map, sample_man,
 														option->num_threads);
 		if(new_merged_vcf3 != NULL) {
@@ -394,13 +419,21 @@ VCFSmall *SmallFamily::impute_small_family_VCFs(const VCFSmall *orig_vcf,
 			continue;
 		}
 		
+		auto	*new_merged_vcf4 = impute_one_parent_vcf(orig_vcf, merged_vcf,
+														geno_map, sample_man,
+														option->num_threads);
+		if(new_merged_vcf4 != NULL) {
+			merged_vcf = new_merged_vcf4;
+			continue;
+		}
+		
 		// Impute families whose progenies have been imputed
-		auto	*new_merged_vcf4 = impute_vcf_by_progenies(orig_vcf,
+		auto	*new_merged_vcf5 = impute_vcf_by_progenies(orig_vcf,
 													merged_vcf, geno_map,
 													sample_man,
 													option->num_threads);
-		if(new_merged_vcf4 != NULL) {
-			merged_vcf = new_merged_vcf4;
+		if(new_merged_vcf5 != NULL) {
+			merged_vcf = new_merged_vcf5;
 			continue;
 		}
 		break;

@@ -33,6 +33,7 @@ public:
 				const std::pair<std::string, std::string>& parents) const;
 	
 	bool is_imputed(const std::string& sample) const;
+	bool is_all_progenies_imputed(const KnownFamily *family) const;
 	bool is_known(const std::string& sample) const {
 		return sample != "0";
 	}
@@ -48,6 +49,7 @@ public:
 	// families in which parents are phased and progenies are not phased
 	std::vector<const KnownFamily *> extract_small_families() const;
 	// families in which one parent is phased and the other is not
+	std::vector<const KnownFamily *> extract_no_parent_phased_families() const;
 	std::vector<const KnownFamily *>
 			extract_single_parent_phased_families() const;
 	// families in which one parent is phased and the other is unknown

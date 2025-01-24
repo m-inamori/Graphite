@@ -132,6 +132,38 @@ vector<const KnownFamily *>
 	return families;
 }
 
+bool SampleManager::is_all_progenies_imputed(const KnownFamily *family) const {
+	const auto&	progs = family->get_progenies();
+	for(auto q = progs.begin(); q != progs.end(); ++q) {
+		if(!this->is_imputed((*q)->get_name()))
+			return false;
+	}
+	return true;
+}
+
+vector<const KnownFamily *>
+			SampleManager::extract_no_parent_phased_families() const {
+	vector<const KnownFamily *>	families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(this->is_imputed(family->get_mat()) ||
+									this->is_imputed(family->get_pat()) ||
+									this->is_unknown(family->get_mat()) ||
+									this->is_unknown(family->get_pat()) ||
+									this->is_all_progenies_imputed(family))
+			continue;
+		
+		vector<const Progeny *>	new_progenies;
+		const vector<const Progeny *>&	progenies = family->get_progenies();
+		for(auto q = progenies.begin(); q != progenies.end(); ++q) {
+			if(!this->is_imputed((*q)->get_name()))
+				new_progenies.push_back((*q)->copy());
+		}
+		families.push_back(family->create(new_progenies));
+	}
+	return families;
+}
+
 // family in which one parent is phased and the other is unknown
 vector<const KnownFamily *>
 			SampleManager::extract_phased_and_unknown_parents_family() const {

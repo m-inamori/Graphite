@@ -46,6 +46,12 @@ namespace SmallFamily {
 								const Map& geno_map,
 								SampleManager *sample_man, int num_threads);
 	
+	VCFSmall *impute_vcf_by_non_imputed_parents(const VCFSmall *orig_vcf,
+								const VCFSmall *imputed_vcf,
+								const std::vector<std::vector<int>>& ref_haps,
+								const Map& geno_map,
+								SampleManager *sample_man, int num_threads);
+	
 	std::vector<std::vector<int>> extract_haplotypes(
 										const VCFSmall *phased_vcf,
 										const SampleManager *sample_man);
