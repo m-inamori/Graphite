@@ -26,13 +26,9 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
 		if is_small(ref_haps):
-			# まず母親だけphasingする
 			vcf1 = VCFNoParentImputed(vcf.header, vcf.records, ref_haps, gmap)
 			vcf1.impute()
-			vcf2 = VCFOneParentImputedRough(vcf1.header, vcf1.records,
-														ref_haps, True, gmap)
-			vcf2.impute()
-			vcfs.append(vcf2)
+			vcfs.append(vcf1)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf

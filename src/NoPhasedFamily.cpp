@@ -39,15 +39,7 @@ VCFSmallBase *NoPhasedFamily::impute(
 												   vcf->get_family_records(),
 												   ref_haps, gmap, 0.01);
 			vcf1->impute();
-			auto	*vcf2 = new VCFOneParentImputedRough(vcf->get_header(),
-												   family->get_samples(),
-												   vcf->get_family_records(),
-												   ref_haps, true, gmap, 0.01);
-			vcf1->clear_records();
-			delete vcf1;
-			vcf2->impute();
-//			small_vcfs.push_back(vcf2);
-			vcfs.push_back(vcf2);
+			vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
 		delete vcf;

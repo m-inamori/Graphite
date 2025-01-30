@@ -24,7 +24,7 @@ from Map import *
 import ClassifyRecord as CR
 from KnownFamily import KnownFamily
 from TypeDeterminer import TypeDeterminer, ParentComb
-import Genotype
+from Genotype import Genotype
 from option import *
 from common import *
 
