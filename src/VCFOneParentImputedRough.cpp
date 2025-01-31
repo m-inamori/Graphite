@@ -13,7 +13,7 @@ VCFOneParentImputedRough::VCFOneParentImputedRough(
 							const std::vector<std::vector<int>>& ref_hs,
 							bool is_mat, const Map& map_, double w) :
 				VCFBase(header, s), VCFSmallBase(), records(rs),
-				parent_imputer(new ParentImputer(rs, is_mat, ref_hs, map_, w)),
+				parent_imputer(new ParentImputer(rs, !is_mat, ref_hs, map_, w)),
 				prog_imputer(new ProgenyImputer(rs, map_, w)) { }
 
 VCFOneParentImputedRough::~VCFOneParentImputedRough() {

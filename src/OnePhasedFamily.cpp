@@ -173,6 +173,9 @@ vector<vector<int>> OnePhasedFamily::filter_ref_haps(
 bool OnePhasedFamily::is_small(const Family *family,
 								const vector<vector<int>>& ref_haps) {
 	const size_t	N = family->num_progenies();
+	if(N > 1)
+		return false;
+	
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
 	const size_t	R = NH * NH * (2*NH + 2*N - 1) << (N*2);

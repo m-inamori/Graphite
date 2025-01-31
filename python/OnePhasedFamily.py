@@ -78,6 +78,9 @@ def merge_vcf(rss: list[list[VCFFillableRecord]],
 # HMMにrefを使っても計算量が十分に小さいか
 def is_small(family: Family, ref_haps: list[list[int]]) -> bool:
 	N = family.num_progenies()
+	if N > 1:
+		return False
+	
 	M = len(ref_haps[0])				# マーカー数
 	NH = len(ref_haps)
 	R = NH**2 * 4**N * (2*NH + 2*N - 1)
