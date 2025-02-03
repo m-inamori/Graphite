@@ -199,8 +199,7 @@ VCFSmall *SmallFamily::impute_vcf_by_non_imputed_parents(
 		return NULL;
 	
 	auto	*vcf = NoPhasedFamily::impute(orig_vcf, imputed_vcf, ref_haps,
-													families, geno_map);
-//													num_threads);
+											families, geno_map, num_threads);
 	auto	*merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
 	sample_man->add_imputed_samples(vcf->get_samples());

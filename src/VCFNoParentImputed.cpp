@@ -11,10 +11,10 @@ VCFNoParentImputed::VCFNoParentImputed(const std::vector<STRVEC>& header,
 									const std::vector<VCFFamilyRecord *>& rs,
 									const std::vector<std::vector<int>>& ref_hs,
 									const Map& map_, double w) :
-					VCFBase(header, s), VCFSmallBase(), records(rs),
-					mat_imputer(new ParentImputer(rs, true, ref_hs, map_, w)),
-					pat_imputer(new ParentImputer(rs, false, ref_hs, map_, w)),
-					prog_imputer(new ProgenyImputer(rs, map_, w)) { }
+				VCFBase(header, s), VCFSmallBase(), records(rs),
+				mat_imputer(new ParentImputer(records, true, ref_hs, map_, w)),
+				pat_imputer(new ParentImputer(records, false, ref_hs, map_, w)),
+				prog_imputer(new ProgenyImputer(records, map_, w)) { }
 
 VCFNoParentImputed::~VCFNoParentImputed() {
 	Common::delete_all(records);
