@@ -12,7 +12,6 @@ from VCFFillable import *
 from group import Groups
 from RecordSet import RecordSet
 from VCFImpFamily import FillType
-from VCFHeteroHomoPP import *
 from VCFHeteroHomoOnePhased import *
 from Map import *
 import ClassifyRecord

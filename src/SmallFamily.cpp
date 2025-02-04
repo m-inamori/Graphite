@@ -1,7 +1,7 @@
 #include "../include/SmallFamily.h"
 #include "../include/VCF.h"
 #include "../include/VCFFillable.h"
-#include "../include/VCFHeteroHomoPP.h"
+#include "../include/VCFBothParentImputed.h"
 #include "../include/VCFOneParentPhased.h"
 #include "../include/VCFProgenyPhased.h"
 #include "../include/VCFIsolated.h"
@@ -13,43 +13,27 @@
 
 using namespace std;
 
-VCFRecord *SmallFamily::merge_progeny_records(vector<VCFFillable *>& vcfs,
-											size_t i, const STRVEC& samples) {
-	const STRVEC&	v1 = vcfs.front()->get_records()[i]->get_v();
-	STRVEC	v(v1.begin(), v1.begin() + 9);
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		const STRVEC&	v2 = (*p)->get_records()[i]->get_v();
-		v.insert(v.end(), v2.begin() + 11, v2.end());
-	}
-	return new VCFRecord(v, samples);
-}
-
 VCFSmall *SmallFamily::impute_vcf_by_parents_core(
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 						const vector<const KnownFamily *>& families,
 						const Map& geno_map, const Option *option) {
-	auto	vcfs = VCFHeteroHomoPP::impute_vcfs(orig_vcf, merged_vcf, families,
-												geno_map, option->num_threads);
-	STRVEC	samples;	// collect progenies
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		VCFFillable	*vcf = *p;
-		STRVEC	ss = vcf->get_samples();
-		samples.insert(samples.end(), ss.begin() + 2, ss.end());
+	vector<const VCFSmallBase *>	vcfs;
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const auto	*family = *p;
+		auto	*vcf = VCFFamily::create_by_two_vcfs(merged_vcf,
+											orig_vcf, family->get_samples());
+		auto	*family_vcf = new VCFBothParentImputed(vcf->get_header(),
+												family->get_samples(),
+												vcf->get_family_records(),
+												geno_map, 0.01);
+		family_vcf->impute();
+		vcfs.push_back(family_vcf);
+		vcf->clear_records();
+		delete vcf;
 	}
 	
-	// Give ownership of samples to new _vcf
-	auto	new_header = orig_vcf->trim_header(samples);
-	vector<VCFRecord *>	empty_records;
-	auto	*new_vcf = new VCFSmall(new_header, samples, empty_records);
-	const auto&	samples_ = new_vcf->get_samples();
-	
-	vector<VCFRecord *>	merged_records;
-	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
-		new_vcf->add_record(merge_progeny_records(vcfs, i, samples_));
-	}
-	
+	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
-	
 	return new_vcf;
 }
 

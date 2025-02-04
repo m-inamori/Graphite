@@ -13,9 +13,6 @@ class Map;
 class Option;
 
 namespace SmallFamily {
-	VCFRecord *merge_progeny_records(std::vector<VCFFillable *>& vcfs,
-									std::size_t i, const STRVEC& samples);
-	
 	VCFSmall *impute_vcf_by_parents_core(
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 						const std::vector<const KnownFamily *>& families,

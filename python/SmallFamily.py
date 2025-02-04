@@ -15,7 +15,7 @@ from typing import Dict, List, Tuple, Set, Optional
 from VCF import *
 from VCFFamily import VCFFamily, VCFFamilyBase, VCFFamilyRecord
 from pedigree import PedigreeTable, Family
-from VCFHeteroHomoPP import *
+from VCFBothParentImputed import *
 import OnePhasedFamily
 from VCFOneParentPhased import VCFOneParentPhased
 import NoPhasedFamily 
@@ -31,10 +31,11 @@ def impute_vcf_by_parents_core(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 							families: list[KnownFamily], gmap: Map) -> VCFSmall:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
-		family_vcf = VCFHeteroHomoPP.impute_by_parents(
-								orig_vcf, merged_vcf, family.samples(), gmap)
-		vcf = family_vcf.remove_parents()
-		vcfs.append(vcf)
+		vcf = VCFFamily.create_by_two_vcfs(merged_vcf, orig_vcf,
+														family.samples())
+		family_vcf = VCFBothParentImputed(vcf.header, vcf.records, gmap)
+		family_vcf.impute()
+		vcfs.append(family_vcf)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
