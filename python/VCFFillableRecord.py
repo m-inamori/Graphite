@@ -27,7 +27,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 		w = self.v[7].split('=')
 		return list(map(int, w[1].split(',')))
 	
-	def set_group_ids(self, ids: list[int]):
+	def set_group_ids(self, ids: list[int]) -> None:
 		self.v[7] = 'GR=%s' % (','.join(map(str, ids)))
 	
 	def gt_from_parent(self, mat_from: int, pat_from: int) -> str:
@@ -146,7 +146,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 												for gt in prog_gts ]
 		return inv_prog_gts
 	
-	def inverse_parents_gts(self, inv_mat: bool, inv_pat: bool):
+	def inverse_parents_gts(self, inv_mat: bool, inv_pat: bool) -> None:
 		# both must be hetero
 		if inv_mat:
 			self.set_GT(0, self.v[9][2] + "|" + self.v[9][0])
@@ -173,7 +173,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 				dist += 1
 		return dist < max(1, num // 2)
 	
-	def modify_gts(self, new_prog_gts: list[str]):
+	def modify_gts(self, new_prog_gts: list[str]) -> None:
 		for inv_mat, inv_pat in product((False, True), repeat=2):
 			inv_prog_gts = self.inverse_prog_gts(new_prog_gts, inv_mat, inv_pat)
 			if self.is_near_prog_gts(inv_prog_gts):
@@ -184,7 +184,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 		for c in range(11, len(self.v)):
 			self.v[c] = new_prog_gts[c-11]
 
-	def modify_parents_type(self):
+	def modify_parents_type(self) -> None:
 		if (self.pair != ParentComb.P00x11 and
 				((self.v[9][:3] == '0|0' and self.v[10][:3] == '1|1') or
 				 (self.v[9][:3] == '1|1' and self.v[10][:3] == '0|0'))):
@@ -232,7 +232,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 			i = reduce(lambda x, y: x + int(y), self.v[1], 0) % d
 			return candidate_GTs[i]
 	
-	def swap_parents(self, pos: int, GT: str):
+	def swap_parents(self, pos: int, GT: str) -> None:
 		if GT == self.v[pos+9][:3]:
 			return
 		elif GT in ('0|0', '1|1'):
@@ -277,7 +277,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 	
 	@staticmethod
 	def integrate_each_sample(records: list[VCFFillableRecord],
-												ps: list[tuple[int, int]]):
+										ps: list[tuple[int, int]]) -> None:
 		GT = VCFFillableRecord.decide_duplicated_Genotype(records, ps)
 		
 		for i, j in ps:

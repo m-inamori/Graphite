@@ -7,7 +7,7 @@ from itertools import *
 from collections import defaultdict
 from math import exp
 
-from typing import Generator, Dict
+from typing import Any, Generator, Dict
 
 import Baum_Welch_with_fixed_Ts_log as BWTL
 from common import *
@@ -38,8 +38,8 @@ class Region:
 #################### State ####################
 
 class State:
-	def __init__(self, regions: list[Region], colors, size: int,
-						n: int, length: float, p_len: float, min_c: float):
+	def __init__(self, regions: list[Region], colors: Any, size: int,
+					n: int, length: float, p_len: float, min_c: float) -> None:
 		self.regions: list[Region] = regions
 		# 効率化のためのリスト構造
 		# typingでうまく型を表せない
@@ -50,7 +50,7 @@ class State:
 		self.painted_length: float = p_len
 		self.MIN_CROSSOVER: float = min_c
 	
-	def last_color(self) -> str:
+	def last_color(self) -> Any:
 		return self.new_colors[1]
 	
 	def to_list(self) -> list[str]:
@@ -157,7 +157,7 @@ def is_all_same_without_N(seq: str) -> bool:
 	else:
 		return True
 
-def create_same_color_string(seq: str, default_color: str):
+def create_same_color_string(seq: str, default_color: str) -> str:
 	if all(c == 'N' for c in seq):
 		c_base = default_color
 	else:

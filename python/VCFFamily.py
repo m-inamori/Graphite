@@ -49,7 +49,7 @@ class VCFFamilyRecord(VCFRecord):
 
 # Inherite this not VCFFamily for A family VCF
 class VCFFamilyBase(ABC):
-	def __init__(self):
+	def __init__(self) -> None:
 		pass
 	
 	@abstractmethod
@@ -84,7 +84,8 @@ class VCFFamilyBase(ABC):
 #################### VCFFamily ####################
 
 class VCFFamily(VCFBase, VCFSmallBase, VCFFamilyBase):
-	def __init__(self, header: list[list[str]], records: list[VCFFamilyRecord]):
+	def __init__(self, header: list[list[str]],
+						records: list[VCFFamilyRecord]) -> None:
 		VCFBase.__init__(self, header)
 		VCFSmallBase.__init__(self)
 		VCFFamilyBase.__init__(self)
@@ -100,7 +101,7 @@ class VCFFamily(VCFBase, VCFSmallBase, VCFFamilyBase):
 		return self.records[i]
 	
 	@staticmethod
-	def create(vcf: VCFSmall, samples: list[str]):
+	def create(vcf: VCFSmall, samples: list[str]) -> VCFFamily:
 		columns = vcf.extract_columns(samples)
 		h = vcf.header[-1]
 		header = vcf.header[:-1] + [h[:9] + [ h[c] for c in columns ]]
@@ -141,9 +142,8 @@ class VCFFamily(VCFBase, VCFSmallBase, VCFFamilyBase):
 												for c in columns ]
 		return VCFFamilyRecord(new_v, samples)
 	
-	# [VCFFamily] -> VCFFamily
 	@staticmethod
-	def join(vcfs):
+	def join(vcfs: list[VCFFamily]) -> VCFFamily:
 		records = [ record for vcf in vcfs for record in vcf.records ]
 		return VCFFamily(vcfs[0].header, records)
 	

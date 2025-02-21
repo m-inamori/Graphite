@@ -62,7 +62,7 @@ class VCFIsolated(VCFBase, VCFImputable):
 			haps.append(hap)
 		return haps
 	
-	def impute(self):
+	def impute(self) -> None:
 		h = Haplotype.default_value()
 		haps = [(h, h)] * self.num_imputed_samples
 		for vcf_cM in self.divide_by_cM():

@@ -2,18 +2,19 @@
 # Baum-Welch_with_fixed_Ts_log.py
 # 1次元の列をimputeする
 
+from __future__ import annotations
 from functools import reduce
 from itertools import count, product
 from collections import defaultdict
 from math import log, exp, floor
-from Matrix import Matrix
+from typing import Any, Optional, Dict, Tuple, Iterator
 
 
 #################### Log ####################
 
 LOGZERO = -10000.0
 
-def log_add(log_a, log_b):
+def log_add(log_a: float, log_b: float) -> float:
 	# e.g. log_a = log2 log_b = log3
 	# log(2 + 3) = log3 + log(2/3 + 1) = log3 + log(exp(log2-log3) + 1)
 	if log_a < log_b:
@@ -21,7 +22,7 @@ def log_add(log_a, log_b):
 	else:
 		return log_a + log(exp(log_b - log_a) + 1.0)
 
-def log_sub(log_a, log_b):
+def log_sub(log_a: float, log_b: float) -> float:
 	# e.g. log_a = log3 log_b = log2
 	# log(3 - 2) = log3 + log(1 - 2/3) = log3 + log(1 - exp(log2-log3))
 	assert(log_a >= log_b)
@@ -30,41 +31,29 @@ def log_sub(log_a, log_b):
 	
 	return log_a + log(1.0 - exp(log_b - log_a))
 
-def log_sum(iterable):
+def log_sum(iterable: Iterator[float]) -> float:
 	return reduce(log_add, iterable)
 
-def log_diff(log_a, log_b):
+def log_diff(log_a: float, log_b: float) -> float:
 	if log_a > log_b:
 		return log_sub(log_a, log_b)
 	else:
 		return log_sub(log_b, log_a)
 
-def mat_log(M):
-	return dict((k, log(v) if v > 0.0 else LOGZERO) for k, v in M.items())
-
-def modified_log(x):
+def modified_log(x: float) -> float:
 	return -10000.0 if x == 0.0 else log(x)
-
-
-#################### Matrix ####################
-
-# M**e e: float
-def power(M, log_M, e):
-	if e < 1:
-		return (log_M * e).exp()
-	
-	e1 = int(floor(e))
-	return M**e1 * (log_M * (e - e1)).exp()
 
 
 #################### Baum-Welch ####################
 
-def initialize_pi(hidden_states):
+Matrix = Dict[Tuple[str, str], float]
+
+def initialize_pi(hidden_states: list[str]) -> dict[str, float]:
 	prob = -log(len(hidden_states))
 	return dict((h, prob) for h in hidden_states)
 
-def initialize_transition_matrix(hidden_states):
-	def prob(h1, h2):
+def initialize_transition_matrix(hidden_states: list[str]) -> Matrix:
+	def prob(h1: str, h2: str) -> float:
 		if h1 == h2:
 			return log(0.9)
 		else:
@@ -74,22 +63,28 @@ def initialize_transition_matrix(hidden_states):
 	return dict(((h1, h2), prob(h1, h2))
 					for h1, h2 in product(hidden_states, repeat=2))
 
-def initialize_emission_matrix(hidden_states, states):
-	def prob(h, e):
+def initialize_emission_matrix(hidden_states: list[str], states: list[str]
+											) -> dict[tuple[str, str], float]:
+	def prob(h: str, e: str) -> float:
 		if h == e:
 			return log(0.9)
 		else:
 			return log(0.1 / (N - 1))
 	
 	N = len(states)
-	return dict(((h, e), prob(h, e)) for h, e in product(hidden_states, states))
+	return { (h, e): prob(h, e) for h, e in product(hidden_states, states) }
 
-def compute_parameters(seq, hidden_states, pi, Ts, A):
+def compute_parameters(seq: str, hidden_states: list[str],
+						pi: dict[str, float], Ts: list[Matrix], A: Matrix
+						) -> tuple[list[dict[str, float]],
+								   list[dict[str, float]],
+								   list[Matrix],
+								   list[dict[str, float]]]:
 	L = len(seq)
 	N = len(hidden_states)
 	
-	# compute α
-	a = [ defaultdict(float) for s in seq ]		# probability of s
+	# compute α [{ state: probability }]
+	a: list[dict[str, float]] = [ defaultdict(float) for s in seq ]
 	for h in hidden_states:
 		a[0][h] = pi[h]+A[(seq[0],h)]
 	for t, s in enumerate(seq[1:], 1):
@@ -99,7 +94,7 @@ def compute_parameters(seq, hidden_states, pi, Ts, A):
 										for h_prev in hidden_states)
 	
 	# compute β
-	b = [ defaultdict(float) for s in seq ]
+	b: list[dict[str, float]] = [ defaultdict(float) for s in seq ]
 	for h in hidden_states:
 		b[-1][h] = 0.0	# log(1.0)
 	for t, s in zip(range(L-2, -1, -1), seq[-1::-1]):
@@ -111,11 +106,12 @@ def compute_parameters(seq, hidden_states, pi, Ts, A):
 	# compute γ
 	gamma1 = [ dict((h, a1[h]+b1[h]) for h in hidden_states)
 										for a1, b1 in zip(a, b) ]
-	prob_seq = log_sum(gamma1[0].values())	# probability that seq is observed
+	# probability that seq is observed
+	prob_seq = log_sum(iter(gamma1[0].values()))
 	gamma = [ dict((h, p-prob_seq) for h, p in g.items()) for g in gamma1 ]
 	
 	# compute ξ
-	xi = [ defaultdict(float) for s in seq[:-1] ]
+	xi: list[Matrix] = [ defaultdict(float) for s in seq[:-1] ]
 	for t, s in enumerate(seq[1:]):
 		T = Ts[t]
 		for hi, hj in product(hidden_states, repeat=2):
@@ -123,13 +119,16 @@ def compute_parameters(seq, hidden_states, pi, Ts, A):
 	
 	return (a, b, xi, gamma)
 
-def reverse_probs(A, hidden_states, states):
-	sum_observed = dict((s0, log_sum(p for (h, s), p in A.items() if s == s0))
-													for s0 in states)
-	dic = dict(((s, h), A[(h, s)]-sum_observed[s]) for h, s in A.keys())
+def reverse_probs(A: Matrix, hidden_states: list[str],
+										states: list[str]) -> Matrix:
+	sum_observed = { s0: log_sum(p for (h, s), p in A.items() if s == s0)
+															for s0 in states }
+	dic = { (s, h): A[(h, s)]-sum_observed[s] for h, s in A.keys() }
 	return dic
 
-def update_probabilities(seq, states, hidden_states, pi, Ts, E):
+def update_probabilities(seq: str, states: list[str], hidden_states: list[str],
+								pi: dict[str, float], Ts: list[Matrix],
+								E: Matrix) -> tuple[dict[str, float], Matrix]:
 	A = reverse_probs(E, hidden_states, states)
 	a, b, xi, gamma = compute_parameters(seq, hidden_states, pi, Ts, A)
 	
@@ -142,21 +141,22 @@ def update_probabilities(seq, states, hidden_states, pi, Ts, E):
 			else:
 				E[(hj,s)] = log_sum(g[hj] for s1, g in zip(seq, gamma) if s1 == s) - cum
 	
-#	total = log_sum(p-E[(h,seq[0])] for h, p in gamma[0].items())
-#	pi = dict((h, p-E[(h,seq[0])]-total) for h, p in gamma[0].items())
-	pi = gamma[0]
+	pi1 = gamma[0]
 	
-	return (pi, E)
+	return (pi1, E)
 
-def update_pi(seq, states, hidden_states, pi, Ts, E):
+def update_pi(seq: str, states: list[str], hidden_states: list[str],
+									pi: dict[str, float], Ts: list[Matrix],
+									E: Matrix) -> dict[str, float]:
 	A = reverse_probs(E, hidden_states, states)
 	a, b, xi, gamma = compute_parameters(seq, hidden_states, pi, Ts, A)
 	pi = gamma[0]
 	
 	return pi
 
-def print_matrix(matrix, states1, states2):
-	def generate_rows():
+def print_matrix(matrix: Matrix,
+					states1: list[str], states2: list[str]) -> None:
+	def generate_rows() -> Iterator[list[Any]]:
 		yield [''] + states2
 		for s1 in states1:
 			yield [s1] + [ matrix[(s1,s2)] for s2 in states2 ]
@@ -164,13 +164,16 @@ def print_matrix(matrix, states1, states2):
 	for row in generate_rows():
 		print('\t'.join(map(str, row)))
 
-def is_near_parameters(E1, pi1, E2, pi2):
+def is_near_parameters(E1: Matrix, pi1: dict[str, float],
+					   E2: Matrix, pi2: dict[str, float]) -> bool:
 	d2 = log_sum(log_diff(E1[k], E2[k]) for k in E1.keys())
 	d3 = log_sum(log_diff(pi1[k], pi2[k]) for k in pi1.keys())
-	return log_sum([d2, d3]) < log(1e-7)
+	return log_add(d2, d3) < log(1e-7)
 
-def converge_pi_E(Ts, seq, states, hidden_states):
-	def is_valid(E):
+def converge_pi_E(Ts: list[Matrix], seq: str, states: list[str],
+					hidden_states: list[str]
+					) -> Optional[tuple[dict[str, float], Matrix]]:
+	def is_valid(E: Matrix) -> bool:
 		return all(v > log(0.5) for k, v in E.items() if k[0] == k[1])
 	
 	pi = initialize_pi(hidden_states)
@@ -190,7 +193,9 @@ def converge_pi_E(Ts, seq, states, hidden_states):
 	else:
 		return None
 
-def converge_pi(Ts, seq, states, hidden_states):
+def converge_pi(Ts: list[dict[tuple[str, str], float]],
+				seq: str, states: list[str],
+				hidden_states: list[str]) -> tuple[dict[str, float], Matrix]:
 	pi = initialize_pi(hidden_states)
 	E = initialize_emission_matrix(hidden_states, states)
 	for _ in range(100):
@@ -205,7 +210,8 @@ def converge_pi(Ts, seq, states, hidden_states):
 	
 	return (pi, E)
 
-def Baum_Welch(Ts_, seq, states, hidden_states):
+def Baum_Welch(Ts_: list[Matrix], seq: str, states: list[str],
+				hidden_states: list[str]) -> tuple[dict[str, float], Matrix]:
 	Ts = [ { k: modified_log(v) for k, v in T.items() } for T in Ts_ ]
 	result = converge_pi_E(Ts, seq, states, hidden_states)
 	if result is not None:
@@ -217,10 +223,11 @@ def Baum_Welch(Ts_, seq, states, hidden_states):
 
 #################### Viterbi ####################
 
-def Viterbi(seq, states, hidden_states, pi, Ts_, A):
+def Viterbi(seq: str, states: list[str], hidden_states: list[str],
+			pi: dict[str, float], Ts_: list[Matrix], A: Matrix) -> str:
 	Ts = [ { k: modified_log(v) for k, v in T.items() } for T in Ts_ ]
 	
-	table = [ { } for _ in seq ]
+	table: list[dict[str, float]] = [ { } for _ in seq ]
 	table[0] = { h: pi[h]+A[(seq[0],h)] for h in hidden_states }
 	
 	for k in range(1, len(seq)):

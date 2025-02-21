@@ -36,7 +36,7 @@ class Option:
 	def exists_reference(self) -> bool:
 		return self.path_VCF != ''
 	
-	def print_info(self):
+	def print_info(self) -> None:
 		# required
 		print("input VCF : %s" % self.path_VCF, file=sys.stderr)
 		print("pedigree : %s" % self.path_ped, file=sys.stderr)
@@ -159,7 +159,7 @@ class Option:
 			return None
 	
 	@staticmethod
-	def usage():
+	def usage() -> None:
 		u = ('python graphite.py -i VCF [--ref ref VCF] ' +
 				'-p ped [-m map] [-r ref] [-t num_threads] ' +
 				'[-f family indices] [-c chrom indices] ' +

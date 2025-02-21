@@ -37,13 +37,10 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
-	def get_samples(self) -> list[str]:
-		return self.samples
-	
-	def imputed_index(self):
+	def imputed_index(self) -> int:
 		return 0 if self.is_mat_hetero else 1
 	
-	def unimputed_index(self):
+	def unimputed_index(self) -> int:
 		return 1 if self.is_mat_hetero else 0
 	
 	def update_each(self, i: int, j: int, c: str) -> str:
@@ -54,10 +51,10 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 		else:
 			return v[9][:2] + v[10][k]
 	
-	def update(self, i: int, seqs: list[str]):
+	def update(self, i: int, seqs: list[str]) -> None:
 		gt = self.records[i].get_gt(self.unimputed_index())
 		self.records[i].set_GT(self.unimputed_index(), gt[0] + '|' + gt[2])
-		for j in range(2, len(self.samples)):
+		for j in range(2, len(self.get_samples())):
 			self.records[i].v[j+9] = self.update_each(i, j, seqs[j-2][i])
 	
 	# 0|1 1/1 0/0 -> '0'
@@ -96,7 +93,7 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 			cs.append(c)
 		return ''.join(cs)
 	
-	def impute_sample_seq(self, j: int, cMs: list[float], min_c: float):
+	def impute_sample_seq(self, j: int, cMs: list[float], min_c: float) -> str:
 		seq = self.make_seq(j)
 		if Imputer.is_all_same_without_N(seq):
 			return Imputer.create_same_color_string(seq, '0')
@@ -107,7 +104,8 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 		painted_seq = Imputer.paint(hidden_seq, cMs, min_c)
 		return painted_seq
 	
-	def determine_gts_from_unimputed_parent(self, j: int, hap: list[int]):
+	def determine_gts_from_unimputed_parent(self, j: int,
+												hap: list[int]) -> None:
 		j_hetero = 0 if self.is_mat_hetero else 1
 		j_homo = 1 if self.is_mat_hetero else 0
 		for i in range(len(self)):
@@ -120,7 +118,7 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 			else:
 				record.set_GT(j, gt_homo + '|' + gt_hetero)
 	
-	def impute(self):
+	def impute(self) -> None:
 		if not self.records:
 			return
 		cMs = [ self.cM(record.pos()) for record in self.records ]

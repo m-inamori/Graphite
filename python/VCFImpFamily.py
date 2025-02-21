@@ -42,10 +42,10 @@ class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
 	def is_right(self) -> bool:
 		return self.parents_wrong_type == 'Right'
 	
-	def enable_modification(self):
+	def enable_modification(self) -> None:
 		self.parents_wrong_type = 'Modifiable'
 	
-	def set_00x11_parents(self, i: int, gt: int):
+	def set_00x11_parents(self, i: int, gt: int) -> None:
 		def GT(gt: int) -> str:
 			return '{0}|{0}'.format(gt // 2)
 		
@@ -106,7 +106,7 @@ class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
 	# 親のどちらが0/0でどちらが1/1なのかを間違えている場合が多い
 	# 親が複数の家系にまたがっているとき、修正できるかもしれない
 	@staticmethod
-	def modify_00x11(records: list[VCFImpFamilyRecord]):
+	def modify_00x11(records: list[VCFImpFamilyRecord]) -> None:
 		# { sample: [(VCFImpFamilyRecord, mat or pat)] }
 		dic = defaultdict(list)
 		for r in records:

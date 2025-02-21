@@ -56,7 +56,7 @@ class VCFSmallFillable(VCFFillable):
 			record.fill_PGT()
 	
 	# 家系ごとで./.にしたGenotypeを補完
-	def impute_NA_pat(self, i: int):
+	def impute_NA_pat(self, i: int) -> None:
 		record = self.records[i]
 		for c in range(11, len(record.v)):
 			if record.is_NA(c-9):

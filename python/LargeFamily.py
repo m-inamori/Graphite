@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 import sys
 from multiprocessing import Pool
 
-from typing import Dict, List, Tuple, Set, IO
+from typing import Optional, Dict, List, Tuple, Set, IO
 
 from VCF import *
 from VCFFamily import VCFFamily, VCFFamilyBase, VCFFamilyRecord
@@ -38,7 +38,7 @@ def get_int_gt(gt: str) -> int:
 		return int(gt[0]) + int(gt[2])
 
 def create_heterohomo_record(v: list[str], family: KnownFamily, i: int,
-											wrong_type: str, pair: ParentComb):
+					wrong_type: str, pair: ParentComb) -> VCFHeteroHomoRecord:
 	# 片親が不明の時、Genotypeを補う
 	total_int_gt = 1 if pair == ParentComb.P00x01 else 3
 	if not family.mat_known:
@@ -58,9 +58,9 @@ def create_heterohomo_record(v: list[str], family: KnownFamily, i: int,
 	return VCFHeteroHomoRecord(v, family.samples(), i, wrong_type, pair)
 
 def classify_record(i: int, vcf: VCFFamily, td: TypeDeterminer,
-							family: KnownFamily,
-							heho_records: list[Optional[VCFHeteroHomoRecord]],
-							other_records: list[Optional[VCFImpFamilyRecord]]):
+					family: KnownFamily,
+					heho_records: list[Optional[VCFHeteroHomoRecord]],
+					other_records: list[Optional[VCFImpFamilyRecord]]) -> None:
 	record = vcf.records[i]
 	samples = record.samples
 	wrong_type, pair = CR.classify_record(record, td, family.is_one_unknown())
@@ -79,7 +79,7 @@ def classify_record(i: int, vcf: VCFFamily, td: TypeDeterminer,
 def classify_records_parallel(v: tuple[VCFFamily, TypeDeterminer, KnownFamily,
 									   list[Optional[VCFHeteroHomoRecord]],
 									   list[Optional[VCFImpFamilyRecord]],
-									   int, int]):
+									   int, int]) -> None:
 	vcf, td, family, heho_records, other_records, i0, num_threads = v
 	for i in range(i0, len(vcf.records), num_threads):
 		classify_record(i, vcf, td, family, heho_records, other_records)
@@ -149,7 +149,7 @@ def sort_records(rs: list[tuple[list[VCFHeteroHomoRecord],
 	return recordss
 
 def modify_00x11_each(rs: list[tuple[list[VCFHeteroHomoRecord],
-									 list[VCFImpFamilyRecord], int]]):
+									 list[VCFImpFamilyRecord], int]]) -> None:
 	if len(rs[0][0]) == 0 and len(rs[0][1]) == 0:
 		return
 	recordss = sort_records(rs)
@@ -162,7 +162,7 @@ def modify_00x11_each(rs: list[tuple[list[VCFHeteroHomoRecord],
 # 他のホモ×ホモやヘテロ×ホモとGenotypeが違うとき、修正する
 def modify_00x11(heho_recordss: list[list[VCFHeteroHomoRecord]],
 				 other_recordss: list[list[VCFImpFamilyRecord]],
-				 families: list[KnownFamily]):
+				 families: list[KnownFamily]) -> None:
 	fams = collect_same_parent_families(families)
 	for parent, v in fams:
 		rs = [ (heho_recordss[fam_index], other_recordss[fam_index], p_index)

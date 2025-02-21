@@ -35,13 +35,13 @@ class State:
 	def is_full_num_crossovers(self) -> bool:
 		return self.num_crossovers() >= self.n * 2
 	
-	def set_haplotype(self, h: int, i: int):
+	def set_haplotype(self, h: int, i: int) -> None:
 		self.s |= h << i
 	
-	def increment_num_crossovers(self):
+	def increment_num_crossovers(self) -> None:
 		self.s += 1 << self.n
 	
-	def set_num_crossovers(self, n):
+	def set_num_crossovers(self, n: int) -> None:
 		self.s |= n << self.n
 	
 	@staticmethod
@@ -99,13 +99,13 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 	def get_samples(self) -> list[str]:
 		return self.samples
 	
-	def imputed_index(self):
+	def imputed_index(self) -> int:
 		return 1 if self.is_mat_hetero else 0
 	
-	def unimputed_index(self):
+	def unimputed_index(self) -> int:
 		return 0 if self.is_mat_hetero else 1
 	
-	def impute(self):
+	def impute(self) -> None:
 		INF = 10**9
 		def init_dp(n: int) -> list[Value]:
 			dp = [ Value.create_default(n) for _ in range((n*2+1)*2**n) ]
@@ -175,7 +175,7 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 					new_dp[new_state.s] = min(new_dp[new_state.s], value)
 			return new_dp
 		
-		def trace_back(state: State, dps: list[list[Value]]):
+		def trace_back(state: State, dps: list[list[Value]]) -> None:
 			n = self.num_progenies()
 			for i in range(len(self)-1, -1, -1):
 				order = dps[i+1][state.s].order

@@ -11,7 +11,8 @@ from pedigree import PedigreeTable
 #################### Materials ####################
 
 class Materials:
-	def __init__(self, path_m: str, m: Map, path_p: str, p: PedigreeTable):
+	def __init__(self, path_m: str, m: Map, path_p: str,
+										p: PedigreeTable) -> None:
 		self.path_map: str = path_m
 		self.geno_map: Map = m
 		self.chr_maps: list[Map] = self.geno_map.create_chr_maps()
@@ -31,7 +32,7 @@ class Materials:
 	def total_cM(self) -> float:
 		return sum(m.total_cM() for m in self.chr_maps)
 	
-	def display_map_info(self):
+	def display_map_info(self) -> None:
 		s = "Genetic Map : "
 		if self.geno_map.is_empty():
 			s += "default map(1Mbp=1cM)."

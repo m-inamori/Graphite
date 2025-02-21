@@ -2,7 +2,7 @@
 # VCF.py
 
 from __future__ import annotations
-from typing import Dict, Generator, Iterator, Optional, IO, TypeVar
+from typing import Dict, Generator, Iterator, Optional, IO, TextIO, TypeVar
 from abc import ABC, abstractmethod
 from itertools import *
 from math import log
@@ -11,6 +11,7 @@ import gzip
 from enum import Enum
 
 from exception_with_code import *
+import error_codes
 from common import *
 
 
@@ -25,7 +26,7 @@ class WrongRecordType(Enum):
 #################### VCFRecord ####################
 
 class VCFRecord(object):
-	def __init__(self, v: list[str], samples: list[str]):
+	def __init__(self, v: list[str], samples: list[str]) -> None:
 		self.v: list[str] = v
 		self.samples: list[str] = samples
 	
@@ -44,17 +45,17 @@ class VCFRecord(object):
 	def format(self) -> str:
 		return self.v[8]
 	
-	def gt(self, sample: list[str]) -> Optional[str]:
+	def gt(self, sample: str) -> Optional[str]:
 		for gt, sample_ in zip(self.v[9:], self.samples):
 			if sample_ == sample:
 				return gt
 		else:
 			return None
 	
-	def is_NA(self, i):
+	def is_NA(self, i: int) -> bool:
 		return self.v[i+9][0] == '.' or self.v[i+9][2] == '.'
 	
-	def is_phased(self, i):
+	def is_phased(self, i: int) -> bool:
 		gt = self.v[i+9]
 		return gt[0] in '01' and gt[2] in '01' and gt[1] == '|'
 	
@@ -85,10 +86,10 @@ class VCFRecord(object):
 	def get_gt(self, i: int) -> str:
 		return self.v[i+9]
 	
-	def write(self, out: IO):
+	def write(self, out: TextIO) -> None:
 		write_tsv(self.v, out)
 	
-	def set_GT(self, i: int, GT: str):
+	def set_GT(self, i: int, GT: str) -> None:
 		self.v[i+9] = GT + self.v[i+9][3:]
 	
 	def is_valid(self) -> bool:
@@ -115,14 +116,14 @@ class VCFRecord(object):
 #################### VCFBase ####################
 
 class VCFBase(object):
-	def __init__(self, header: list[list[str]]):
+	def __init__(self, header: list[list[str]]) -> None:
 		self.header: list[list[str]] = header
 		self.samples: list[str] = self.header[-1][9:]
 		self.dic: Dict[str, int] = dict(zip(self.samples, count()))
 		self.chrs: Dict[str, int] = { }
 		self.__determine_chromosome_id()
 	
-	def __determine_chromosome_id(self):
+	def __determine_chromosome_id(self) -> None:
 		pat = re.compile(r'##contig=<ID=(.+),length=(\d+)>')
 		id = 0
 		for s in (v[0] for v in self.header):
@@ -131,7 +132,7 @@ class VCFBase(object):
 				self.chrs[m.group(1)] = id
 				id += 1
 	
-	def write_header(self, out: IO):
+	def write_header(self, out: TextIO) -> None:
 		for v in self.header:
 			write_tsv(v, out)
 	
@@ -144,7 +145,7 @@ class VCFBase(object):
 	def record_position(self, record: VCFRecord) -> tuple[int, int]:
 		return self.position(record.position())
 	
-	def position(self, position) -> tuple[int, int]:
+	def position(self, position: tuple[str, int]) -> tuple[int, int]:
 		chr, pos = position
 		if chr not in self.chrs:
 			self.chrs[chr] = len(self.chrs) + 1
@@ -160,7 +161,7 @@ class VCFBase(object):
 		return len(self.samples)
 	
 	@staticmethod
-	def read_header(g: Iterator[list[str]]) -> Generator[list[str], None, None]:
+	def read_header(g: Iterator[list[str]]) -> Iterator[list[str]]:
 		for v in g:
 			yield v
 			if v[0].startswith('#CHROM'):
@@ -175,26 +176,25 @@ class VCFHuge(VCFBase):
 		super().__init__(header)
 		self.g: Iterator[list[str]] = g
 	
-	def __iter__(self):
+	def __iter__(self) -> VCFHuge:
 		return self
 	
-	def __next__(self):
+	def __next__(self) -> VCFRecord:
 		record = VCFRecord(next(self.g), self.samples)
 		self.record_position(record)	# self.chrsを作るために必要
 		return record
 	
 	# posまで進める
-	def proceed(self, pos: tuple[int, int]) -> VCFRecord:
+	def proceed(self, pos: tuple[int, int]) -> Optional[VCFRecord]:
 		while True:
 			record = next(self)
 			pos2 = self.record_position(record)
 			if pos2 == pos:
 				return record
+		else:
+			return None
 	
-	def close(self):
-		self.g.close()
-	
-	def get_header(self):
+	def get_header(self) -> list[list[str]]:
 		return self.header
 	
 	def divide_into_chromosomes(self) -> Generator[VCFSmall, None, None]:
@@ -202,7 +202,7 @@ class VCFHuge(VCFBase):
 			yield VCFSmall(self.get_header(), list(v))
 	
 	@staticmethod
-	def read(path) -> VCFHuge:
+	def read(path: str) -> VCFHuge:
 		gen_vecs = read_tsv(path)
 		header = list(VCFBase.read_header(gen_vecs))
 		return VCFHuge(header, gen_vecs)
@@ -216,7 +216,7 @@ class VCFHuge(VCFBase):
 #################### VCFSmallBase ####################
 
 class VCFSmallBase(ABC):
-	def __init__(self):
+	def __init__(self) -> None:
 		pass
 	
 	@abstractmethod
@@ -243,7 +243,7 @@ class VCFSmallBase(ABC):
 		dic = dict(zip(self.get_samples(), count(9)))
 		return [ dic.get(sample, -1) for sample in samples ]
 	
-	def extract_samples(self, samples) -> VCFSmall:
+	def extract_samples(self, samples: list[str]) -> VCFSmall:
 		header = self.trim_header(samples)
 		cs = self.extract_columns(samples)
 		new_records: list[VCFRecord] = []
@@ -264,11 +264,11 @@ class VCFSmallBase(ABC):
 			hap.append(-1 if c == '.' else int(c))
 		return hap
 	
-	def write_header(self, out: IO):
+	def write_header(self, out: TextIO) -> None:
 		for v in self.get_header():
 			write_tsv(v, out)
 	
-	def write(self, out: IO, with_header: bool=True):
+	def write(self, out: TextIO, with_header: bool=True) -> None:
 		if with_header:
 			self.write_header(out)
 		for i in range(len(self)):
@@ -313,9 +313,20 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		if wrong_counter > 0:
 			raise RecordException(wrong_counter, wrong_records)
 	
+	def select_samples(self, samples: list[str]) -> VCFSmall:
+		dic = { s: c for c, s in enumerate(self.samples, 9) }
+		# ここでエラーが起きたらどうする？
+		# pedigreeとVCFの整合性は取れているのか？
+		cs = [ dic[sample] for sample in samples ]
+		records: list[VCFRecord] = []
+		for record in self.records:
+			v = record.v[:9] + [ record.v[c] for c in cs ]
+			records.append(VCFRecord(v, samples))
+		return VCFSmall(self.trim_header(samples), records)
+	
 	@staticmethod
 	def read(path: str) -> VCFSmall:
-		g_vecs = read_tsv(path)
+		g_vecs: Iterator[list[str]] = read_tsv(path)
 		header = list(VCFBase.read_header(g_vecs))
 		samples = header[-1][9:]
 		records = [ VCFRecord(v, samples) for v in g_vecs ]
@@ -349,6 +360,31 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		records: list[VCFRecord] = [ vcf.get_record(i)
 											for i in range(len(vcf)) ]
 		return VCFSmall(vcf.get_header(), records)
+	
+	# vcf1にあるsampleはvcf1から、
+	# そうでないsampleはvcf2からGenotypeを取って新たなVCFを作る
+	@staticmethod
+	def create_by_two_vcfs(vcf1: VCFSmallBase, vcf2: VCFSmallBase,
+										samples: list[str]) -> VCFSmall:
+		# samplesは[mat, pat, prog1, ...]の前提
+		columns1 = vcf1.extract_columns(samples)
+		columns2 = vcf2.extract_columns(samples)
+		new_header = vcf1.trim_header(samples)
+		new_records = []
+		for i in range(len(vcf1)):
+			record1 = vcf1.get_record(i)
+			record2 = vcf2.get_record(i)
+			v = record1.v[:9]
+			for i in range(len(samples)):
+				if columns1[i] != -1:
+					v.append(record1.v[columns1[i]])
+				elif columns2[i] != -1:
+					v.append(record2.v[columns2[i]])
+				else:	# どちらのVCFにもそのサンプルは無い
+					v.append('./.')
+			new_record = VCFRecord(v, samples)
+			new_records.append(new_record)
+		return VCFSmall(new_header, new_records)
 
 
 #################### RecordException ####################

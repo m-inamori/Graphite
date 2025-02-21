@@ -72,7 +72,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 			elif record.type in (FillType.IMPUTABLE, FillType.UNABLE):
 				self.impute_others(i)
 	
-	def impute_core(self, record_set: RecordSet):
+	def impute_core(self, record_set: RecordSet) -> None:
 		def gts(record: Optional[VCFFillableRecord]) -> list[str]:
 			return record.v[11:] if record else [''] * (len(self.samples) - 2)
 		
@@ -172,7 +172,8 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 				else:
 					return [ gt[:1] + '|' + gt[2:] for gt in gts ]
 		
-		def inverse_parents_gts(record, inv_mat, inv_pat):
+		def inverse_parents_gts(record: VCFFillableRecord,
+								inv_mat: bool, inv_pat: bool) -> None:
 			# both must be hetero
 			if inv_mat:
 				gt = record.v[9]
@@ -181,7 +182,8 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 				gt = record.v[10]
 				record.v[10] = gt[2] + '|' + gt[0] + gt[3:]
 		
-		def modify_gts(gts: list[str], record: Optional[VCFFillableRecord]):
+		def modify_gts(gts: list[str],
+						record: Optional[VCFFillableRecord]) -> None:
 			if record is None:
 				return
 			
@@ -219,7 +221,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 				else:
 					return froms[1]
 		
-		def modify_parents_type(record):
+		def modify_parents_type(record: VCFFillableRecord) -> None:
 			if record is not None:
 				record.modify_parents_type()
 		
@@ -289,7 +291,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 			return None
 	
 	# 家系ごとで./.にしたGenotypeを補完
-	def impute_NA_mat(self, i: int):
+	def impute_NA_mat(self, i: int) -> None:
 		record = self.records[i]
 		for c in range(11, len(record.v)):
 			if record.is_NA(c-9):
@@ -305,7 +307,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 						next_record: Optional[VCFFillableRecord]) -> RecordSet:
 		return RecordSet(record, None, None, prev_record, next_record)
 	
-	def impute_NA_mat_each(self, i: int, c: int):
+	def impute_NA_mat_each(self, i: int, c: int) -> None:
 		def select_mat(pairs: list[tuple[int, int]]) -> int:
 			if len(pairs) == 1:
 				return pairs[0][0]
@@ -341,13 +343,13 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		record.v[c] = record.gt_from_parent(mat_from, 1) + record.v[c][3:]
 	
 	# 家系ごとで./.にしたGenotypeを補完
-	def impute_NA_pat(self, i: int):
+	def impute_NA_pat(self, i: int) -> None:
 		record = self.records[i]
 		for c in range(11, len(record.v)):
 			if record.v[c][:3] == './.':
 				self.impute_NA_pat_each(i, c)
 	
-	def impute_NA_pat_each(self, i: int, c: int):
+	def impute_NA_pat_each(self, i: int, c: int) -> None:
 		def select_pat(pairs: list[tuple[int, int]]) -> int:
 			if len(pairs) == 1:
 				return pairs[0][1]
@@ -378,7 +380,7 @@ class VCFFillable(VCFBase, VCFSmallBase, VCFFamilyBase):
 		pat_from = select_pat(pairs)
 		record.v[c] = record.gt_from_parent(1, pat_from) + record.v[c][3:]
 	
-	def impute_others(self, i: int):
+	def impute_others(self, i: int) -> None:
 		def correct(GT: str, c: int, record: VCFFillableRecord) -> str:
 			int_gt = record.get_int_gt(c-9)
 			if int_gt == -1:

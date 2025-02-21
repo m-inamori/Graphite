@@ -38,6 +38,6 @@ class VCFBothParentImputed(VCFBase, VCFSmallBase):
 	def num_progenies(self) -> int:
 		return len(self.get_samples()) - 2
 	
-	def impute(self):
+	def impute(self) -> None:
 		for i in range(self.num_progenies()):
 			self.prog_imputer.impute(i)

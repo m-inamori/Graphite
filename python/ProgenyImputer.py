@@ -15,10 +15,11 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class ProgenyImputer(VCFHMM):
+class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFFamilyRecord], map_: Map, w: float):
+	def __init__(self, records: list[VCFFamilyRecord],
+									map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
 		self.records: list[VCFFamilyRecord] = records
 		# crossover values
@@ -43,7 +44,8 @@ class ProgenyImputer(VCFHMM):
 		phased_gt = self.gt_by_haplotypes(h, mat_gt, pat_gt)
 		return self.E[phased_gt][oc]
 	
-	def progeny_transition_probability(self, i: int, prev_hc: int, hc) -> float:
+	def progeny_transition_probability(self, i: int,
+											prev_hc: int, hc: int) -> float:
 		cc = self.Cc[i-1]	# 後代の遷移確率
 		hc1 = hc & 1
 		hc2 = hc >> 1
@@ -63,7 +65,7 @@ class ProgenyImputer(VCFHMM):
 			dp[0][h] = (E, h)
 		return dp
 	
-	def update_dp(self, i: int, j: int, dp: list[DP]):
+	def update_dp(self, i: int, j: int, dp: list[DP]) -> None:
 		record = self.records[i]
 		mat_gt = Genotype.phased_gt_to_int(record.v[9])
 		pat_gt = Genotype.phased_gt_to_int(record.v[10])
@@ -85,7 +87,7 @@ class ProgenyImputer(VCFHMM):
 				prob = dp[i-1][prev_hc][0] + (Tc + E_all)
 				dp[i][hc] = max(dp[i][hc], (prob, prev_hc))
 	
-	def update_genotypes(self, j: int, hs: list[int]):
+	def update_genotypes(self, j: int, hs: list[int]) -> None:
 		M = len(self.records)
 		for i in range(M):
 			record = self.records[i]
@@ -95,7 +97,7 @@ class ProgenyImputer(VCFHMM):
 			record.v[j+11] = Genotype.int_to_phased_gt(gtc_int)
 	
 	# j: index of progeny
-	def impute(self, j: int):
+	def impute(self, j: int) -> None:
 		M = len(self.records)	# マーカー数
 		
 		# DP

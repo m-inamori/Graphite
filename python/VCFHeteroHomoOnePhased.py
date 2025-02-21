@@ -4,6 +4,7 @@ from __future__ import annotations
 # VCFHeteroHomoOnePhased.py
 # 片親がphasingされて片親は分っているがphasingされていないヘテロ×ホモファミリー
 
+from abc import abstractmethod
 from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
@@ -39,5 +40,5 @@ class VCFHeteroHomoOnePhased(VCFBase, VCFSmallBase,
 		return self.samples
 	
 	@abstractmethod
-	def impute(self):
+	def impute(self) -> None:
 		pass

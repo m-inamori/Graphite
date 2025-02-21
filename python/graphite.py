@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from itertools import *
 import sys
+from typing import Iterator
 
 from VCF import *
 from pedigree import PedigreeTable, Family
@@ -17,6 +18,7 @@ from SampleManager import SampleManager
 from Map import *
 from option import *
 from common import *
+from exception_with_code import *
 
 
 #################### process ####################
@@ -60,7 +62,7 @@ def chroms_efficients(option: Option) -> Iterator[bool]:
 		v[i] = True
 	return (b for b in v)
 
-def impute_all(vcf: VCFHuge, materials: Materials, option: Option):
+def impute_all(vcf: VCFHuge, materials: Materials, option: Option) -> None:
 	samples = vcf.samples
 	ped = materials.ped.limit_samples(samples)
 	sample_man = SampleManager.create(ped, samples,
@@ -79,7 +81,8 @@ def impute_all(vcf: VCFHuge, materials: Materials, option: Option):
 			vcf_imputed.write(out, with_header=first)
 		first = False
 
-def impute_progenies(vcf: VCFHuge, materials: Materials, option: Option):
+def impute_progenies(vcf: VCFHuge, materials: Materials,
+											option: Option) -> None:
 	vcf_ref = VCFHuge.read(option.path_ref_VCF)
 	iter = chroms_efficients(option)
 	first = True
@@ -94,7 +97,7 @@ def impute_progenies(vcf: VCFHuge, materials: Materials, option: Option):
 			vcf_imputed.write(out, with_header=first)
 		first = False
 
-def impute_vcf(option: Option):
+def impute_vcf(option: Option) -> None:
 	option.print_info()
 	materials = Materials.create(option.path_map, option.path_ped)
 	materials.display_map_info()

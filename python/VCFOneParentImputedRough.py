@@ -8,15 +8,10 @@ from __future__ import annotations
 # 例えば、親のGenotypeが0|1で子に0|0があったらペナルティ
 
 
-from collections import defaultdict, Counter
-from math import log
-from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
-
 from VCFFamily import *
 from ParentImputer import *
 from ProgenyImputer import *
 from Map import *
-from Genotype import Genotype
 
 
 #################### VCFOneParentImputedRough ####################
@@ -46,7 +41,7 @@ class VCFOneParentImputedRough(VCFBase, VCFSmallBase):
 	def num_progenies(self) -> int:
 		return len(self.get_samples()) - 2
 	
-	def impute(self):
+	def impute(self) -> None:
 		self.parent_imputer.impute()
 		for i in range(self.num_progenies()):
 			self.prog_imputer.impute(i)

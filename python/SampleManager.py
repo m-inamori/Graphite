@@ -3,7 +3,7 @@ from __future__ import annotations
 # coding: utf-8
 # SampleManager.py
 
-from typing import Set, IO, Optional
+from typing import Set, TextIO, Optional
 
 from pedigree import PedigreeTable, Family
 from KnownFamily import KnownFamily
@@ -21,10 +21,10 @@ class SampleManager:
 		self.lower_progs: int				= lower_p
 		self.imputed_samples: set[str]		= set()
 	
-	def set(self, samples: list[str]):
+	def set(self, samples: list[str]) -> None:
 		self.imputed_samples.update([ s for s in samples if s != '0' ])
 	
-	def clear(self):
+	def clear(self) -> None:
 		self.imputed_samples.clear()
 	
 	def is_imputed(self, sample: str) -> bool:
@@ -39,10 +39,9 @@ class SampleManager:
 	
 	def extract_unimputed_progenies(self, f: Family) -> list[str]:
 		return [ prog for prog in f.progenies if not self.is_imputed(prog) ]
-
 	
 	# 補完されていないが両親は補完されている家系
-	def extract_small_families(self) -> list[KnownFamily]:
+	def extract_both_imputed_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.small_families
 						if self.is_imputed(family.mat) and
 							self.is_imputed(family.pat) and
@@ -54,7 +53,7 @@ class SampleManager:
 															for f in families ]
 	
 	# 補完されていないが片方の親だけ補完されている家系
-	def extract_single_parent_phased_families(self):
+	def extract_imputed_and_known_families(self) -> list[Family]:
 		families = [ family for family in self.small_families
 						if (self.is_imputed(family.mat) or
 							self.is_imputed(family.pat)) and
@@ -62,12 +61,11 @@ class SampleManager:
 							any(not self.is_imputed(prog)
 											for prog in family.progenies) ]
 		
-		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.pat_known,
-									self.extract_unimputed_progenies(f))
+		return [ Family(f.mat, f.pat, self.extract_unimputed_progenies(f))
 														for f in families ]
 	
 	# 両親が補完されていない家系
-	def extract_no_parent_phased_families(self):
+	def extract_both_known_families(self) -> list[Family]:
 		families = [ family for family in self.small_families
 						if not self.is_imputed(family.mat) and
 							not self.is_imputed(family.pat) and
@@ -75,40 +73,59 @@ class SampleManager:
 							any(not self.is_imputed(prog)
 											for prog in family.progenies) ]
 		
-		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.pat_known,
-									self.extract_unimputed_progenies(f))
+		return [ Family(f.mat, f.pat, self.extract_unimputed_progenies(f))
 														for f in families ]
 	
 	# 片親が補完されていて片親がunknownな家系
-	def extract_phased_and_unknown_parents_family(self):
+	def extract_one_imputed_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.small_families
-					 if ((self.is_imputed(family.mat) and
+							 if ((self.is_imputed(family.mat) and
+							 						not family.pat_known) or
+								 (self.is_imputed(family.pat) and
+								  					not family.mat_known)) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.pat_known, [prog])
+							for f in families
+							for prog in self.extract_unimputed_progenies(f) ]
+	
+	# 片親が補完されていなくて片親がunknownな家系
+	def extract_one_known_parent_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+							 if ((family.mat_known and
+					 						not self.is_imputed(family.mat) and
 					 						not family.pat_known) or
-						 (self.is_imputed(family.pat) and
-						  					not family.mat_known)) and
-						  any(not self.is_imputed(prog)
+								(family.pat_known and
+								 			not self.is_imputed(family.pat) and
+								  			not family.mat_known)) and
+						 		any(not self.is_imputed(prog)
 											for prog in family.progenies) ]
 		
-		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.pat_known,
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
 									self.extract_unimputed_progenies(f))
 														for f in families ]
 	
 	# 両親は補完されていないが子どもの一部が補完されている家系
-	def extract_progenies_phased_families(self):
+	def extract_progenies_imputed_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.small_families
-						if (family.mat_known or family.pat_known) and
-							not self.is_imputed(family.mat) and
-							not self.is_imputed(family.pat) and
-							any(self.is_imputed(prog)
-										for prog in family.progenies) ]
-		return families
+								if (family.mat_known or family.pat_known) and
+									not self.is_imputed(family.mat) and
+									not self.is_imputed(family.pat) and
+									any(self.is_imputed(prog)
+											for prog in family.progenies) ]
+		return [ KnownFamily(f.mat, f.pat, f.mat_known,
+									f.mat_known, f.progenies)
+														for f in families ]
 	
-	def extract_isolated_samples(self):
+	def extract_isolated_samples(self) -> list[str]:
 		# 繋がっているサンプルがあっても、
 		# 家系の全サンプルがphasingされていないなら孤立とみなす
-		samples = []
+		samples: list[str] = []
 		for family in self.small_families:
-			if all(not self.is_imputed(s) for s in family.samples()):
+			if family.mat == '0' and family.pat == '0':
+				for s in family.progenies:
+					if s not in self.imputed_samples:
+						samples.append(s)
+			elif all(not self.is_imputed(s) for s in family.samples()):
 				if family.mat_known:
 					samples.append(family.mat)
 				if family.pat_known:
@@ -118,9 +135,17 @@ class SampleManager:
 				# 親が両方とも不明なら、phasingされていないサンプルはOK
 				samples.extend(s for s in family.progenies
 											if not self.is_imputed(s))
-		return samples
+		
+		set_samples = set(samples)
+		return list(set_samples)
 	
-	def display_info(self, out: IO):
+	def extract_non_imputed_samples(self) -> list[str]:
+		samples = set(s for family in self.small_families
+						for s in family.samples()
+						if s != '0' and s not in self.imputed_samples)
+		return list(samples)
+	
+	def display_info(self, out: TextIO) -> None:
 		print("%d samples" % len(self.ped), file=out)
 		
 		if len(self.large_families) == 1:

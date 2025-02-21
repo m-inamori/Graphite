@@ -7,7 +7,7 @@ from itertools import product, count
 from collections import defaultdict
 from queue import PriorityQueue
 from enum import Enum
-from typing import Dict, Generator
+from typing import Dict, Iterator
 
 
 #################### ParentComb ####################
@@ -30,7 +30,7 @@ class ParentComb(Enum):
 	def is_heterohomo(self) -> bool:
 		return self in (ParentComb.P00x01, ParentComb.P01x11)
 	
-	def is_same_parent_genotype(self):
+	def is_same_parent_genotype(self) -> bool:
 		return self in (ParentComb.P00x00, ParentComb.P01x01, ParentComb.P11x11)
 	
 	def int_gt_pair(self) -> tuple[int, int]:
@@ -62,7 +62,7 @@ class TypeDeterminer:
 		self.sort()
 	
 	@staticmethod
-	def gen_errors(n, k):
+	def gen_errors(n: int, k: int) -> Iterator[tuple[int, ...]]:
 		if k == 0:
 			yield ()
 		else:
@@ -72,45 +72,45 @@ class TypeDeterminer:
 	
 	# N/Aを含めて2割まで、N/Aを含めなければ1割まで
 	@staticmethod
-	def gen_error_combinations(N, k):
+	def gen_error_combinations(N: int, k: int) -> Iterator[tuple[int, ...]]:
 		for num_NA in range(N//5 + 1):
 			M = min(N//10, N//5 - num_NA)
 			for ns in TypeDeterminer.gen_errors(M, k - 1):
 				yield (num_NA,) + ns
 	
-	def make_memo00(self):
+	def make_memo00(self) -> None:
 		# 全部同じになるはずのパターンはその他が2割まで
 		for num_NA, n1, n2 in TypeDeterminer.gen_errors(self.N//5, 3):
 			n0 = self.N - n1 - n2 - num_NA
 			self.memo[(n0, n1, n2)].append((ParentComb.P00x00, 0.0))
 	
-	def make_memo01(self):
+	def make_memo01(self) -> None:
 		for num_NA, n2 in TypeDeterminer.gen_error_combinations(self.N, 2):
 			M = self.N - num_NA - n2
 			ps = self.binomial(M)
 			for n0, p in ps:
 				self.memo[(n0, M-n0, n2)].append((ParentComb.P00x01, p))
 	
-	def make_memo02(self):
+	def make_memo02(self) -> None:
 		for num_NA, n0, n2 in TypeDeterminer.gen_errors(self.N//5, 3):
 			n1 = self.N - n0 - n2 - num_NA
 			self.memo[(n0, n1, n2)].append((ParentComb.P00x11, 0.0))
 	
 	# C++と同じ挙動を示すように大きい方が優先するように符号を反転する
 	class PQ:
-		def __init__(self):
-			self.pq = PriorityQueue()
+		def __init__(self) -> None:
+			self.pq: PriorityQueue[tuple[float, int, int, int]] = PriorityQueue()
 		
-		def put(self, v):
+		def put(self, v: tuple[float, int, int, int]) -> None:
 			p, n1, n2, n3 = v
 			self.pq.put((-p, -n1, -n2, -n3))
 		
-		def get(self):
+		def get(self) -> tuple[float, int, int, int]:
 			v = self.pq.get()
 			return (-v[0], -v[1], -v[2], -v[3])
 	
 	# 0/1 x 0/1は難しい
-	def make_memo11(self):
+	def make_memo11(self) -> None:
 		# 確率が大きい状態から並べて累積が1-αを超えるまで列挙する
 		for num_NA in range(self.N//5 + 1):
 			M = self.N - num_NA
@@ -136,14 +136,14 @@ class TypeDeterminer:
 						pq.put(pqs1)
 						visited.add(pqs1)
 	
-	def make_memo12(self):
+	def make_memo12(self) -> None:
 		for num_NA, n0 in TypeDeterminer.gen_error_combinations(self.N, 2):
 			M = self.N - num_NA - n0
 			ps = self.binomial(M)
 			for n1, p in ps:
 				self.memo[(n0, n1, M-n1)].append((ParentComb.P01x11, p))
 	
-	def make_memo22(self):
+	def make_memo22(self) -> None:
 		for num_NA, n0, n1 in TypeDeterminer.gen_errors(self.N//5, 3):
 			n2 = self.N - n0 - n1 - num_NA
 			self.memo[(n0, n1, n2)].append((ParentComb.P11x11, 0.0))
@@ -168,7 +168,7 @@ class TypeDeterminer:
 				break
 		return ps2
 	
-	def sort(self):
+	def sort(self) -> None:
 		self.memo = { ns: sorted(v, key=lambda k: k[1])
 									for ns, v in self.memo.items() }
 	

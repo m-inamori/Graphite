@@ -3,7 +3,7 @@ from __future__ import annotations
 # coding: utf-8
 # invgraph.py
 
-from typing import NewType, Tuple, Iterator
+from typing import NewType, List, Tuple, Dict, Iterator
 
 from graph import WeightedGraphBase, Node
 from kruskal import Kruskal
@@ -11,18 +11,18 @@ from kruskal import Kruskal
 
 #################### Type ####################
 
-Edge = Tuple[Node, Node, bool]
+Edge = Tuple[Node, Node, float]
 Value = Tuple[Node, float, bool]
 
 
 #################### InvGraph ####################
 
-class InvGraph(dict, WeightedGraphBase):
-	def __init__(self, *args, **kwargs):
-		dict.__init__(self, *args, **kwargs)
+class InvGraph(Dict[Node, List[Value]], WeightedGraphBase):
+	def __init__(self) -> None:
+		super().__init__(self)
 		WeightedGraphBase.__init__(self)
 	
-	def __setitem__(self, key: Node, value: list[Value]):
+	def __setitem__(self, key: Node, value: list[Value]) -> None:
 		super().__setitem__(key, value)
 	
 	##### virtual methods for GraphBase #####

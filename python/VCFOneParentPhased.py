@@ -96,7 +96,7 @@ class VCFOneParentPhased(VCFBase, VCFFamilyBase, VCFImputable):
 			haps.append(hap)
 		return haps
 	
-	def impute(self):
+	def impute(self) -> None:
 		if not self.records:
 			return
 		

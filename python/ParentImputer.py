@@ -4,9 +4,8 @@ from __future__ import annotations
 # ParentImputer.py
 # どちらかの親をimputeする
 
-from collections import defaultdict, Counter
 from math import log
-from typing import List, Tuple
+from typing import List, Tuple, Sequence
 
 from VCFFamily import *
 from VCFHMM import *
@@ -17,13 +16,13 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class ParentImputer(VCFHMM):
+class ParentImputer(VCFHMM[VCFFamilyRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFFamilyRecord], is_mat: bool,
-							ref_haps: list[list[int]], map_: Map, w: float):
+	def __init__(self, records: Sequence[VCFFamilyRecord], is_mat: bool,
+						ref_haps: list[list[int]], map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[VCFFamilyRecord] = records
+		self.records: Sequence[VCFFamilyRecord] = records
 		self.is_mat_imputed: bool = is_mat
 		self.ref_haps	= ref_haps
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
@@ -35,19 +34,24 @@ class ParentImputer(VCFHMM):
 							for r1, r2 in zip(self.records, self.records[1:]) ]
 	
 	# 両親と後代のnon-phased genotypeからの後代の排出確率
-	def calc_Epc(self, w):
-		E1 = [ [ [ 1.0-w*2,   w/2,       w/2,       w ],
-				 [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w ],
-				 [ w/2,       1.0-w*2,   w/2,       w ],
-				 [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w ] ],
-			   [ [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w ],
-			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w ],
-			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w ] ],
-			   [ [ w/2,       1.0-w*2,   w/2,       w ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w ],
-			     [ w/2,       w/2,       1.0-w*2,   w ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w ] ] ]
+	def calc_Epc(self, w: float) -> list[list[list[float]]]:
+		E1: list[list[list[float]]] = [
+			   [ [ 1.0-w*2,   w/2,       w/2,       w   ],
+				 [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ],
+				 [ w/2,       1.0-w*2,   w/2,       w   ],
+				 [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ] ],
+			   [ [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ],
+			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w   ],
+			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ],
+			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w   ] ],
+			   [ [ w/2,       1.0-w*2,   w/2,       w   ],
+			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ],
+			     [ w/2,       w/2,       1.0-w*2,   w   ],
+			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ] ],
+			   [ [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ],
+			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w   ],
+			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ],
+			     [ 1/4,       1/4,       1/4,       1/4 ] ] ]
 		E = [ [ [ log(p) for p in v ] for v in w ] for w in E1 ]
 		return E
 	
@@ -104,7 +108,8 @@ class ParentImputer(VCFHMM):
 		else:
 			return self.pat_emission_probability(i, h, mat_gt, pat_gt)
 	
-	def parent_transition_probability(self, i: int, prev_hp: int, hp) -> float:
+	def parent_transition_probability(self, i: int,
+											prev_hp: int, hp: int) -> float:
 		cp = self.Cp[i-1]	# 親の遷移確率
 		hp2, hp1 = divmod(hp, self.NH())
 		prev_hp2, prev_hp1 = divmod(prev_hp, self.NH())
@@ -141,7 +146,7 @@ class ParentImputer(VCFHMM):
 		
 		return prev_h_table
 	
-	def update_dp(self, i: int, dp: list[DP]):
+	def update_dp(self, i: int, dp: list[DP]) -> None:
 		record = self.records[i]
 		# observed parent
 		mat_gt = Genotype.gt_to_int(record.v[9])
@@ -157,13 +162,13 @@ class ParentImputer(VCFHMM):
 				prob = dp[i-1][prev_h][0] + (Tp + E_all)
 				dp[i][h] = max(dp[i][h], (prob, prev_h))
 	
-	def update_genotypes(self, hs: list[int]):
+	def update_genotypes(self, hs: list[int]) -> None:
 		c = self.phased_col()
 		for i in range(len(self.ref_haps[0])):
 			phased_gt = self.compute_phased_gt_by_refhaps(hs[i], i)
 			self.records[i].v[c] = Genotype.int_to_phased_gt(phased_gt)
 	
-	def impute(self):
+	def impute(self) -> None:
 		L = self.NH()**2			# 親のハプロタイプの状態数
 		
 		# DP

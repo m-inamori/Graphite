@@ -12,14 +12,14 @@ from UnionFind import *
 #################### Type ####################
 
 Edge = Tuple[Node, Node]
-Weight = Union[int, float]
+Weight = Union[int, float, bool]
 WeightedEdge = Tuple[Node, Node, Weight]
 
 
 #################### GraphBase ####################
 
 class GraphBase(ABC):
-	def __init__(self):
+	def __init__(self) -> None:
 		pass
 	
 	@abstractmethod
@@ -52,7 +52,7 @@ class GraphBase(ABC):
 #################### WeightedGraphBase ####################
 
 class WeightedGraphBase(GraphBase):
-	def __init__(self):
+	def __init__(self) -> None:
 		pass
 	
 	@abstractmethod

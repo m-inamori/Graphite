@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections import defaultdict, Counter
 from math import log
-from typing import List, Tuple
+from typing import List, Tuple, TypeVar, Generic, Sequence
 
 from VCFFamily import *
 from Map import *
@@ -15,15 +15,17 @@ from Genotype import Genotype
 
 #################### VCFHMM ####################
 
-class VCFHMM(VCFMeasurable):
+R = TypeVar('R', bound=VCFRecord)
+
+class VCFHMM(Generic[R], VCFMeasurable):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFFamilyRecord], map_: Map):
+	def __init__(self, records: Sequence[VCFRecord], map_: Map):
 		VCFMeasurable.__init__(self, map_)
 		self.map		= map_
 		self.E = self.calc_E()
 	
-	def calc_E(self):
+	def calc_E(self) -> list[list[float]]:
 		# 排出確率
 		# hidden   0|0: 0, 1|0: 1, 0|1: 2, 1|1: 3
 		# observed 0/0: 0, 0/1: 1, 1/1: 2, N/A: 3

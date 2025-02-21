@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from itertools import count, product
 from collections import defaultdict, Counter
-from typing import List, Tuple, Optional, IO, Dict, Iterator
+from typing import TypeVar, Any, List, Tuple, Dict, Iterator
 import random
 import time
 
@@ -19,7 +19,7 @@ Edge = Tuple[Node, Node, int, int]
 Value = Tuple[Node, int, int]
 
 
-def is_consistent(graph: Dict[int, list[tuple[int, bool]]]) -> bool:
+def is_consistent(graph: Dict[Node, list[tuple[Node, bool]]]) -> bool:
 	visited: Dict[int, bool] = { }
 	v0 = next(v for v in graph.keys())
 	stk = [(v0, False)]		# v0は反転しないとする
@@ -52,16 +52,16 @@ def invs(graph: Dict[Node, list[tuple[Node, bool]]]) -> Dict[Node, bool]:
 
 #################### InverseGraph ####################
 
-class InverseGraph(dict, GraphBase):
-	def __init__(self, *args, **kwargs):
-		dict.__init__(self, *args, **kwargs)
+class InverseGraph(Dict[Node, List[Value]], GraphBase):
+	def __init__(self) -> None:
+		super().__init__()
 		GraphBase.__init__(self)
 	
-	def __setitem__(self, key: Node, value: list[Value]):
-		super().__setitem__(key, value)
+	def __setitem__(self, node: Node, value: List[Value]) -> None:
+		super().__setitem__(node, value)
 	
 	def copy(self) -> InverseGraph:
-		graph = InverseGraph()
+		graph: InverseGraph = InverseGraph()
 		for v, vs in self.items():
 			graph[v] = vs[:]
 		return graph
@@ -98,7 +98,7 @@ class InverseGraph(dict, GraphBase):
 	def is_leaf(self, v: Node) -> bool:
 		return v in self and len(self[v]) == 1
 	
-	def remove_directed_edge(self, v1: Node, v2: Node):
+	def remove_directed_edge(self, v1: Node, v2: Node) -> None:
 		neighs1 = self.neighbors(v1)
 		if len(neighs1) == 1:
 			del self[v1]
@@ -111,7 +111,7 @@ class InverseGraph(dict, GraphBase):
 			else:
 				raise Exception('error in InverseGraph.remove_directed_edge')
 	
-	def remove_edge(self, v1: Node, v2: Node):
+	def remove_edge(self, v1: Node, v2: Node) -> None:
 		self.remove_directed_edge(v1, v2)
 		self.remove_directed_edge(v2, v1)
 	
@@ -169,7 +169,7 @@ class InverseGraph(dict, GraphBase):
 		return self.search_randomly()
 	
 	def add_removed_nodes(self, dic_bs: Dict[Node, bool],
-								removed_nodes: list[Node]):
+								removed_nodes: list[Node]) -> None:
 		for v1 in reversed(removed_nodes):
 			for v2, n1, n2 in self[v1]:
 				if v2 in dic_bs:
@@ -231,8 +231,8 @@ class InverseGraph(dict, GraphBase):
 			i, j, n1, n2 = v
 			return min((n1 + 1) / (n1 + n2 + 2), (n2 + 1) / (n1 + n2 + 2))
 		
-		def join(graph1: Dict[int, list[tuple[int, bool]]],
-							graph2: Dict[int, list[tuple[int, bool]]]):
+		def join(graph1: Dict[Node, list[tuple[Node, bool]]],
+						graph2: Dict[Node, list[tuple[Node, bool]]]) -> None:
 			for v1, vs in graph2.items():
 				graph1[v1] = vs
 		
@@ -265,19 +265,21 @@ class InverseGraph(dict, GraphBase):
 		else:
 			return { }	# not come here
 	
+	"""
 	@staticmethod
 	def convert(graph: list[list[tuple[int, int, int]]]) -> InverseGraph:
 		return InverseGraph(dict(enumerate(graph)))
+	"""
 
 
 #################### BoolGraph ####################
 
-class BoolGraph(dict, GraphBase):
-	def __init__(self, *args, **kwargs):
-		dict.__init__(self, *args, **kwargs)
+class BoolGraph(Dict[Node, List[Tuple[Node, bool]]], GraphBase):
+	def __init__(self) -> None:
+		super().__init__(self)
 		GraphBase.__init__(self)
 	
-	def __setitem__(self, key: Node, value: list[Value]):
+	def __setitem__(self, key: Node, value: list[Tuple[Node, bool]]) -> None:
 		super().__setitem__(key, value)
 	
 	##### virtual methods for GraphBase #####
@@ -290,7 +292,7 @@ class BoolGraph(dict, GraphBase):
 		return [ v for v, b in value ]
 	
 	##### non-virtual methods #####
-	def join(self, graph: BoolGraph):
+	def join(self, graph: BoolGraph) -> None:
 		for u, vs in graph.items():
 			self.__setitem__(u, vs)
 

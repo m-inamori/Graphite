@@ -57,7 +57,7 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 			self.set_haplotype(hap, sample_index)
 		return hap
 	
-	def set_haplotype(self, hap: HaplotypePair, sample_index: int):
+	def set_haplotype(self, hap: HaplotypePair, sample_index: int) -> None:
 		hap_mat, hap_pat = hap
 		for i in range(len(self)):
 			record = self.get_record(i)

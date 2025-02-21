@@ -18,7 +18,7 @@ class UnionFind:
 		self.parents: dict[Node, Node] = { v: v for v in nodes }
 		self.heights: dict[Node, int] = { v: 1 for v in nodes }
 	
-	def join(self, v1: Node, v2: Node):
+	def join(self, v1: Node, v2: Node) -> None:
 		r1 = self.root(v1)
 		r2 = self.root(v2)
 		h1 = self.heights[r1]
@@ -73,7 +73,7 @@ class UnionFindSerial:
 		self.parents: list[int] = list(range(N))
 		self.heights: list[int] = [1] * (N)
 	
-	def join(self, v1: int, v2: int):
+	def join(self, v1: int, v2: int) -> None:
 		r1 = self.root(v1)
 		r2 = self.root(v2)
 		h1 = self.heights[r1]

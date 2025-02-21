@@ -151,7 +151,7 @@ class MapFormatException(ExceptionWithCode):
 		return error_codes.Type.MAP_INVALID_FORMAT
 	
 	@staticmethod
-	def create_message(lines: list[str]):
+	def create_message(lines: list[str]) -> str:
 		if len(lines) == 1:
 			s = "error : the following line doesn't have three columns :"
 		else:
@@ -172,7 +172,7 @@ class TwiceChrException(ExceptionWithCode):
 		return error_codes.Type.MAP_INVALID_FORMAT
 	
 	@staticmethod
-	def create_message(chr: str):
+	def create_message(chr: str) -> str:
 		s = "error : the following chromosome comes out twice :\n"
 		s += chr
 		return s
@@ -188,7 +188,7 @@ class OutOfOrderCMException(ExceptionWithCode):
 		return error_codes.Type.MAP_INVALID_FORMAT
 	
 	@staticmethod
-	def create_message(r1: Map.Record, r2: Map.Record):
+	def create_message(r1: Map.Record, r2: Map.Record) -> str:
 		s = "error : the following cMs are out of order :"
 		s += str(r1)
 		s += str(r2)
@@ -205,7 +205,7 @@ class OutOfOrderMbpException(ExceptionWithCode):
 		return error_codes.Type.MAP_INVALID_FORMAT
 	
 	@staticmethod
-	def create_message(r1: Map.Record, r2: Map.Record):
+	def create_message(r1: Map.Record, r2: Map.Record) -> str:
 		s = "error : the following Mbps are out of order :\n"
 		s += str(r1) + '\n' + str(r2)
 		return s

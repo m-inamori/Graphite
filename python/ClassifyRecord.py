@@ -17,7 +17,7 @@ from common import *
 
 #################### classify ####################
 
-memo_tds: Dict[tuple[int, float], TypeDeterminer] = { }
+memo_tds: dict[tuple[int, float], TypeDeterminer] = { }
 
 def count_int_gts(gts: list[int]) -> tuple[int,int,int]:
 	ns = [0, 0, 0]
@@ -99,13 +99,13 @@ def classify_record_core(pairs: list[tuple[ParentComb, float]],
 		else:
 			return (ParentComb.PNA, 'Mix')
 
-def prepare(n: int, p: float):
+def prepare(n: int, p: float) -> None:
 	if (n, p) not in memo_tds:
 		td = TypeDeterminer(n, p)
 		memo_tds[(n, p)] = td
 
 def get_typedeterminer(n: int, p: float) -> TypeDeterminer:
-	if n in memo_tds:
+	if (n, p) in memo_tds:
 		return memo_tds[(n, p)]
 	
 	td = TypeDeterminer(n, p)

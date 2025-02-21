@@ -20,7 +20,7 @@ class FormatException(ExceptionWithCode):
 		return error_codes.Type.PEDIGREE_INVALID_FORMAT
 	
 	@staticmethod
-	def create_message(lines: list[str]):
+	def create_message(lines: list[str]) -> str:
 		if len(lines) == 1:
 			s = "error : the following line doesn't have four columns :"
 		else:
@@ -41,7 +41,7 @@ class ParentsException(ExceptionWithCode):
 		return error_codes.Type.PARENT_NOT_DEFINED
 	
 	@staticmethod
-	def create_message(parents: list[str]):
+	def create_message(parents: list[str]) -> str:
 		if len(parents) == 1:
 			s = "error : the following parent isn't defined :"
 		else:
@@ -62,7 +62,7 @@ class SamplesException(ExceptionWithCode):
 		return error_codes.Type.SAMPLES_NOT_IN_PEDIGREE
 	
 	@staticmethod
-	def create_message(samples: list[str]):
+	def create_message(samples: list[str]) -> str:
 		if len(samples) == 1:
 			s = "error : the following sample isn't in pedigree :"
 		else:

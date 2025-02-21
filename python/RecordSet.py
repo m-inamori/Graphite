@@ -145,16 +145,16 @@ class RecordSet:
 		parent_gt = record.v[9+i]
 		return 1 if parent_gt[0] == gt[i*2] else 2
 	
-	def from_which_chrom_prev_mat(self, gt) -> int:
+	def from_which_chrom_prev_mat(self, gt: str) -> int:
 		return self.from_which_chrom(gt, self.prev_mat_record, True)
 	
-	def from_which_chrom_next_mat(self, gt) -> int:
+	def from_which_chrom_next_mat(self, gt: str) -> int:
 		return self.from_which_chrom(gt, self.next_mat_record, True)
 	
-	def from_which_chrom_prev_pat(self, gt) -> int:
+	def from_which_chrom_prev_pat(self, gt: str) -> int:
 		return self.from_which_chrom(gt, self.prev_pat_record, False)
 	
-	def from_which_chrom_next_pat(self, gt) -> int:
+	def from_which_chrom_next_pat(self, gt: str) -> int:
 		return self.from_which_chrom(gt, self.next_pat_record, False)
 	
 	def gen_gts(self) -> Iterator[tuple[str, str, str, str, str]]:
@@ -305,7 +305,7 @@ class RecordSet:
 			ll += likelihood_each(gt, probs_mat, probs_pat)
 		return ll
 	
-	def determine_parents_phasing(self):
+	def determine_parents_phasing(self) -> None:
 		if self.record is None:
 			return
 		
@@ -376,13 +376,14 @@ class RecordSet:
 		else:
 			return self.record.gt_from_parent(mat_from, pat_from)
 	
-	def impute_core(self):
-		new_gts = [ self.modify_gt(i)
-					for i in range(2, len(self.record.samples)) ]
-		self.record.modify_gts(new_gts)
-		self.record.modify_parents_type()
+	def impute_core(self) -> None:
+		if self.record is not None:
+			new_gts = [ self.modify_gt(i)
+						for i in range(2, len(self.record.samples)) ]
+			self.record.modify_gts(new_gts)
+			self.record.modify_parents_type()
 	
-	def impute(self, necessary_parents_phasing: bool):
+	def impute(self, necessary_parents_phasing: bool) -> None:
 		if necessary_parents_phasing:
 			self.determine_parents_phasing()
 		self.impute_core()

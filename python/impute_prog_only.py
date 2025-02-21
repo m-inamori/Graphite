@@ -4,6 +4,7 @@
 from __future__ import annotations
 from itertools import *
 import sys
+from typing import Optional
 
 from VCF import *
 from VCFFamily import VCFFamily
@@ -28,8 +29,8 @@ from common import *
 #################### process ####################
 
 def classify_record(i: int, record: VCFRecord, td: TypeDeterminer,
-							heho_records: list[Optional[VCFHeteroHomoRecord]],
-							other_records: list[Optional[VCFImpFamilyRecord]]):
+					heho_records: list[Optional[VCFHeteroHomoRecord]],
+					other_records: list[Optional[VCFImpFamilyRecord]]) -> None:
 	samples = record.samples
 	wrong_type, pair = CR.classify_record(record, td, False)
 	v = record.v
@@ -48,6 +49,7 @@ def classify_records(vcf: VCFFamily, option: Option
 									) -> tuple[list[VCFHeteroHomoRecord],
 												 list[VCFImpFamilyRecord]]:
 	td = CR.get_typedeterminer(vcf.num_samples()-2, option.ratio)
+	# 整理したい
 	records1: list[Optional[VCFHeteroHomoRecord]] = [None] * len(vcf)
 	records2: list[Optional[VCFImpFamilyRecord]] = [None] * len(vcf)
 	for i, record in enumerate(vcf.records):

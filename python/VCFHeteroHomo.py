@@ -18,14 +18,14 @@ from option import *
 from inverse_graph import *
 from graph import Node
 from invgraph import InvGraph
-from common import divide_graph_into_connected
 
 
 #################### VCFHeteroHomoRecord ####################
 
 class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 	def __init__(self, v: list[str], samples: list[str],
-							i: int, parents_wrong_type: str, pair: ParentComb):
+							i: int, parents_wrong_type: str,
+							pair: ParentComb) -> None:
 		super().__init__(v, samples, i, parents_wrong_type, pair)
 		self.which_comes_from: list[int] = [-1] * self.num_progenies()
 	
@@ -45,7 +45,7 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 			return FillType.IMPUTABLE
 	
 	def genotypes_from_hetero_parent(self) -> list[int]:
-		def encode(gt, homo_parent):
+		def encode(gt: int, homo_parent: int) -> int:
 			gt_ = gt if homo_parent == 0 else gt - 1
 			if gt_ not in (0, 1):
 				return -1
@@ -56,7 +56,7 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 		homo = self.pat_int_gt() if self.is_mat_hetero() else self.mat_int_gt()
 		return [ encode(gt, homo) for gt in gts[2:] ]
 	
-	def set_haplo(self, h: int):
+	def set_haplo(self, h: int) -> None:
 		hetero_col = 9 if self.mat_int_gt() == 1 else 10
 		homo_col = 10 if hetero_col == 9 else 9
 		self.v[hetero_col] = '0|1' if h == 0 else '1|0'
@@ -66,7 +66,7 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 		for i, gt in enumerate(gts):
 			self.which_comes_from[i] = -1 if gt == -1 else 0 if gt == h else 1
 	
-	def set_int_gt_by_which_comes_from(self, ws: list[int]):
+	def set_int_gt_by_which_comes_from(self, ws: list[int]) -> None:
 		self.which_comes_from = ws
 		mat_gt: str = self.v[9]
 		pat_gt: str = self.v[10]
@@ -84,7 +84,7 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 
 class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def __init__(self, header: list[list[str]],
-					records: list[VCFHeteroHomoRecord], map_: Map):
+					records: list[VCFHeteroHomoRecord], map_: Map) -> None:
 		self.records = records
 		VCFBase.__init__(self, header)
 		VCFSmallBase.__init__(self)
@@ -100,7 +100,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
-	def is_mat_hetero(self):
+	def is_mat_hetero(self) -> bool:
 		return self.records[0].is_mat_hetero()
 	
 	def make_graph(self, max_dist: float) -> InvGraph:
@@ -138,7 +138,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		# ただし、前後10レコード以上は調べる」
 		rng = max(10, min(L, 900//L))
 		
-		graph = InvGraph()
+		graph: InvGraph = InvGraph()
 		for k in range(L):
 			graph[Node(k)] = []
 		gtss = [ r.genotypes_from_hetero_parent() for r in self.records ]
@@ -153,8 +153,8 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 					break
 				d, b = distance(gtss[k], gtss[l])
 				if d <= max_dist:
-					graph[k].append((l, d, b))
-					graph[l].append((k, d, b))
+					graph[Node(k)].append((Node(l), d, b))
+					graph[Node(l)].append((Node(k), d, b))
 		return graph
 	
 	# haplotype1の各レコードのGenotypeが0なのか1なのか
@@ -219,8 +219,8 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		subvcfs = list(map(self.make_subvcf, gs))
 		return (subvcfs, unused_records)
 	
-	def make_seq(self, i):
-		def convert(gt):
+	def make_seq(self, i: int) -> str:
+		def convert(gt: int) -> str:
 			if gt == 0 or gt == 1:
 				return str(gt)
 			else:
@@ -229,7 +229,8 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		return ''.join(convert(record.which_comes_from[i])
 									for record in self.records)
 	
-	def impute_each_sample_seq(self, i: int, cMs: list[float], min_c: float):
+	def impute_each_sample_seq(self, i: int, cMs: list[float],
+													min_c: float) -> str:
 		seq = self.make_seq(i)
 		if Imputer.is_all_same_without_N(seq):
 			return Imputer.create_same_color_string(seq, '0')
@@ -240,7 +241,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		painted_seq = Imputer.paint(hidden_seq, cMs, min_c)
 		return painted_seq
 	
-	def impute_each(self, option: OptionImpute):
+	def impute_each(self, option: OptionImpute) -> None:
 		cMs = [ self.cM(record.pos()) for record in self.records ]
 		imputed_seqs = [
 				self.impute_each_sample_seq(i, cMs, option.min_crossover)
@@ -292,7 +293,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		
 		return (num_match, num_unmatch)
 	
-	def inverse_hetero_parent_phases(self):
+	def inverse_hetero_parent_phases(self) -> None:
 		hetero_col = 9 if self.is_mat_hetero() else 10
 		for record in self.records:
 			if record.v[hetero_col] == '0|1':
@@ -333,7 +334,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		return (vcfs, unused)
 	
 	@staticmethod
-	def inverse_phases(vcfs: list[VCFHeteroHomo]):
+	def inverse_phases(vcfs: list[VCFHeteroHomo]) -> None:
 		graph = VCFHeteroHomo.make_vcf_graph(vcfs)
 		if not graph:
 			return
@@ -352,8 +353,8 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		for i, j in combinations(range(N), 2):
 			num_match, num_unmatch = vcfs[i].match(vcfs[j])
 			if num_match != 0 or num_unmatch != 0:
-				graph[i].append((j, num_match, num_unmatch))
-				graph[j].append((i, num_match, num_unmatch))
+				graph[Node(i)].append((Node(j), num_match, num_unmatch))
+				graph[Node(j)].append((Node(i), num_match, num_unmatch))
 		return graph
 
 __all__ = ['VCFHeteroHomoRecord', 'VCFHeteroHomo']

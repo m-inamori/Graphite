@@ -40,7 +40,7 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
-	def make_seq(self, i):
+	def make_seq(self, i: int) -> str:
 		cs = []
 		for record in self.records:
 			mat_GT = record.get_GT(0)
@@ -90,7 +90,7 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 				break
 		return c * len(seq)
 	
-	def impute_sample_seq(self, i: int, cMs: list[float], min_c: float):
+	def impute_sample_seq(self, i: int, cMs: list[float], min_c: float) -> str:
 		seq = self.make_seq(i)
 		if VCFHeteroHomoPP.is_all_same_without_N(seq):
 			return VCFHeteroHomoPP.create_same_color_string(seq)
@@ -109,11 +109,11 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		else:
 			return v[9][:2] + v[10][k]
 	
-	def update(self, i: int, seqs: list[str]):
+	def update(self, i: int, seqs: list[str]) -> None:
 		for j in range(2, len(self.samples)):
 			self.records[i].v[j+9] = self.update_each(i, j, seqs[j-2][i])
 	
-	def impute(self):
+	def impute(self) -> None:
 		if not self.records:
 			return
 		cMs = [ self.cM(record.pos()) for record in self.records ]
@@ -123,13 +123,13 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		for i in range(len(self)):
 			self.update(i, imputed_seqs)
 	
-	def fill(self):
+	def fill(self) -> None:
 		# FillTypeでrecordを分ける
 		groups = Groups.create(self.records)
 		for record_set in groups.generate_record_sets():
 			self.__impute_core(record_set)
 	
-	def __impute_core(self, record_set: RecordSet):
+	def __impute_core(self, record_set: RecordSet) -> None:
 		record = record_set.record
 		if record is None:
 			return

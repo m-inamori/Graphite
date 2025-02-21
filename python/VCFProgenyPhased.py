@@ -116,10 +116,10 @@ class VCFProgenyPhased(VCFBase, VCFFamilyBase, VCFImputable):
 			first = last
 		return score
 	
-	def inverse_selection(self):
+	def inverse_selection(self) -> None:
 		self.selection = 1 if self.selection == 0 else 0
 	
-	def impute(self):
+	def impute(self) -> None:
 		vcf_cMs = list(self.divide_by_cM())
 		hap_pairs1 = self.impute_core(vcf_cMs)
 		for vcf_cM in vcf_cMs:
