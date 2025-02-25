@@ -2,7 +2,7 @@
 #include <cassert>
 #include "../include/NoPhasedFamily.h"
 #include "../include/VCFNoParentImputed.h"
-#include "../include/pedigree.h"
+#include "../include/Pedigree.h"
 #include "../include/KnownFamily.h"
 #include "../include/common.h"
 

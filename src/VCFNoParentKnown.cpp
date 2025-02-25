@@ -1,4 +1,5 @@
 #include <cmath>
+#include "../include/VCFNoParentKnown.h"
 #include "../include/VCFNoParentImputed.h"
 #include "../include/ParentImputer.h"
 #include "../include/ProgenyImputer.h"
@@ -16,14 +17,14 @@ VCFNoParentKnown::VCFNoParentKnown(const std::vector<STRVEC>& header,
 				pat_imputer(new ParentImputer(records, false, ref_hs, map_, w)),
 				prog_imputer(new ProgenyImputer(records, map_, w)) { }
 
-VCFNoParentImputed::~VCFNoParentImputed() {
+VCFNoParentKnown::~VCFNoParentKnown() {
 	Common::delete_all(records);
 	delete mat_imputer;
 	delete pat_imputer;
 	delete prog_imputer;
 }
 
-void VCFNoParentImputed::impute() {
+void VCFNoParentKnown::impute() {
 	mat_imputer->impute();
 	pat_imputer->impute();
 	for(size_t j = 0; j < num_samples() - 2; ++j) {

@@ -56,10 +56,10 @@ VCFHomoHomo::VCFHomoHomo(const vector<STRVEC>& h, const STRVEC& s,
 							VCFBase(h, s), VCFFamilyBase(), records(rs) { }
 
 vector<VCFHomoHomo *> VCFHomoHomo::impute() const {
-	vector<VCFHomoHomoRecord *>	records;
+	vector<VCFHomoHomoRecord *>	new_records;
 	for(auto p = records.begin(); p != records.end(); ++p)
-		records.push_back((*p)->impute());
+		new_records.push_back((*p)->impute());
 	// HeteroHetero returns a vector and matches it
-	return vector<VCFHomoHomo *>(1U,
-						new VCFHomoHomo(this->header, this->samples, records));
+	auto	*vcf = new VCFHomoHomo(this->header, this->samples, new_records);
+	return vector<VCFHomoHomo *>(1U, vcf);
 }

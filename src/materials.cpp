@@ -2,7 +2,7 @@
 
 #include "../include/materials.h"
 #include "../include/Map.h"
-#include "../include/pedigree.h"
+#include "../include/Pedigree.h"
 #include "../include/common.h"
 
 using namespace std;

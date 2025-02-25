@@ -6,7 +6,7 @@
 #include "../include/VCFOneParentImputedRough.h"
 #include "../include/VCFHeteroImpHomo.h"
 #include "../include/VCFSmallFillable.h"
-#include "../include/pedigree.h"
+#include "../include/Pedigree.h"
 #include "../include/KnownFamily.h"
 #include "../include/Genotype.h"
 #include "../include/common.h"

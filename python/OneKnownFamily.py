@@ -24,20 +24,13 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
-		# KnownFamilyを使うように直したい
-		is_mat_known = family.mat != '0'
 		if is_small(ref_haps, len(families)):
 			vcf1 = VCFOneParentKnown(vcf.header, vcf.records,
-										ref_haps, is_mat_known, gmap)
+										ref_haps, family.mat_known, gmap)
 			vcf1.impute_known_parent()
-			for prog in vcf1.samples[2:]:
-				samples = [family.mat, family.pat, prog]
-				vcf2 = VCFFamily.create_by_two_vcfs(imputed_vcf,
-													orig_vcf, samples)
-				vcf3 = VCFOneParentImputed(vcf2.header, vcf2.records,
-												ref_haps, is_mat_known, gmap)
-				vcf3.impute()
-				vcfs.append(vcf3)
+			parent = vcf1.samples[0] if family.mat_known else vcf1.samples[1]
+			vcf2 = vcf1.extract_samples([parent])
+			vcfs.append(vcf2)
 	
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
