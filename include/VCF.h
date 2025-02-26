@@ -170,6 +170,7 @@ public:
 	}
 	void clear_records() { records.clear(); }
 	void check_records() const;
+	VCFSmall *select_samples(const std::vector<std::string>& samples) const;
 	
 public:
 	static VCFSmall *read(const std::string& path);
@@ -211,6 +212,9 @@ public:
 	
 public:
 	static VCFHuge *read(const std::string& path);
+	
+private:
+	static void leave_only_GT(std::vector<std::string>& v);
 };
 
 

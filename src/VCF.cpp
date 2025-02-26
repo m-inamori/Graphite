@@ -289,6 +289,31 @@ void VCFSmall::check_records() const {
 	}
 }
 
+VCFSmall *VCFSmall::select_samples(const vector<string>& new_samples) const {
+	const size_t	N = samples.size();
+	map<string, size_t>	dic;
+	for(size_t i = 0; i != N; ++i) {
+		dic[samples[i]] = i + 9;
+	}
+	
+	vector<size_t>	cs;
+	for(auto p = new_samples.begin(); p != new_samples.end(); ++p) {
+		cs.push_back(dic[*p]);
+	}
+	
+	vector<VCFRecord *>	new_records;
+	for(auto p = records.begin(); p != records.end(); ++p) {
+		vector<string>	v(N+9);
+		std::copy((*p)->get_v().begin(), (*p)->get_v().end(), v.begin());
+		for(size_t i = 0; i < N; ++i) {
+			v[i+9] = (*p)->get_v()[cs[i]];
+		}
+		new_records.push_back(new VCFRecord(v, new_samples));
+	}
+	const auto	header = trim_header(new_samples);
+	return new VCFSmall(header, new_samples, new_records);
+}
+
 VCFSmall *VCFSmall::read(const string& path) {
 	VCFReader	*reader = new VCFReader(path);
 	reader->read_header();
@@ -406,11 +431,20 @@ VCFHuge::~VCFHuge() {
 	delete this->reader;
 }
 
+void VCFHuge::leave_only_GT(vector<string>& v) {
+	v[8] = "GT";
+	for(auto p = v.begin() + 9; p != v.end(); ++p) {
+		const size_t	q = p->find(':');
+		*p = p->substr(0, q);
+	}
+}
+
 VCFRecord *VCFHuge::next() {
-	const STRVEC	v = reader->next();
+	STRVEC	v = reader->next();
 	if(v.empty())
 		return NULL;
 	
+	leave_only_GT(v);
 	VCFRecord	*record = new VCFRecord(v, this->samples);
 	this->record_position(*record);		// necessary to update chrs
 	return record;

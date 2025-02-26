@@ -8,7 +8,7 @@
 
 //////////////////// ParentImputer ////////////////////
 
-class ParentImputer : public VCFHMM {
+class ParentImputer : public VCFHMM<VCFFamilyRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;

@@ -13,15 +13,15 @@ class ProgenyImputer;
 class VCFNoParentKnown : public VCFBase, public VCFSmallBase {
 private:
 	std::vector<VCFFamilyRecord *>	records;
-	ParentImputer	*mat_imputer;
-	ParentImputer	*pat_imputer;
+	ParentImputer	*parent_imputer1;
+	ParentImputer	*parent_imputer2;
 	ProgenyImputer	*prog_imputer;
 	
 public:
 	VCFNoParentKnown(const std::vector<STRVEC>& header, const STRVEC& s,
 						const std::vector<VCFFamilyRecord *>& records,
 						const std::vector<std::vector<int>>& ref_haps,
-						const Map& map_, double w);
+						bool is_mat_known, const Map& map_, double w);
 	~VCFNoParentKnown();
 	
 	///// virtual methods for VCFSmallBase /////
@@ -35,6 +35,7 @@ public:
 	}
 	
 	///// non-virtual methods /////
+	std::size_t num_progenies() const { return get_samples().size() - 2; }
 	void impute();
 	void clear_records() { records.clear(); }
 };

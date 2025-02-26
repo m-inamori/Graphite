@@ -8,7 +8,7 @@
 
 //////////////////// ProgenyImputer ////////////////////
 
-class ProgenyImputer : public VCFHMM {
+class ProgenyImputer : public VCFHMM<VCFFamilyRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;

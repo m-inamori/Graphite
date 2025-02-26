@@ -4,8 +4,7 @@
 #include <vector>
 #include "VCF.h"
 
-class VCFFamily;
-class VCFNoParentImputed;
+class VCFOrphan;
 class Family;
 class KnownFamily;
 class Map;
@@ -17,23 +16,21 @@ namespace Orphan {
 	struct ConfigThread {
 		std::size_t	first;
 		std::size_t	num_threads;
-		const std::vector<VCFOrphan *>&	vcfs;
+		VCFOrphan	*vcf;
 		
-		ConfigThread(std::size_t i, std::size_t n,
-						const std::vector<VCFOrphan *>& vcfs_) :
-									first(i), num_threads(n), vcfs(vcfs_) { }
+		ConfigThread(std::size_t i, std::size_t n, VCFOrphan *vcf_) :
+									first(i), num_threads(n), vcf(vcf_) { }
 	};
 	
 	void create_in_thread(void *config);
+	void impute_small_in_thread(void *config);
+	void impute_small_VCF(VCFOrphan *vcf, int T);
 	
-	VCFSmallBase *impute(const VCFSmall *orig_vcf,
-							const VCFSmall *imputed_vcf,
+	VCFSmallBase *impute(const std::vector<std::string>& samples,
+							const VCFSmall *orig_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
-							const std::vector<const KnownFamily *>& families,
 							const Map& gmap, int num_threads);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const std::vector<std::vector<int>>& ref_haps);
-	void impute_small_in_thread(void *config);
-	void impute_small_VCFs(std::vector<VCFNoParentImputed *>& vcfs, int T);
 };
 #endif

@@ -4,7 +4,8 @@
 
 using namespace std;
 
-VCFHMM::VCFHMM(const std::vector<VCFFamilyRecord *>& rs,
+template<typename R>
+VCFHMM<R>::VCFHMM(const std::vector<R *>& rs,
 									const Map& map_, double w) :
 				VCFMeasurable(map_), records(rs),
 				E{{log(1.0-w*2), log(w/2),     log(w/2),     log(w)},
@@ -12,17 +13,8 @@ VCFHMM::VCFHMM(const std::vector<VCFFamilyRecord *>& rs,
 				  {log(w/2),     log(1.0-w*2), log(w/2),     log(w)},
 				  {log(w/2),     log(w/2),     log(1.0-w*2), log(w)}} { }
 
-// -> Morgan
-double VCFHMM::dist(const VCFRecord *r1,
-								const VCFRecord *r2) const {
-	const double	d = (cM(r2->pos()) - cM(r1->pos())) / 100;
-	if(d != 0.0)
-		return d;
-	else	// probably outside map
-		return (r2->pos() - r1->pos()) * 1e-6;
-}
-
-vector<int> VCFHMM::trace_back(const vector<DP>& dps) const {
+template<typename R>
+vector<int> VCFHMM<R>::trace_back(const vector<DP>& dps) const {
 	const size_t	M = dps.size();
 	vector<int>	hs(M, 0);
 	
@@ -44,3 +36,6 @@ vector<int> VCFHMM::trace_back(const vector<DP>& dps) const {
 	}
 	return hs;
 }
+
+template class VCFHMM<VCFRecord>;
+template class VCFHMM<VCFFamilyRecord>;
