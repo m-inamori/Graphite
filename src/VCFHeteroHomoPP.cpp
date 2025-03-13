@@ -18,9 +18,10 @@ using namespace std;
 //////////////////// VCFHeteroHomoPP ////////////////////
 
 VCFHeteroHomoPP::VCFHeteroHomoPP(const vector<STRVEC>& h, const STRVEC& s,
-							vector<VCFFillableRecord *> rs, const Map& m) :
-						VCFBase(h, s), VCFSmallBase(),
-						VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
+									const vector<VCFFillableRecord *>& rs,
+									const Map& m) :
+							VCFBase(h, s), VCFSmallBase(),
+							VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
 
 VCFHeteroHomoPP::~VCFHeteroHomoPP() {
 	for(auto p = records.begin(); p != records.end(); ++p)
@@ -139,28 +140,6 @@ void VCFHeteroHomoPP::impute_core(const RecordSet *record_set) {
 	}
 }
 
-VCFFillableRecord *VCFHeteroHomoPP::find_prev_record(
-									const Groups *groups, int i, FillType g) {
-	for(int j = i - 1; j >= 0; --j) {
-		const FillType	key = groups->get_type(j);
-		const auto	records = groups->get_records(j);
-		if(key == g)
-			return records.back();
-	}
-	return NULL;
-}
-	
-VCFFillableRecord *VCFHeteroHomoPP::find_next_record(
-									const Groups *groups, int i, FillType g) {
-	for(size_t j = i + 1; j < groups->size(); ++j) {
-		const FillType	key = groups->get_type(j);
-		const auto	records = groups->get_records(j);
-		if(key == g)
-			return records.front();
-	}
-	return NULL;
-}
-
 pair<ParentComb, FillType> VCFHeteroHomoPP::classify_record(
 													VCFFamilyRecord *record) {
 	const int	i = record->is_mat_hetero() ? 0 : 1;
@@ -233,76 +212,6 @@ VCFFillable *VCFHeteroHomoPP::merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 							mat_vcf->get_samples(), records);
 }
 
-VCFFillable *VCFHeteroHomoPP::impute_by_parents(
-									const VCFSmallBase *orig_vcf,
-									const VCFSmallBase *imputed_vcf,
-									const STRVEC& samples, const Map& gmap) {
-	VCFFamily	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
-														orig_vcf, samples);
-	auto	rss = VCFHeteroHomoPP::classify_records(vcf->get_family_records());
-	auto	*mat_vcf = new VCFHeteroHomoPP(vcf->get_header(),
-											vcf->get_samples(),
-											rss[FillType::MAT], gmap);
-	auto	*pat_vcf = new VCFHeteroHomoPP(vcf->get_header(),
-											vcf->get_samples(),
-											rss[FillType::PAT], gmap);
-	delete vcf;
-	mat_vcf->impute();
-	pat_vcf->impute();
-	auto	new_vcf = VCFHeteroHomoPP::merge_vcf(mat_vcf, pat_vcf,
-													rss[FillType::FILLED],
-													rss[FillType::IMPUTABLE]);
-	new_vcf->phase_hetero_hetero();
-	
-	// Since the Records are used by other VCF,
-	// empty the VCF and delete only the VCF.
-	mat_vcf->clear_records();
-	pat_vcf->clear_records();
-	delete mat_vcf;
-	delete pat_vcf;
-	
-	return new_vcf;
-}
-
-void VCFHeteroHomoPP::impute_in_thread(void *config) {
-	const auto	*c = (ConfigThread *)config;
-	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
-		const KnownFamily	*family = c->families[i];
-		c->results[i] = impute_by_parents(c->orig_vcf, c->merged_vcf,
-											family->get_samples(), c->geno_map);
-	}
-}
-
-vector<VCFFillable *> VCFHeteroHomoPP::impute_vcfs(
-						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-						const vector<const KnownFamily *>& families,
-						const Map& geno_map, int num_threads) {
-	vector<VCFFillable *>	results(families.size());
-	
-	const int	T = min((int)families.size(), num_threads);
-	vector<ConfigThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(orig_vcf, merged_vcf, families,
-											geno_map, (size_t)i, T, results);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-						(void *(*)(void *))&impute_in_thread,
-						(void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		impute_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-	return results;
-}
-
 VCFFillableRecord *VCFHeteroHomoPP::merge_record(const VCFRecord *record1,
 												const VCFRecord *record2,
 												const STRVEC& samples, int i,
@@ -320,7 +229,7 @@ VCFFillableRecord *VCFHeteroHomoPP::fill_NA(VCFRecord *record1,
 											const STRVEC& samples, int i) {
 	const size_t	NA_len = samples.size() - record1->num_samples();
 	auto	v = record1->get_v();
-	for(size_t i = 0; i < NA_len; ++i)
+	for(size_t j = 0; j < NA_len; ++j)
 		v.push_back("./.");
 	return new VCFFillableRecord(v, samples, i,
 									FillType::UNABLE, ParentComb::PNA);

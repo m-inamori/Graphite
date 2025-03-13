@@ -81,7 +81,7 @@ void LargeFamily::classify_record(size_t i, const VCFFamily *vcf,
 }
 
 void LargeFamily::classify_records_in_thread(void *config) {
-	auto	*c = (ConfigThreadClassify *)config;
+	auto	*c = static_cast<const ConfigThreadClassify *>(config);
 	const size_t	n = c->vcf->size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		classify_record(i, c->vcf, c->td, c->family,
@@ -124,7 +124,7 @@ LargeFamily::classify_records(const VCFFamily *vcf,
 }
 
 void LargeFamily::create_vcf_in_thread(void *config) {
-	auto	*c = (ConfigThreadCreate *)config;
+	auto	*c = static_cast<const ConfigThreadCreate *>(config);
 	const VCFSmall	*orig_vcf = c->orig_vcf;
 	for(size_t i = c->first; i < c->families.size(); i += c->num_threads) {
 		const KnownFamily	*family = c->families[i];
@@ -256,7 +256,7 @@ LargeFamily::divide_vcf_into_record_types(
 }
 
 void LargeFamily::fill_in_thread(void *config) {
-	const auto	*c = (ConfigThreadFill *)config;
+	const auto	*c = static_cast<const ConfigThreadFill *>(config);
 	const size_t	n = c->vcfss_heho.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		const auto&	vcfs = c->vcfss_heho[i];
@@ -324,7 +324,7 @@ void LargeFamily::compress_records(vector<VCFImpFamilyRecord *>& others) {
 }
 
 void LargeFamily::clean_in_thread(void *config) {
-	auto	*c = (ConfigThreadClean *)config;
+	auto	*c = static_cast<const ConfigThreadClean *>(config);
 	const int	n = (int)c->families.size();
 	const int	T = c->num_threads;
 	const int	T_in_family = std::max(2, (T+n-1)/n);
@@ -396,8 +396,8 @@ VCFSmall *LargeFamily::correct_large_family_VCFs(
 	for(size_t i = 0; i < families.size(); ++i) {
 		auto	vcfs = vcfss[i];
 		const Family	*family = families[i];
-		for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-			auto	*vcf = *p;
+		for(auto q = vcfs.begin(); q != vcfs.end(); ++q) {
+			auto	*vcf = *q;
 			if(vcf->size() == 0) {
 				// Add a VCF to a dic_vcfs even if it is empty,
 				// because if no VCF exists, you won't know the family
@@ -411,8 +411,8 @@ VCFSmall *LargeFamily::correct_large_family_VCFs(
 		}
 	}
 	
-	for(auto p = dic_vcfs.begin(); p != dic_vcfs.end(); ++p) {
-		auto	vcfs = p->second;
+	for(auto q = dic_vcfs.begin(); q != dic_vcfs.end(); ++q) {
+		auto	vcfs = q->second;
 		VCFHeteroHomo::inverse_phases(vcfs);
 	}
 	
@@ -423,8 +423,6 @@ VCFSmall *LargeFamily::correct_large_family_VCFs(
 		Common::delete_all(other_recordss[i]);
 	}
 	auto	vcf1 = VCFFillable::merge(vcfs_filled, orig_vcf->get_samples());
-	for(auto p = vcfs_filled.begin(); p != vcfs_filled.end(); ++p) {
-		delete *p;
-	}
+	Common::delete_all(vcfs_filled);
 	return vcf1;
 }

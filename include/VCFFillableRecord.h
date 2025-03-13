@@ -39,9 +39,7 @@ public:
 	bool is_00x11() const { return comb == ParentComb::P00x11; }
 	void set_00x11() { comb = ParentComb::P00x11; }
 	
-	STRVEC prog_gts() const;
 	VCFFillableRecord *copy() const;
-	std::tuple<int,int,int> count_gts() const;
 	std::string gt_from_parent(int mat_from, int pat_from) const;
 	std::string gt_from_mat(int mat_from, int c) const;
 	std::string gt_from_pat(int pat_from, int c) const;
@@ -56,9 +54,6 @@ public:
 	void set(const STRVEC& new_v, FillType new_type);
 	
 private:
-	std::vector<std::vector<double>> make_probability_table() const;
-	
-	void phase();
 	int find_geno_type(const std::string& type) const;
 	
 	std::string inverse_gt(const std::string& gt, bool inv) const;
@@ -74,8 +69,6 @@ private:
 	void swap_parents(int i, const std::string& GT);
 	
 public:
-	static VCFRecord *integrate_records(
-						const std::vector<VCFFillableRecord *>& records);
 	static std::string decide_duplicated_Genotype(
 							const std::vector<VCFFillableRecord *>& records,
 							const std::vector<std::pair<int, int>>& positions);

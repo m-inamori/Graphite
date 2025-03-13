@@ -25,14 +25,12 @@ public:
 	const std::string& pat_gt() const { return this->v[10]; }
 	int mat_int_gt() const { return this->get_int_gt(0); }
 	int pat_int_gt() const { return this->get_int_gt(1); }
-	std::vector<int> progeny_gts() const;
 	std::vector<int> get_progeny_int_gts() const;
 	bool is_mat_homo() const { return is_homo(0); }
 	bool is_pat_homo() const { return is_homo(1); }
 	bool is_mat_hetero() const { return is_hetero(0); }
 	bool is_pat_hetero() const { return is_hetero(1); }
 	std::size_t num_progenies() const { return samples.size() - 2U; }
-	std::tuple<int,int,int> count_gts() const;
 	
 	void set_mat_GT(const std::string& gt) { set_GT(0, gt); }
 	void set_pat_GT(const std::string& gt) { set_GT(1, gt); }
@@ -71,19 +69,21 @@ protected:
 	
 public:
 	VCFFamily(const std::vector<STRVEC>& h, const STRVEC& s,
-									std::vector<VCFFamilyRecord *> rs);
+								const std::vector<VCFFamilyRecord *>& rs);
 	virtual ~VCFFamily();
 	
 	///// virtual methods /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	

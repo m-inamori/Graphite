@@ -13,9 +13,9 @@ public:
 								VCFImpFamilyRecord(v, samples, i, type, c) { }
 	~VCFHeteroHeteroLiteRecord() { }
 	
-	bool is_homohomo() const { return false; }
-	bool is_imputable() const { return false; }
-	FillType get_fill_type() const { return FillType::IMPUTABLE; }
+	bool is_homohomo() const override { return false; }
+	bool is_imputable() const override { return false; }
+	FillType get_fill_type() const override { return FillType::IMPUTABLE; }
 };
 
 
@@ -27,15 +27,15 @@ class VCFHeteroHeteroLite: public VCFBase, public VCFSmallBase,
 	
 public:
 	VCFHeteroHeteroLite(const std::vector<STRVEC>& h, const STRVEC& s,
-								std::vector<VCFHeteroHeteroLiteRecord *> rs);
+						const std::vector<VCFHeteroHeteroLiteRecord *>& rs);
 	~VCFHeteroHeteroLite() { }
 	
 	///// virtual methods /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 };

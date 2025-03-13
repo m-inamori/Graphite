@@ -15,13 +15,13 @@ public:
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFRecord *>&	records;
+	const std::vector<VCFRecord *>&	ref_records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const std::vector<double>	Cp;
 	
 public:
-	OrphanImputer(const std::vector<VCFRecord *>& records,
+	OrphanImputer(const std::vector<VCFRecord *>& rs,
 					const std::vector<std::vector<int>>& ref_haps,
 					const Map& map_, double w);
 	~OrphanImputer() { }
@@ -34,8 +34,7 @@ private:
 						collect_possible_previous_hidden_states() const;
 	
 	std::size_t NH() const { return ref_haps.size(); }
-	std::size_t M() const { return records.size(); }
-	std::size_t num_progenies() const { return records[0]->num_samples() - 2; }
+	std::size_t M() const { return ref_records.size(); }
 	
 	int compute_phased_gt_by_refhaps(int hp, std::size_t i) const {
 		const int	hp1 = hp % NH();

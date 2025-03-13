@@ -36,11 +36,11 @@ public:
 	bool is_mat_hetero() const { return this->mat_int_gt() == 1; }
 	bool is_pat_hetero() const { return this->pat_int_gt() == 1; }
 	
-	bool is_homohomo() const { return false; }
-	bool is_imputable() const {
+	bool is_homohomo() const override { return false; }
+	bool is_imputable() const override {
 		return this->wrong_type == WrongType::RIGHT;
 	}
-	FillType get_fill_type() const;
+	FillType get_fill_type() const override;
 	
 	std::vector<int> genotypes_from_hetero_parent() const;
 	void set_haplo(int h);
@@ -73,19 +73,21 @@ protected:
 	
 public:
 	VCFHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
-						std::vector<VCFHeteroHomoRecord *> rs, const Map& m);
+					const std::vector<VCFHeteroHomoRecord *>& rs, const Map& m);
 	~VCFHeteroHomo();
 	
 	///// virtual methods /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	

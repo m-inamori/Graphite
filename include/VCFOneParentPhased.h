@@ -36,31 +36,35 @@ private:
 	
 public:
 	VCFOneParentPhased(const std::vector<STRVEC>& h, const STRVEC& s,
-										std::vector<VCFFamilyRecord *> rs,
-										bool is_mat_phased, const Map& m,
-										const VCFSmall *ref);
+									const std::vector<VCFFamilyRecord *>& rs,
+									bool is_mat_phased, const Map& m,
+									const VCFSmall *ref);
+	VCFOneParentPhased(const VCFOneParentPhased&) = delete;
+	VCFOneParentPhased& operator=(const VCFOneParentPhased&) = delete;
 	~VCFOneParentPhased();
 	
 	///// virtual methods for VCFSmallBase /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFFamilyBase /////
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFImputable /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
 	std::vector<Haplotype> collect_haplotypes_mat(
-									std::size_t sample_index) const;
+									std::size_t sample_index) const override;
 	std::vector<Haplotype> collect_haplotypes_pat(
-									std::size_t sample_index) const;
+									std::size_t sample_index) const override;
 	
 	///// non-virtual methods /////
 	bool is_mat_hetero() const;

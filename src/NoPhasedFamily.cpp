@@ -20,7 +20,7 @@ bool NoPhasedFamily::is_small(const vector<vector<int>>& ref_haps) {
 }
 
 void NoPhasedFamily::impute_small_in_thread(void *config) {
-	auto	*c = (ConfigThread *)config;
+	auto	*c = static_cast<const ConfigThread *>(config);
 	const auto&	vcfs = c->vcfs;
 	const size_t	n = vcfs.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {

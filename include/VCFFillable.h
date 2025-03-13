@@ -36,21 +36,23 @@ public:
 	
 public:
 	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-									std::vector<VCFFillableRecord *> rs);
+							const std::vector<VCFFillableRecord *>& rs);
 	virtual ~VCFFillable();
 	
 	///// virtual methods for VCFSmallBase /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	
@@ -64,7 +66,6 @@ public:
 	
 	void modify(int num_threads);
 	void phase_hetero_hetero();
-	VCFFillable *create_from_header() const;
 	void set_records(const std::vector<VCFFillableRecord *>& rs) {
 		records = rs;
 	}
@@ -100,9 +101,6 @@ protected:
 public:
 	static VCFSmall *merge(const std::vector<VCFFillable *>& vcfs,
 											const STRVEC& orig_samples);
-	static std::vector<VCFFillable *> fill_all(
-				std::map<Parents, std::vector<VCFHeteroHomo *>>& imputed_vcfs,
-				ImpRecords& other_records, int num_threads);
 	static VCFFillable *fill(const std::vector<VCFHeteroHomo *>& vcfs,
 							 const std::vector<VCFImpFamilyRecord *>& records,
 							 int num_threads);
@@ -121,9 +119,6 @@ protected:
 	static VCFSmall *integrate(const VCFFillable *vcf,
 					const std::vector<std::vector<VCFFillableRecord *>>& rss,
 					const STRVEC& orig_samples);
-	static std::vector<VCFFillable *> fill_parellel(std::vector<Item>& items,
-															int num_threads);
-	static void delete_items(const std::vector<Item>& items);
 	static void phase_in_thread(void *config);
 	static void fill_in_thread(void *config);
 };

@@ -79,24 +79,6 @@ string VCFImpHeteroHomo::impute_sample_seq(size_t j,
 	return painted_seq;
 }
 
-void VCFImpHeteroHomo::determine_gts_from_unimputed_parent(size_t j,
-											const vector<size_t>& hap) {
-	const size_t	j_hetero = is_mat_hetero ? 0 : 1;
-	const size_t	j_homo = is_mat_hetero ? 1 : 0;
-	for(size_t i = 0; i < size(); ++i) {
-		auto&	record = records[i];
-		const int	h = hap[i];
-		const char	gt_hetero = record->get_gt(j_hetero).c_str()[h*2];
-		const char	gt_homo = record->get_gt(j_homo).c_str()[0];
-		stringstream	ss;
-		if(is_mat_hetero)
-			ss << gt_hetero << '|' << gt_homo;
-		else
-			ss << gt_homo << '|' << gt_hetero;
-		record->set_GT(j, ss.str());
-	}
-}
-
 void VCFImpHeteroHomo::impute() {
 	if(records.empty())
 		return;

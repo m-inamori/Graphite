@@ -1,6 +1,7 @@
 #ifndef __VCFONEPARENTIMPUTED
 #define __VCFONEPARENTIMPUTED
 
+#include "VCFOneParentImputedBase.h"
 #include "VCFFamily.h"
 #include "Map.h"
 
@@ -12,14 +13,13 @@ class VCFOriginal;
 
 //////////////////// VCFOneParentImputed ////////////////////
 
-class VCFOneParentImputed : public VCFBase, public VCFSmallBase,
-							public VCFFamilyBase, public VCFMeasurable {
+class VCFOneParentImputed : public VCFOneParentImputedBase,
+										public VCFMeasurable {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
 	
 private:
-	const std::vector<VCFFamilyRecord *>	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const bool is_mat_imputed;
 	const double	E[4][4];		// 排出確率
@@ -31,23 +31,9 @@ public:
 						bool is_mat_imputed, const Map& map_, double w);
 	~VCFOneParentImputed();
 	
-	///// virtual methods for VCFSmallBase /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
-		return records[i];
-	}
-	
-	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
-		return records[i];
-	}
-	
-	///// non-virtual methods /////
-	void impute();
+	///// virtual methods /////
+	void impute() override;
+	std::size_t amount() const override;
 	
 private:
 	int gt_by_haplotypes(int hc1, int hc2, int phased_parent_gt,

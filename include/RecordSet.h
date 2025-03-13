@@ -124,7 +124,8 @@ public:
 								   	RecordSet(r, pm, nm, pp, np) { }
 	~RecordSetSmall() { }
 	
-	std::vector<std::pair<int, int>> possible_phasings() const;
-	double compute_phasing_likelihood(int mat_phasing, int pat_phasing) const;
+	std::vector<std::pair<int, int>> possible_phasings() const override;
+	double compute_phasing_likelihood(int mat_phasing,
+									  int pat_phasing) const override;
 };
 #endif

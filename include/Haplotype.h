@@ -19,8 +19,8 @@ public:
 	
 public:
 	static Haplotype default_value() {
-		const std::vector<int>	hap;
-		return Haplotype(hap, 0, 2);
+		const std::vector<int>	hap1;
+		return Haplotype(hap1, 0, 2);
 	}
 	
 	static int score(const Pair& hap, const std::vector<int>& int_gts);

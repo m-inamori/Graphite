@@ -9,24 +9,8 @@ using namespace std;
 
 //////////////////// VCFFillableRecord ////////////////////
 
-STRVEC VCFFillableRecord::prog_gts() const {
-	STRVEC	vec(v.size() - 11);
-	std::copy(v.begin() + 11, v.end(), vec.begin());
-	return vec;
-}
-
 VCFFillableRecord *VCFFillableRecord::copy() const {
 	return new VCFFillableRecord(v, samples, index, type, comb);
-}
-
-tuple<int,int,int> VCFFillableRecord::count_gts() const {
-	const auto	gts = get_progeny_int_gts();
-	int	counter[3] = { 0, 0, 0 };
-	for(auto p = gts.begin() + 2; p != gts.end(); ++p) {
-		if(*p != -1)
-			counter[*p] += 1;
-	}
-	return make_tuple(counter[0], counter[1], counter[2]);
 }
 
 string VCFFillableRecord::gt_from_parent(int mat_from, int pat_from) const {
@@ -36,7 +20,6 @@ string VCFFillableRecord::gt_from_parent(int mat_from, int pat_from) const {
 }
 
 string VCFFillableRecord::gt_from_mat(int mat_from, int c) const {
-	const string	gt = this->get_GT(c - 9);
 	const int		int_gt = this->get_int_gt(c - 9);
 	const char		mat_gt = this->v[9].c_str()[mat_from*2-2];
 	const string	pat_GT = this->get_GT(1);
@@ -68,7 +51,6 @@ string VCFFillableRecord::gt_from_mat(int mat_from, int c) const {
 }
 
 string VCFFillableRecord::gt_from_pat(int pat_from, int c) const {
-	const string	gt = this->get_GT(c - 9);
 	const int		int_gt = this->get_int_gt(c - 9);
 	const char		pat_gt = this->v[10].c_str()[pat_from*2-2];
 	const string	mat_GT = this->get_GT(0);
@@ -97,40 +79,6 @@ string VCFFillableRecord::gt_from_pat(int pat_from, int c) const {
 	else {
 		return ".|.";
 	}
-}
-
-vector<vector<double>> VCFFillableRecord::make_probability_table() const {
-	// Probability for all parent Genotype combinations
-	// (0/0, 0/0), (0/0, 0/1), (0/0, 1/1), (0/1, 0/1), (0/1, 1/1), (1/1, 1/1)
-	const vector<double>	ps = {1.0, 0.5, 0.0};
-	vector<vector<double>>	pss_;
-	for(int i = 0; i < 3; ++i) {
-		const double	mat = ps[i];
-		for(int j = i; j < 3; ++j) {
-			const double	pat = ps[j];
-			const vector<double>	v = {mat*pat, mat+pat-2*mat*pat,
-													(1.0-mat)*(1.0-pat)};
-			pss_.push_back(v);
-		}
-	}
-	
-	vector<vector<double>>	pss(6, vector<double>(3));
-	const double	p_miss = 0.01;
-	for(int i = 0; i < 6; ++i) {
-		for(int j = 0; j < 3; ++j)
-			pss[i][j] = (pss_[i][j] + p_miss) / (1.0 + 3 * p_miss);
-	}
-	return pss;
-}
-
-void VCFFillableRecord::phase() {
-	// premise that both parents are homozygous
-	const string	gt_mat = this->v[9].substr(0, 1);
-	const string	gt_pat = this->v[10].substr(0, 1);
-	this->set_mat_GT(gt_mat + "|" + gt_mat);
-	this->set_pat_GT(gt_pat + "|" + gt_pat);
-	for(size_t i = 2; i < this->num_samples(); ++i)
-		this->set_GT(i, gt_mat + "|" + gt_pat);
 }
 
 int VCFFillableRecord::mat_from(int c) const {
@@ -265,20 +213,6 @@ void VCFFillableRecord::set(const STRVEC& new_v, FillType new_type) {
 	VCFFamilyRecord::set(new_v);
 }
 
-VCFRecord *VCFFillableRecord::integrate_records(
-								const vector<VCFFillableRecord *>& records) {
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		if((*p)->is_unable())
-			return NULL;
-	}
-	
-	STRVEC	v(records.front()->v.begin(), records.front()->v.begin() + 9);
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		v.insert(v.end(), (*p)->v.begin() + 9, (*p)->v.end());
-	}
-	return new VCFRecord(v, records.front()->get_samples());
-}
-
 int VCFFillableRecord::hash(int d) const {
 	int	hash_ = 0;
 	const string&	str_pos = this->v[1];
@@ -324,8 +258,8 @@ void VCFFillableRecord::swap_parents(int i, const string& GT) {
 		
 		// swap genotyeps of progenies
 		const string	prog_GT = is_mat_00 ? "0|1" : "1|0";
-		for(size_t i = 2; i < this->samples.size(); ++i)
-			this->set_GT(i, prog_GT);
+		for(size_t j = 2; j < this->samples.size(); ++j)
+			this->set_GT(j, prog_GT);
 	}
 }
 

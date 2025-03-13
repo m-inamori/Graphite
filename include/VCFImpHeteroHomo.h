@@ -11,7 +11,7 @@ class Map;
 class VCFImpHeteroHomo : public VCFHeteroHomoOnePhased {
 public:
 	VCFImpHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
-						std::vector<VCFFillableRecord *> rs,
+						const std::vector<VCFFillableRecord *>& rs,
 						bool is_mat_hetero, const Map& m) :
 				VCFHeteroHomoOnePhased(h, s, rs, is_mat_hetero, m) { }
 	~VCFImpHeteroHomo() { }
@@ -27,10 +27,8 @@ public:
 	std::string make_seq(std::size_t i) const;
 	std::string impute_sample_seq(std::size_t j, const std::vector<double>& cMs,
 															double min_c) const;
-	void determine_gts_from_unimputed_parent(std::size_t j,
-										const std::vector<std::size_t>& hap);
 	
 	///// virtual methods /////
-	void impute();
+	void impute() override;
 };
 #endif

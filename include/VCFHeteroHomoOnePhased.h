@@ -24,8 +24,8 @@ protected:
 	
 public:
 	VCFHeteroHomoOnePhased(const std::vector<STRVEC>& h, const STRVEC& s,
-										std::vector<VCFFillableRecord *> rs,
-										bool mat_hetero, const Map& m) :
+									const std::vector<VCFFillableRecord *>& rs,
+									bool mat_hetero, const Map& m) :
 												VCFBase(h, s),
 												VCFSmallBase(),
 												VCFFamilyBase(),
@@ -35,17 +35,19 @@ public:
 	virtual ~VCFHeteroHomoOnePhased() { }
 	
 	///// virtual methods for VCFSmallBase /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	

@@ -23,7 +23,7 @@ public:
 	
 public:
 	VCFSmallFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-								std::vector<VCFFillableRecord *> rs) :
+							const std::vector<VCFFillableRecord *>& rs) :
 													VCFFillable(h, s, rs) { }
 	~VCFSmallFillable() { }
 	

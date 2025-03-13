@@ -53,7 +53,6 @@ private:
 													ParentComb c, double p);
 	
 public:
-	static std::vector<int> int_gt_pairs(int p);
 	static bool is_same_parent_gts(ParentComb c) {
 		return c == ParentComb::P00x00 || c == ParentComb::P01x01 ||
 											c == ParentComb::P11x11;

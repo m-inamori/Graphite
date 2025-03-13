@@ -13,9 +13,9 @@ public:
 								VCFImpFamilyRecord(v, samples, i, type, c) { }
 	~VCFHomoHomoRecord() { }
 	
-	bool is_homohomo() const { return true; }
-	bool is_imputable() const;
-	FillType get_fill_type() const { 
+	bool is_homohomo() const override { return true; }
+	bool is_imputable() const override;
+	FillType get_fill_type() const override { 
 		return is_imputable() ? FillType::IMPUTABLE : FillType::FILLED;
 	}
 	
@@ -32,20 +32,19 @@ class VCFHomoHomo: public VCFBase, public VCFFamilyBase {
 	
 public:
 	VCFHomoHomo(const std::vector<STRVEC>& h, const STRVEC& s,
-								std::vector<VCFHomoHomoRecord *> rs);
+							const std::vector<VCFHomoHomoRecord *>& rs);
 	
 	///// virtual methods for VCFSmallBase /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
-		return records[i];
-	}
+	std::size_t size() const override { return records.size(); }
 	
 	///// virtual methods for VCFImputable /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	

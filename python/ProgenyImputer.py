@@ -94,7 +94,7 @@ class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 			mat_gt = Genotype.phased_gt_to_int(record.v[9])
 			pat_gt = Genotype.phased_gt_to_int(record.v[10])
 			gtc_int = self.gt_by_haplotypes(hs[i], mat_gt, pat_gt)
-			record.v[j+11] = Genotype.int_to_phased_gt(gtc_int)
+			record.set_GT(j+2, Genotype.int_to_phased_gt(gtc_int))
 	
 	# j: index of progeny
 	def impute(self, j: int) -> None:

@@ -37,16 +37,6 @@ std::array<double, 2> BaumWelch::initialize_pi() {
 	return probs;
 }
 
-BaumWelch::TransitionMatrix BaumWelch::initialize_transition_matrix() {
-	TransitionMatrix	T;
-	for(size_t h1 = 0; h1 < 2; ++h1) {
-		for(size_t h2 = 0; h2 < 2; ++h2) {
-			T[h1*2+h2] = std::log(h1 == h2 ? 0.9 : 0.1);
-		}
-	}
-	return T;
-}
-
 BaumWelch::EmissionMatrix BaumWelch::initialize_emission_matrix() {
 	// probability of hidden state -> state
 	EmissionMatrix	E;

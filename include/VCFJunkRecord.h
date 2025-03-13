@@ -13,8 +13,8 @@ public:
 					VCFImpFamilyRecord(v, samples, i, type, ParentComb::PNA) { }
 	~VCFJunkRecord() { }
 	
-	bool is_homohomo() const { return false; }
-	bool is_imputable() const { return false; }
-	FillType get_fill_type() const { return FillType::UNABLE; }
+	bool is_homohomo() const override { return false; }
+	bool is_imputable() const override { return false; }
+	FillType get_fill_type() const override { return FillType::UNABLE; }
 };
 #endif

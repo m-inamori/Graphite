@@ -216,17 +216,6 @@ string Imputer::paint(const string& seq, const vector<double>& cMs,
 
 //////////////////// impute ////////////////////
 
-vector<char> Imputer::create_states(const string& seq) {
-	if(seq.find('N') != string::npos) {
-		vector<char>	states = { '0', '1', 'N' };
-		return states;
-	}
-	else {
-		vector<char>	states = { '0', '1' };
-		return states;
-	}
-}
-
 BaumWelch::TransitionMatrix Imputer::compute_T(double prob) {
 	BaumWelch::TransitionMatrix	T;
 	for(size_t h0 = 0; h0 < 2; ++h0) {

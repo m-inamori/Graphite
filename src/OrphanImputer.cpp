@@ -7,7 +7,7 @@ using namespace std;
 OrphanImputer::OrphanImputer(const vector<VCFRecord *>& rs,
 							 const vector<vector<int>>& ref_hs,
 							 const Map& map_, double w) :
-				VCFHMM(rs, map_, w), records(rs), ref_haps(ref_hs),
+				VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
 				prev_h_table(collect_possible_previous_hidden_states()),
 				Cp(calc_Cp(rs)) { }
 
@@ -30,7 +30,7 @@ double OrphanImputer::emission_probability(size_t i, int h,
 vector<OrphanImputer::DP> OrphanImputer::initialize_dp(size_t io) const {
 	const size_t	L = NH() * NH();
 	vector<DP>	dp(M(), DP(L, make_pair(MIN_PROB, 0)));
-	const auto	*record = records[0];
+	const auto	*record = ref_records[0];
 	const int	orphan_gt = Genotype::gt_to_int(record->get_gt(io));
 	for(int h = 0; h < (int)L; ++h) {	// hidden state
 		const double	E_all = emission_probability(0, h, orphan_gt);
@@ -65,7 +65,7 @@ OrphanImputer::collect_possible_previous_hidden_states() const {
 
 void OrphanImputer::update_dp(size_t i, size_t io, vector<DP>& dp) const {
 	const size_t	L = NH() * NH();
-	const VCFRecord	*record = records[i];
+	const VCFRecord	*record = ref_records[i];
 	
 	// observed
 	const int	orphan_gt = Genotype::gt_to_int(record->get_gt(io));
@@ -86,7 +86,7 @@ void OrphanImputer::update_dp(size_t i, size_t io, vector<DP>& dp) const {
 void OrphanImputer::update_genotypes(const vector<int>& hs, size_t io) {
 	for(size_t i = 0; i < this->M(); ++i) {
 		const int	phased_gt = compute_phased_gt_by_refhaps(hs[i], i);
-		records[i]->set_GT(io, Genotype::int_to_phased_gt(phased_gt));
+		ref_records[i]->set_GT(io, Genotype::int_to_phased_gt(phased_gt));
 	}
 }
 

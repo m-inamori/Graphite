@@ -19,7 +19,7 @@ class GraphBase {
 		std::vector<Node>	neighs;
 		std::vector<Node>::const_iterator	q;
 		
-		EdgeGenerator(const GraphBase& g);
+		explicit EdgeGenerator(const GraphBase& g);
 		
 		bool ends() const;
 		bool is_effective() const;

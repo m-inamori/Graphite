@@ -35,12 +35,12 @@ class FileReader : public FileReaderBase {
 	std::vector<std::string>::const_iterator	iter;
 	
 public:
-	FileReader(const std::string& path_);
+	explicit FileReader(const std::string& path_);
 	~FileReader() { ifs.close(); }
 	
-	bool is_opened() const { return (bool)ifs; }
-	bool getline(std::string& line);
-	const std::string& get_path() const { return path; }
+	bool is_opened() const override { return (bool)ifs; }
+	bool getline(std::string& line) override;
+	const std::string& get_path() const override { return path; }
 };
 
 
@@ -54,12 +54,12 @@ class FileReaderGZ : public FileReaderBase {
 	std::vector<std::string>::const_iterator	iter;
 	
 public:
-	FileReaderGZ(const std::string& path_);
+	explicit FileReaderGZ(const std::string& path_);
 	~FileReaderGZ();
 	
-	bool is_opened() const { return fz != NULL; }
-	bool getline(std::string& line);
-	const std::string& get_path() const { return path; }
+	bool is_opened() const override { return fz != NULL; }
+	bool getline(std::string& line) override;
+	const std::string& get_path() const override { return path; }
 	
 private:
 	bool getline_core(std::string& line);

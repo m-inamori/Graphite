@@ -33,7 +33,6 @@ public:
 private:
 	std::size_t state(std::size_t t) const { return to_int(seq.c_str()[t]); }
 	std::array<double, 2> initialize_pi();
-	TransitionMatrix initialize_transition_matrix();
 	EmissionMatrix initialize_emission_matrix();
 	bool is_valid_Emission_Matrix(const EmissionMatrix& E) const;
 	Table compute_alpha(const EmissionMatrix& A) const;

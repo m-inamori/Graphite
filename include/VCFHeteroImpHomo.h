@@ -60,7 +60,7 @@ class VCFHeteroImpHomo : public VCFHeteroHomoOnePhased {
 	
 public:
 	VCFHeteroImpHomo(const std::vector<STRVEC>& h, const STRVEC& s,
-						std::vector<VCFFillableRecord *> rs,
+						const std::vector<VCFFillableRecord *>& rs,
 						bool is_mat_hetero, const Map& m) :
 				VCFHeteroHomoOnePhased(h, s, rs, is_mat_hetero, m) { }
 	~VCFHeteroImpHomo() { }
@@ -85,6 +85,6 @@ public:
 	DP update_dp(const DP& dp, const VCFRecord *record) const;
 	void trace_back(State state, const std::vector<DP>& dps);
 	
-	void impute();
+	void impute() override;
 };
 #endif

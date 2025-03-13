@@ -26,9 +26,9 @@ private:
     std::string	message;
 	
 public:
-    FileNotFoundException(const std::string& path);
+    explicit FileNotFoundException(const std::string& path);
     
-    ErrorCode::Type get_error_code() const {
+    ErrorCode::Type get_error_code() const override {
 		return ErrorCode::FILE_NOT_FOUND;
 	}
     const char *what() const noexcept override;

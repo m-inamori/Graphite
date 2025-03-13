@@ -6,7 +6,7 @@ using namespace std;
 
 ProgenyImputer::ProgenyImputer(const vector<VCFFamilyRecord *>& rs,
 												const Map& map_, double w) :
-				VCFHMM(rs, map_, w), records(rs), Cc(calc_Cc(rs)) { }
+				VCFHMM(rs, map_, w), ref_records(rs), Cc(calc_Cc(rs)) { }
 
 vector<double> ProgenyImputer::calc_Cc(
 							const vector<VCFFamilyRecord *>& rs) const {
@@ -20,7 +20,7 @@ vector<double> ProgenyImputer::calc_Cc(
 
 double ProgenyImputer::emission_probability(size_t i, size_t j, int h,
 												int mat_gt, int pat_gt) const {
-	const auto	*record = records[i];
+	const auto	*record = ref_records[i];
 	const int	oc = Genotype::gt_to_int(record->get_gt(j+2));
 	const int	phased_gt = gt_by_haplotypes(h, mat_gt, pat_gt);
 	return E[phased_gt][oc];
@@ -28,7 +28,7 @@ double ProgenyImputer::emission_probability(size_t i, size_t j, int h,
 
 vector<ProgenyImputer::DP> ProgenyImputer::initialize_dp(size_t j) const {
 	vector<DP>	dp(M(), DP(4, pair<double, int>(MIN_PROB, 0)));
-	const VCFFamilyRecord	*record = records[0];
+	const VCFFamilyRecord	*record = ref_records[0];
 	const int	mat_gt = Genotype::phased_gt_to_int(record->get_gt(0));
 	const int	pat_gt = Genotype::phased_gt_to_int(record->get_gt(1));
 	for(int h = 0; h < 4; ++h) {	// hidden state
@@ -39,7 +39,7 @@ vector<ProgenyImputer::DP> ProgenyImputer::initialize_dp(size_t j) const {
 }
 
 void ProgenyImputer::update_dp(size_t i, size_t j, vector<DP>& dp) const {
-	const VCFFamilyRecord	*record = records[i];
+	const VCFFamilyRecord	*record = ref_records[i];
 	
 	// observed parent
 	const int	mat_gt = Genotype::phased_gt_to_int(record->get_gt(0));
@@ -57,11 +57,11 @@ void ProgenyImputer::update_dp(size_t i, size_t j, vector<DP>& dp) const {
 
 void ProgenyImputer::update_genotypes(size_t j, const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
-		const VCFFamilyRecord	*record = records[i];
+		const VCFFamilyRecord	*record = ref_records[i];
 		const int	mat_gt = Genotype::phased_gt_to_int(record->get_gt(0));
 		const int	pat_gt = Genotype::phased_gt_to_int(record->get_gt(1));
 		const int	phased_gt = gt_by_haplotypes(hs[i], mat_gt, pat_gt);
-		records[i]->set_GT(j+2, Genotype::int_to_phased_gt(phased_gt));
+		ref_records[i]->set_GT(j+2, Genotype::int_to_phased_gt(phased_gt));
 	}
 }
 

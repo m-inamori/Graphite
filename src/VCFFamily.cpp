@@ -11,13 +11,6 @@ VCFFamilyRecord *VCFFamilyRecord::copy() const {
 	return new VCFFamilyRecord(v, samples);
 }
 
-vector<int> VCFFamilyRecord::progeny_gts() const {
-	vector<int>	w(this->num_progenies());
-	for(size_t i = 2U; i < samples.size(); ++i)
-		w[i-2] = this->get_int_gt(i);
-	return w;
-}
-
 vector<int> VCFFamilyRecord::get_progeny_int_gts() const {
 	vector<int>	w(this->num_progenies());
 	for(size_t i = 2U; i < this->samples.size(); ++i) {
@@ -25,16 +18,6 @@ vector<int> VCFFamilyRecord::get_progeny_int_gts() const {
 		w[i-2] = get_int_gt(i);
 	}
 	return w;
-}
-
-tuple<int,int,int> VCFFamilyRecord::count_gts() const {
-	int	counter[] = { 0, 0, 0 };
-	const auto	gts = progeny_gts();
-	for(auto p = gts.begin(); p != gts.end(); ++p) {
-		if(0 <= *p && *p <= 2)
-			counter[*p] += 1;
-	}
-	return make_tuple(counter[0], counter[1], counter[2]);
 }
 
 void VCFFamilyRecord::set(const STRVEC& new_v) {
@@ -55,7 +38,7 @@ void VCFFamilyRecord::impute_homohomo() {
 //////////////////// VCFFamily ////////////////////
 
 VCFFamily::VCFFamily(const vector<STRVEC>& h, const STRVEC& s,
-										vector<VCFFamilyRecord *> rs) :
+								const vector<VCFFamilyRecord *>& rs) :
 				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
 
 VCFFamily::~VCFFamily() {

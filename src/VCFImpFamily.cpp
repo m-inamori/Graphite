@@ -15,7 +15,7 @@ void VCFImpFamilyRecord::set_00x11_parents(int i, int gt) {
 	this->set_GT(j, gt2);
 	
 	// If the parent's genotypes are swapped, change the progenies' genotypes.
-	const string	progeny_GT = (i == 0) ^ (gt == 2) ? "0|1" : "1|0";
+	const string	progeny_GT = ((i == 0) ^ (gt == 2)) ? "0|1" : "1|0";
 	for(int k = 2; k < (int)num_samples(); ++k)
 		this->set_GT(k, progeny_GT);
 }

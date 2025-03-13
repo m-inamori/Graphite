@@ -23,8 +23,8 @@ private:
 	T		last;
 	
 public:
-	List<T>(T val) : first(NULL), last(val) { }
-	List<T>(const ptrList f, T& val) : first(f), last(val) { }
+	explicit List<T>(T val) : first(NULL), last(val) { }
+	List<T>(const ptrList f, const T& val) : first(f), last(val) { }
 	~List<T>() { }
 	
 	const ptrList prev() const { return first; }
@@ -84,7 +84,7 @@ public:
 			int nc, double cl, double pl) :
 				regions(rs), color_list(cs), size(s), num_continuous(nc),
 				continuous_length(cl), painted_len(pl) { }
-	State(const std::vector<const Region *>& rs);
+	explicit State(const std::vector<const Region *>& rs);
 								
 	~State() { }
 	
@@ -121,7 +121,6 @@ std::string paint(const std::string& seq, const std::vector<double>& cMs,
 
 //////////////////// impute ////////////////////
 
-std::vector<char> create_states(const std::string& seq);
 BaumWelch::TransitionMatrix compute_T(double p);
 std::string impute(const std::string& seq, const std::vector<double>& cMs);
 bool is_all_same_without_N(const std::string& seq);

@@ -35,7 +35,7 @@ private:
 	const std::vector<const Record *>	records;
 	
 public:
-	Map(const std::vector<const Record *>& rs) : records(rs) { }
+	explicit Map(const std::vector<const Record *>& rs) : records(rs) { }
 	~Map();
 	
 	bool is_empty() const { return records.empty(); }
@@ -64,7 +64,7 @@ class VCFMeasurable {
 	const Map&	gmap;
 	
 public:
-	VCFMeasurable(const Map& m) : gmap(m) { }
+	explicit VCFMeasurable(const Map& m) : gmap(m) { }
 	~VCFMeasurable() { }
 	
 	const Map& get_map() const { return gmap; }
@@ -77,16 +77,16 @@ public:
 
 class MapFormatException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    MapFormatException(const std::vector<std::string>& lines);
-    
-    ErrorCode::Type get_error_code() const {
+	explicit MapFormatException(const std::vector<std::string>& lines);
+	
+	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::MAP_INVALID_FORMAT;
 	}
 	
-    const char *what() const noexcept override {
+	const char *what() const noexcept override {
 		return message.c_str();
 	}
 };
@@ -96,16 +96,16 @@ public:
 
 class TwiceChrException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    TwiceChrException(const std::string& chr);
-    
-    ErrorCode::Type get_error_code() const {
+	explicit TwiceChrException(const std::string& chr);
+	
+	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::MAP_INVALID_FORMAT;
 	}
 	
-    const char *what() const noexcept override {
+	const char *what() const noexcept override {
 		return message.c_str();
 	}
 };
@@ -115,16 +115,16 @@ public:
 
 class OutOfOrderCMException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    OutOfOrderCMException(const Map::Record *r1, const Map::Record *r2);
-    
-    ErrorCode::Type get_error_code() const {
+	OutOfOrderCMException(const Map::Record *r1, const Map::Record *r2);
+	
+	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::MAP_INVALID_FORMAT;
 	}
 	
-    const char *what() const noexcept override {
+	const char *what() const noexcept override {
 		return message.c_str();
 	}
 };
@@ -134,16 +134,16 @@ public:
 
 class OutOfOrderMbpException : public ExceptionWithCode {
 private:
-    std::string	message;
+	std::string	message;
 	
 public:
-    OutOfOrderMbpException(const Map::Record *r1, const Map::Record *r2);
-    
-    ErrorCode::Type get_error_code() const {
+	OutOfOrderMbpException(const Map::Record *r1, const Map::Record *r2);
+	
+	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::MAP_INVALID_FORMAT;
 	}
 	
-    const char *what() const noexcept override {
+	const char *what() const noexcept override {
 		return message.c_str();
 	}
 };

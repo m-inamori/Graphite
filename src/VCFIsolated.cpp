@@ -9,7 +9,7 @@ using namespace std;
 //////////////////// VCFIsolated ////////////////////
 
 VCFIsolated::VCFIsolated(const vector<STRVEC>& h, const STRVEC& s,
-							vector<VCFRecord *> rs, size_t nis,
+							vector<VCFRecord *>& rs, size_t nis,
 							const Map& m, bool mg) :
 									VCFBase(h, s), VCFImputable(m),
 									records(rs), num_imputed_samples(nis),

@@ -46,21 +46,23 @@ protected:
 	
 public:
 	VCFHeteroHomoPP(const std::vector<STRVEC>& h, const STRVEC& s,
-						std::vector<VCFFillableRecord *> rs, const Map& m);
+					const std::vector<VCFFillableRecord *>& rs, const Map& m);
 	~VCFHeteroHomoPP();
 	
 	///// virtual methods for VCFSmallBase /////
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const {
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	VCFFamilyRecord *get_family_record(std::size_t i) const {
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
 	
@@ -83,10 +85,6 @@ private:
 	void update(std::size_t i, const STRVEC& seqs);
 	
 	void impute_core(const RecordSet *record_set);
-	VCFFillableRecord *find_prev_record(
-							const Groups *groups, int i, FillType g);
-	VCFFillableRecord *find_next_record(
-							const Groups *groups, int i, FillType g);
 	
 public:
 	static std::map<FillType, std::vector<VCFFillableRecord *>>
@@ -95,13 +93,6 @@ public:
 								  const VCFHeteroHomoPP *pat_vcf,
 				 const std::vector<VCFFillableRecord *>& homohomo_records,
 				 const std::vector<VCFFillableRecord *>& heterohetero_records);
-	static VCFFillable *impute_by_parents(const VCFSmallBase *orig_vcf,
-										const VCFSmallBase *imputed_vcf,
-										const STRVEC& samples, const Map& gmap);
-	static std::vector<VCFFillable *> impute_vcfs(
-						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
-						const std::vector<const KnownFamily *>& families,
-						const Map& geno_map, int num_threads);
 	
 	static VCFFillableRecord *merge_record(const VCFRecord *record1,
 											const VCFRecord *record2,
@@ -117,6 +108,5 @@ public:
 private:
 	static std::pair<ParentComb, FillType> classify_record(
 												VCFFamilyRecord *record);
-	static void impute_in_thread(void *config);
 };
 #endif

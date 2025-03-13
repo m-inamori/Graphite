@@ -19,7 +19,7 @@ bool Orphan::is_small(const vector<vector<int>>& ref_haps) {
 }
 
 void Orphan::impute_small_in_thread(void *config) {
-	auto	*c = (ConfigThread *)config;
+	auto	*c = static_cast<const ConfigThread *>(config);
 	auto	*vcf = c->vcf;
 	const size_t	n = vcf->num_samples();
 	for(size_t i = c->first; i < n; i += c->num_threads) {

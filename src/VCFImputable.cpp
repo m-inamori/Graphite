@@ -56,7 +56,6 @@ void VCFImputable::set_haplotype(HaplotypePair hap, size_t sample_index,
 													bool modify_genotypes) {
 	const Haplotype&	hap1 = hap.first;
 	const Haplotype&	hap2 = hap.second;
-	vector<string>	gts;
 	for(size_t i = 0; i < hap1.hap.size(); ++i) {
 		const char	gt1 = '0' + hap1.hap[i];
 		const char	gt2 = '0' + hap2.hap[i];

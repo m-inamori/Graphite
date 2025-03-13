@@ -1,4 +1,3 @@
-#include <cmath>
 #include "../include/VCFBothParentImputed.h"
 #include "../include/ParentImputer.h"
 #include "../include/ProgenyImputer.h"
@@ -12,7 +11,7 @@ VCFBothParentImputed::VCFBothParentImputed(
 							const std::vector<VCFFamilyRecord *>& rs,
 							const Map& map_, double w) :
 				VCFBase(header, s), VCFSmallBase(), records(rs),
-				prog_imputer(new ProgenyImputer(rs, map_, w)) { }
+				prog_imputer(new ProgenyImputer(records, map_, w)) { }
 
 VCFBothParentImputed::~VCFBothParentImputed() {
 	Common::delete_all(records);

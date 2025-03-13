@@ -52,7 +52,7 @@ VCFHomoHomoRecord *VCFHomoHomoRecord::impute() const {
 //////////////////// VCFHomoHomo ////////////////////
 
 VCFHomoHomo::VCFHomoHomo(const vector<STRVEC>& h, const STRVEC& s,
-									vector<VCFHomoHomoRecord *> rs) :
+								const vector<VCFHomoHomoRecord *>& rs) :
 							VCFBase(h, s), VCFFamilyBase(), records(rs) { }
 
 vector<VCFHomoHomo *> VCFHomoHomo::impute() const {

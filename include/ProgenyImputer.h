@@ -1,6 +1,7 @@
 #ifndef __PROGENYIMPUTER
 #define __PROGENYIMPUTER
 
+#include <cmath>
 #include "VCFFamily.h"
 #include "VCFHMM.h"
 #include "Map.h"
@@ -15,11 +16,11 @@ public:
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFFamilyRecord *>&	records;
+	const std::vector<VCFFamilyRecord *>&	ref_records;
 	const std::vector<double>	Cc;
 	
 public:
-	ProgenyImputer(const std::vector<VCFFamilyRecord *>& records,
+	ProgenyImputer(const std::vector<VCFFamilyRecord *>& rs,
 											const Map& map_, double w);
 	~ProgenyImputer() { }
 	
@@ -29,8 +30,7 @@ private:
 	std::vector<double> calc_Cc(
 						const std::vector<VCFFamilyRecord *>& rs) const;
 	
-	std::size_t M() const { return records.size(); }
-	std::size_t num_progenies() const { return records[0]->num_samples() - 2; }
+	std::size_t M() const { return ref_records.size(); }
 	
 	int gt_by_haplotypes(int hc, int mat_gt, int pat_gt) const {
 		const int	hc1 = hc & 1;

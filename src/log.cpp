@@ -8,6 +8,7 @@ using namespace std;
 
 //////////////////// Log ////////////////////
 
+// Using log for simplicit
 double Log::add(double log_a, double log_b) {
 	// e.g. log_a = log2 log_b = log3
 	// log(2 + 3) = log3 + log(2/3 + 1) = log3 + log(exp(log2-log3) + 1)
@@ -21,7 +22,7 @@ double Log::sub(double log_a, double log_b) {
 	// e.g. log_a = log3 log_b = log2
 	// log(3 - 2) = log3 + log(1 - 2/3) = log3 + log(1 - exp(log2-log3))
 	assert(log_a >= log_b);
-	if(log_a == log_b or exp(log_b - log_a) == 1.0)
+	if(log_a == log_b || exp(log_b - log_a) == 1.0)
 		return Log::LOGZERO;
 	
 	return log_a + log(1.0 - exp(log_b - log_a));

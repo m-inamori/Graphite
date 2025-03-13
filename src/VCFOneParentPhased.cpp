@@ -17,7 +17,8 @@ using namespace std;
 //////////////////// VCFOneParentPhased ////////////////////
 
 VCFOneParentPhased::VCFOneParentPhased(const vector<STRVEC>& h, const STRVEC& s,
-									   vector<VCFFamilyRecord *> rs, bool mat_p,
+									   const vector<VCFFamilyRecord *>& rs,
+									   bool mat_p,
 									   const Map& m, const VCFSmall *ref) :
 						VCFBase(h, s), VCFFamilyBase(), VCFImputable(m),
 						records(rs), is_mat_phased(mat_p), ref_vcf(ref) { }

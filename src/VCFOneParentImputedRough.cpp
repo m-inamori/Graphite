@@ -12,12 +12,13 @@ VCFOneParentImputedRough::VCFOneParentImputedRough(
 							const std::vector<VCFFamilyRecord *>& rs,
 							const std::vector<std::vector<int>>& ref_hs,
 							bool is_mat, const Map& map_, double w) :
-				VCFBase(header, s), VCFSmallBase(), records(rs),
-				parent_imputer(new ParentImputer(rs, !is_mat, ref_hs, map_, w)),
-				prog_imputer(new ProgenyImputer(rs, map_, w)) { }
+				VCFOneParentImputedBase(header, s, rs), ref_records(rs),
+				parent_imputer(new ParentImputer(
+										ref_records, !is_mat, ref_hs, map_, w)),
+				prog_imputer(new ProgenyImputer(ref_records, map_, w)) { }
 
 VCFOneParentImputedRough::~VCFOneParentImputedRough() {
-	Common::delete_all(records);
+	Common::delete_all(ref_records);
 	delete parent_imputer;
 	delete prog_imputer;
 }
@@ -27,4 +28,12 @@ void VCFOneParentImputedRough::impute() {
 	for(size_t ic = 0; ic < num_samples() - 2; ++ic) {
 		prog_imputer->impute(ic);
 	}
+}
+
+size_t VCFOneParentImputedRough::amount() const {
+	const size_t	N = num_progenies();
+	const size_t	M = ref_records.size();
+	const size_t	NH = parent_imputer->num_ref_haps();
+	const size_t	R = (NH*NH << (N*2)) * (2*NH + 2*N - 1);
+	return R * M;
 }

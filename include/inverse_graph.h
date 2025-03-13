@@ -25,8 +25,8 @@ public:
 	InverseGraph *copy() const;
 	
 	///// virtual methods for GraphBase /////
-	std::vector<Node> collect_nodes() const;
-	std::vector<Node> neighbors(Node v0) const;
+	std::vector<Node> collect_nodes() const override;
+	std::vector<Node> neighbors(Node v0) const override;
 	
 	///// non-virtual methods /////
 	std::vector<bool> optimize_inversions() const;
@@ -73,8 +73,8 @@ public:
 	
 public:
 	///// virtual methods for GraphBase /////
-	std::vector<Node> collect_nodes() const;
-	std::vector<Node> neighbors(Node v0) const;
+	std::vector<Node> collect_nodes() const override;
+	std::vector<Node> neighbors(Node v0) const override;
 	
 	///// non-virtual methods /////
 	void join(const BoolGraph& graph);

@@ -14,12 +14,11 @@ using namespace std;
 //////////////////// VCFSmallFillable ////////////////////
 
 void VCFSmallFillable::phase_in_thread(void *config) {
-	auto	*c = (ConfigThreadPhase *)config;
+	auto	*c = static_cast<const ConfigThreadPhase *>(config);
 	const auto&	record_sets = c->record_sets;
 	const size_t	n = record_sets.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
-//		if(record_sets[i]->record->is_fillable_type())
-			record_sets[i]->impute(true);
+		record_sets[i]->impute(true);
 	}
 }
 

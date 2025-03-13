@@ -27,8 +27,6 @@ namespace OnePhasedFamily {
 									first(i), num_threads(n), vcfs(vcfs_) { }
 	};
 	
-	void create_in_thread(void *config);
-	
 	int get_gt_type(const VCFRecord *record, int i);
 	std::pair<ParentComb, FillType> classify_record(const VCFRecord *record);
 	std::array<std::vector<VCFFillableRecord *>, 4> classify_records(
@@ -44,10 +42,6 @@ namespace OnePhasedFamily {
 					const std::array<std::vector<VCFFillableRecord *>, 4>& rss);
 	VCFSmallBase *impute(const Family& family, VCFFamily *vcf,
 							const STRVEC& non_imputed_parents, const Map& gmap);
-	std::vector<std::vector<int>> filter_ref_haps(
-								const std::vector<std::vector<int>>& ref_haps,
-								const Family *family, bool is_mat_imputed,
-								const VCFFamily *vcf);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const Family *family,
 					const std::vector<std::vector<int>>& ref_haps);

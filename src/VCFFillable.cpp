@@ -14,7 +14,7 @@ using namespace std;
 //////////////////// VCFFillable ////////////////////
 
 VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-								std::vector<VCFFillableRecord *> rs) :
+							const std::vector<VCFFillableRecord *>& rs) :
 				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
 
 VCFFillable::~VCFFillable() {
@@ -23,7 +23,7 @@ VCFFillable::~VCFFillable() {
 }
 
 void VCFFillable::phase_in_thread(void *config) {
-	auto	*c = (ConfigThreadPhase *)config;
+	auto	*c = static_cast<const ConfigThreadPhase *>(config);
 	const auto&	record_sets = c->record_sets;
 	const size_t	n = record_sets.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
@@ -91,13 +91,6 @@ void VCFFillable::phase_hetero_hetero() {
 	}
 	Common::delete_all(record_sets);
 	delete groups;
-}
-
-VCFFillable *VCFFillable::create_from_header() const {
-	vector<VCFFillableRecord *>	rs;
-	VCFFillable	*vcf = new VCFFillable(header, samples, rs);
-	copy_chrs(vcf);
-	return vcf;
 }
 
 template<typename Iter>
@@ -366,7 +359,7 @@ VCFSmall *VCFFillable::merge(const vector<VCFFillable *>& vcfs,
 }
 
 void VCFFillable::fill_in_thread(void *config) {
-	const auto	*c = (ConfigFillThread *)config;
+	const auto	*c = static_cast<const ConfigFillThread *>(config);
 	const size_t	n = c->size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		auto	vcfs = c->items[i].first;
@@ -374,54 +367,4 @@ void VCFFillable::fill_in_thread(void *config) {
 		auto	result = VCFFillable::fill(vcfs, records, c->num_threads);
 		c->filled_vcfs[i] = result;
 	}
-}
-
-vector<VCFFillable *> VCFFillable::fill_parellel(vector<Item>& items,
-														int num_threads) {
-	vector<VCFFillable *>	results(items.size());
-	
-	const int	T = min((int)items.size(), num_threads);
-	vector<ConfigFillThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigFillThread(items, true, i, T, results);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-					(void *(*)(void *))&fill_in_thread, (void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		fill_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-	
-	return results;
-}
-
-void VCFFillable::delete_items(const vector<Item>& items) {
-	for(auto q = items.begin(); q != items.end(); ++q) {
-		for(auto r = q->first.begin(); r != q->first.end(); ++r)
-			delete *r;
-		for(auto r = q->second.begin(); r != q->second.end(); ++r)
-			delete *r;
-	}
-}
-
-vector<VCFFillable *> VCFFillable::fill_all(
-							map<Parents, vector<VCFHeteroHomo *>>& imputed_vcfs,
-							ImpRecords& other_records, int num_threads) {
-	vector<Item>	items;
-	for(auto q = imputed_vcfs.begin(); q != imputed_vcfs.end(); ++q) {
-		const Parents&	parents = q->first;
-		vector<VCFHeteroHomo *>&	vcfs = q->second;
-		items.push_back(make_pair(vcfs, other_records[parents]));
-	}
-	vector<VCFFillable *>	filled_vcfs = fill_parellel(items, num_threads);
-	delete_items(items);
-	return filled_vcfs;
 }

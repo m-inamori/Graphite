@@ -17,7 +17,7 @@ private:
 	std::string	message;
 	
 public:
-	FormatException(const std::vector<std::string>& ls);
+	explicit FormatException(const std::vector<std::string>& ls);
 	
 	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::PEDIGREE_INVALID_FORMAT;
@@ -34,7 +34,7 @@ private:
 	std::string	message;
 	
 public:
-	ParentsException(const std::vector<std::string>& ps);
+	explicit ParentsException(const std::vector<std::string>& ps);
 	
 	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::PARENT_NOT_DEFINED;
@@ -51,7 +51,7 @@ private:
 	std::string	message;
 	
 public:
-	SamplesException(const std::vector<std::string>& ss);
+	explicit SamplesException(const std::vector<std::string>& ss);
 	
 	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::SAMPLES_NOT_IN_PEDIGREE;
@@ -123,7 +123,8 @@ class PedigreeTable {
 	const std::vector<const Progeny *>	table;
 	
 public:
-	PedigreeTable(const std::vector<const Progeny *>& progs) : table(progs) { }
+	explicit PedigreeTable(const std::vector<const Progeny *>& progs) :
+															table(progs) { }
 	~PedigreeTable();
 	
 	std::size_t size() const { return table.size(); }

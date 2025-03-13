@@ -9,7 +9,8 @@ using namespace std;
 
 //////////////////// VCFHeteroHeteroLite ////////////////////
 
-VCFHeteroHeteroLite::VCFHeteroHeteroLite(const vector<STRVEC>& h,
-					const STRVEC& s, vector<VCFHeteroHeteroLiteRecord *> rs) :
+VCFHeteroHeteroLite::VCFHeteroHeteroLite(
+							const vector<STRVEC>& h, const STRVEC& s,
+							const vector<VCFHeteroHeteroLiteRecord *>& rs) :
 											VCFBase(h, s), VCFSmallBase(),
 											VCFFamilyBase(), records(rs) { }

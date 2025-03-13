@@ -242,15 +242,6 @@ vector<pair<double, ParentComb>> TypeDeterminer::determine(
 		return vector<pair<double, ParentComb>>();
 }
 
-vector<int> TypeDeterminer::int_gt_pairs(int p) {
-	vector<int>	v;
-	for(int i = 0; i < 6; ++i) {
-		if((p & (1 << i)) != 0)
-			v.push_back(i);
-	}
-	return v;
-}
-
 pair<int,int> TypeDeterminer::int_gt_pair(ParentComb comb) {
 	const int	p = static_cast<int>(comb);
 	if(p == 0)

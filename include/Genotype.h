@@ -14,7 +14,7 @@ class Genotype {
 	const bool	phasing;
 	
 public:
-	Genotype(const std::string& s);
+	explicit Genotype(const std::string& s);
 	
 	std::pair<char,char> gts() const;
 	bool includes(char gt) const;
@@ -38,9 +38,9 @@ public:
 	static std::string int_to_phased_gt(int gt_int);
 	
 	static int phased_gt_to_int(const std::string& gt) {
-		const int	gt1 = gt.c_str()[0] == '0' ? 0 : 1;
-		const int	gt2 = gt.c_str()[2] == '0' ? 0 : 1;
-		return gt1 | (gt2 << 1);
+		const int	gt1_ = gt.c_str()[0] == '0' ? 0 : 1;
+		const int	gt2_ = gt.c_str()[2] == '0' ? 0 : 1;
+		return gt1_ | (gt2_ << 1);
 	}
 	// 上のget_int_gtとN/Aのときが違う
 	static int gt_to_int(const std::string& gt) {
@@ -50,9 +50,9 @@ public:
 				case '\0': return 3;
 			}
 		}
-		const int	gt1 = gt.c_str()[0] == '0' ? 0 : 1;
-		const int	gt2 = gt.c_str()[2] == '0' ? 0 : 1;
-		return gt1 + gt2;
+		const int	gt1_ = gt.c_str()[0] == '0' ? 0 : 1;
+		const int	gt2_ = gt.c_str()[2] == '0' ? 0 : 1;
+		return gt1_ + gt2_;
 	}
 };
 #endif

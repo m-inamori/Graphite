@@ -123,52 +123,6 @@ VCFSmallBase *OnePhasedFamily::impute(const Family& family, VCFFamily *vcf,
 	return merged_vcf;
 }
 
-vector<vector<int>> OnePhasedFamily::filter_ref_haps(
-							const vector<vector<int>>& ref_haps,
-							const Family *family, bool is_mat_imputed,
-							const VCFFamily *vcf) {
-	const size_t	c = is_mat_imputed ? 10 : 9;
-	// collect homo indices
-	vector<size_t>	ks;
-	for(size_t k = 0; k < vcf->size(); ++k) {
-		if(Genotype::is_homo(vcf->get_record(k)->get_gt(c-9)))
-			ks.push_back(k);
-	}
-	
-	// tiling
-	const size_t	L = 10;
-	vector<size_t>	firsts;		// ranges [first, first+L)
-	for(size_t first = 0; first < ks.size() - L; first += L) {
-		firsts.push_back(first);
-	}
-	if(ks.size() % L != 0 && ks.size() > L)
-		firsts.push_back(ks.size() - L);
-	
-	set<size_t>	ref_indices_set;
-	for(auto p = firsts.begin(); p != firsts.end(); ++p) {
-		int	code = 0;
-		for(size_t j = *p; j < *p + L; ++j) {
-			const string&	gt = vcf->get_record(ks[j])->get_gt(c-9);
-			code = code * 2 + (gt.c_str()[0] - '0');
-		}
-		
-		for(size_t i = 0; i < ref_haps.size(); ++i) {
-			int	ref_code = 0;
-			for(size_t j = *p; j < *p + L; ++j) {
-				code = code * 2 + ref_haps[i][ks[j]];
-			}
-			if(ref_code == code)
-				ref_indices_set.insert(i);
-		}
-	}
-	
-	vector<vector<int>>	new_ref_haps;
-	for(auto p = ref_indices_set.begin(); p != ref_indices_set.end(); ++p) {
-		new_ref_haps.push_back(ref_haps[*p]);
-	}
-	return new_ref_haps;
-}
-
 // Is the computational cost sufficiently small even when using ref in HMM?
 bool OnePhasedFamily::is_small(const Family *family,
 								const vector<vector<int>>& ref_haps) {
@@ -190,7 +144,7 @@ bool OnePhasedFamily::is_small_ref(const vector<vector<int>>& ref_haps) {
 }
 
 void OnePhasedFamily::impute_small_in_thread(void *config) {
-	auto	*c = (ConfigThread *)config;
+	auto	*c = static_cast<const ConfigThread *>(config);
 	const auto&	vcfs = c->vcfs;
 	const size_t	n = vcfs.size();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
@@ -202,7 +156,8 @@ void OnePhasedFamily::impute_small_VCFs(
 						vector<VCFOneParentImputed *>& vcfs, int T) {
 	// VCFOneParentImputed is heavy for imputation,
 	// so make it multi-threaded and impute in order of processing load.
-	std::sort(vcfs.begin(), vcfs.end(),
+	vector<VCFOneParentImputed *>	vcfs1(vcfs.begin(), vcfs.end());
+	std::sort(vcfs1.begin(), vcfs1.end(),
 				[](const VCFOneParentImputed * a,
 					const VCFOneParentImputed * b) {
 						return a->num_progenies() > b->num_progenies();
@@ -210,7 +165,7 @@ void OnePhasedFamily::impute_small_VCFs(
 	
 	vector<ConfigThread *>	configs(T);
 	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(i, T, vcfs);
+		configs[i] = new ConfigThread(i, T, vcfs1);
 	
 #ifndef DEBUG
 	vector<pthread_t>	threads_t(T);
@@ -269,9 +224,9 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 			vcf1->clear_records();
 		}
 		else {
-			auto	*imputed_vcf = impute(*family, vcf1,
+			auto	*imputed_vcf1 = impute(*family, vcf1,
 											non_imputed_parents, gmap);
-			vcfs[i] = imputed_vcf;
+			vcfs[i] = imputed_vcf1;
 		}
 		delete vcf1;
 	}

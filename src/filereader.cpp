@@ -48,8 +48,8 @@ bool FileReader::getline(std::string& line) {
 //////////////////// FileReaderGZ ////////////////////
 
 FileReaderGZ::FileReaderGZ(const string& path_) :
-								FileReaderBase(), path(path_) {
-	fz = gzopen(path_.c_str(), "r");
+								FileReaderBase(), path(path_),
+								fz(gzopen(path_.c_str(), "r")) {
 	if(fz == NULL)
 		throw FileNotFoundException(path);
 	

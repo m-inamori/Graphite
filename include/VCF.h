@@ -46,8 +46,8 @@ public:
 	std::string	gt(const std::string& sample) const;
 	bool is_NA(std::size_t i) const { return Genotype::is_NA(v[i+9]); }
 	bool is_phased(std::size_t i) const {
-		const char	*gt = this->v[i+9].c_str();
-		return gt[0] != '.' && gt[1] == '|' && gt[2] != '.';
+		const char	*gt1 = this->v[i+9].c_str();
+		return gt1[0] != '.' && gt1[1] == '|' && gt1[2] != '.';
 	}
 	STRVEC gts() const;
 	const std::string& get_gt(std::size_t i) const { return v[i+9]; }
@@ -57,10 +57,8 @@ public:
 	std::vector<int> get_int_gts() const;
 	bool is_homo(std::size_t i) const;
 	bool is_hetero(std::size_t i) const;
-	STRVEC extract_v(const STRVEC& samples) const;
 	void write(std::ostream& os) const;
 	
-	void copy_properties(STRVEC::iterator it) const;
 	void set_GT(std::size_t i, const std::string& gt);
 	void set_int_GT(std::size_t i, int gt);
 	void set(const STRVEC& new_v) { v = new_v; }
@@ -103,7 +101,9 @@ class VCFReader {
 	std::vector<STRVEC>	header;
 	
 public:
-	VCFReader(const std::string& path);
+	explicit VCFReader(const std::string& path);
+	VCFReader(const VCFReader&) = delete;
+	VCFReader& operator=(const VCFReader&) = delete;
 	~VCFReader();
 	
 	void read_header();
@@ -149,16 +149,18 @@ protected:
 	
 public:
 	VCFSmall(const std::vector<STRVEC>& header, const STRVEC& samples,
-								std::vector<VCFRecord *> rs, bool rr=false);
+						const std::vector<VCFRecord *>& rs, bool rr=false);
 	virtual ~VCFSmall();
 	
 	///// virtual methods /////
-	const std::vector<STRVEC>& get_header() const {
+	const std::vector<STRVEC>& get_header() const override {
 		return VCFBase::get_header();
 	}
-	const STRVEC& get_samples() const { return VCFBase::get_samples(); }
-	std::size_t size() const { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const { return records[i]; }
+	const STRVEC& get_samples() const override {
+		return VCFBase::get_samples();
+	}
+	std::size_t size() const override { return records.size(); }
+	VCFRecord *get_record(std::size_t i) const override { return records[i]; }
 	
 	///// non-virtual methods /////
 	const std::vector<VCFRecord *>& get_records() const { return records; }
@@ -179,6 +181,9 @@ public:
 														const STRVEC& samples);
 	static VCFSmall *join(const VCFSmallBase *vcf1, const VCFSmallBase *vcf2,
 														const STRVEC& samples);
+	static VCFSmall *create_by_two_vcfs(const VCFSmallBase *vcf1,
+										const VCFSmallBase *vcf2,
+										const STRVEC& samples);
 };
 
 
@@ -194,7 +199,7 @@ public:
 		STATE	state;
 		
 	public:
-		ChromDivisor(VCFHuge *v) : vcf(v), state(STATE::START) { }
+		explicit ChromDivisor(VCFHuge *v) : vcf(v), state(STATE::START) { }
 		~ChromDivisor();
 		VCFSmall *next();
 	};

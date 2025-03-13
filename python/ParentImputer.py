@@ -61,9 +61,6 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 	def M(self) -> int:
 		return len(self.ref_haps[0])
 	
-	def phased_col(self) -> int:
-		return 9 if self.is_mat_imputed else 10
-	
 	def num_progenies(self) -> int:
 		return len(self.records[0].v) - 11
 	
@@ -163,10 +160,10 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 				dp[i][h] = max(dp[i][h], (prob, prev_h))
 	
 	def update_genotypes(self, hs: list[int]) -> None:
-		c = self.phased_col()
+		j = 0 if self.is_mat_imputed else 1
 		for i in range(len(self.ref_haps[0])):
 			phased_gt = self.compute_phased_gt_by_refhaps(hs[i], i)
-			self.records[i].v[c] = Genotype.int_to_phased_gt(phased_gt)
+			self.records[i].set_GT(j, Genotype.int_to_phased_gt(phased_gt))
 	
 	def impute(self) -> None:
 		L = self.NH()**2			# 親のハプロタイプの状態数

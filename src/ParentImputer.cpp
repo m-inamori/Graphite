@@ -8,21 +8,26 @@ ParentImputer::ParentImputer(const vector<VCFFamilyRecord *>& rs,
 							 bool is_mat_imputed_,
 							 const vector<vector<int>>& ref_hs,
 							 const Map& map_, double w) :
-				VCFHMM(rs, map_, w), records(rs), ref_haps(ref_hs),
-				prev_h_table(collect_possible_previous_hidden_states()),
-				is_mat_imputed(is_mat_imputed_), Cp(calc_Cp(rs)),
-				Epc{{{log(1.0-w*2),   log(w/2),       log(w/2),       log(w)},
-					 {log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)},
-					 {log(w/2),       log(1.0-w*2),   log(w/2),       log(w)},
-					 {log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)}},
-					{{log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)},
-					 {log(0.25-w/8),  log(0.5-w*3/4), log(0.25-w/8),  log(w)},
-					 {log(w/2),       log(0.5-w*3/4), log(0.5-w*3/4), log(w)},
-					 {log(0.25-w/8),  log(0.5-w*3/4), log(0.25-w/8),  log(w)}},
-					{{log(w/2),       log(1.0-w*2),   log(w/2),       log(w)},
-					 {log(w/2),       log(0.5-w*3/4), log(0.5-w*3/4), log(w)},
-					 {log(w/2),       log(w/2),       log(1.0-w*2),   log(w)},
-					 {log(w/2),       log(0.5-w*3/4), log(0.5-w*3/4), log(w)}}} { }
+			VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
+			prev_h_table(collect_possible_previous_hidden_states()),
+			is_mat_imputed(is_mat_imputed_), Cp(calc_Cp(rs)),
+			Epc{{{log(1.0-w*2),   log(w/2),       log(w/2),       log(w)},
+				 {log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)},
+				 {log(w/2),       log(1.0-w*2),   log(w/2),       log(w)},
+				 {log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)}},
+				{{log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)},
+				 {log(0.25-w/8),  log(0.5-w*3/4), log(0.25-w/8),  log(w)},
+				 {log(w/2),       log(0.5-w*3/4), log(0.5-w*3/4), log(w)},
+				 {log(0.25-w/8),  log(0.5-w*3/4), log(0.25-w/8),  log(w)}},
+				{{log(w/2),       log(1.0-w*2),   log(w/2),       log(w)},
+				 {log(w/2),       log(0.5-w*3/4), log(0.5-w*3/4), log(w)},
+				 {log(w/2),       log(w/2),       log(1.0-w*2),   log(w)},
+				 {log(w/2),       log(0.5-w*3/4), log(0.5-w*3/4), log(w)}},
+				{{log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)},
+				 {log(0.25-w/8),  log(0.5-w*3/4), log(0.25-w/8),  log(w)},
+				  {log(w/2),      log(0.5-w*3/4), log(0.5-w*3/4), log(w)},
+				  {log(0.25),     log(0.25),      log(0.25),      log(0.25)}}}
+			{ }
 
 vector<double> ParentImputer::calc_Cp(
 							const vector<VCFFamilyRecord *>& rs) const {
@@ -37,7 +42,7 @@ vector<double> ParentImputer::calc_Cp(
 
 double ParentImputer::progs_emission_probability(std::size_t i,
 										int mat_gt, int pat_gt) const {
-	const auto	*record = records[i];
+	const auto	*record = ref_records[i];
 	double	Ec = 0.0;
 	for(size_t j = 0; j < num_progenies(); ++j) {
 		const int	oc = Genotype::gt_to_int(record->get_gt(j+2));
@@ -90,7 +95,7 @@ double ParentImputer::parent_transition_probability(size_t i,
 vector<ParentImputer::DP> ParentImputer::initialize_dp() const {
 	const size_t	L = NH() * NH();
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
-	const VCFFamilyRecord	*record = records[0];
+	const VCFFamilyRecord	*record = ref_records[0];
 	const int	mat_gt = Genotype::gt_to_int(record->get_gt(0));
 	const int	pat_gt = Genotype::gt_to_int(record->get_gt(1));
 	for(int h = 0; h < (int)L; ++h) {	// hidden state
@@ -126,7 +131,7 @@ ParentImputer::collect_possible_previous_hidden_states() const {
 
 void ParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const size_t	L = NH() * NH();
-	const VCFFamilyRecord	*record = records[i];
+	const VCFFamilyRecord	*record = ref_records[i];
 	
 	// observed parent
 	const int	mat_gt = Genotype::gt_to_int(record->get_gt(0));
@@ -149,7 +154,7 @@ void ParentImputer::update_genotypes(const vector<int>& hs) {
 	const size_t	c = phased_col();
 	for(size_t i = 0; i < this->M(); ++i) {
 		const int	phased_gt = compute_phased_gt_by_refhaps(hs[i], i);
-		records[i]->set_GT(c-9, Genotype::int_to_phased_gt(phased_gt));
+		ref_records[i]->set_GT(c-9, Genotype::int_to_phased_gt(phased_gt));
 	}
 }
 

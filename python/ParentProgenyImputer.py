@@ -174,18 +174,16 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	def update_genotypes(self, hs: list[int]) -> None:
 		M = len(self.records)
 		N = self.num_progenies()
-		phased_col = 9 if self.is_mat_imputed else 10
-		non_phased_col = 10 if self.is_mat_imputed else 9
 		for i in range(M):
 			record = self.records[i]
-			non_phased_parent_gt = self.compute_non_phased_parent_gt(hs[i], i)
-			record.v[non_phased_col] = Genotype.int_to_phased_gt(
-														non_phased_parent_gt)
-			phased_parent_gt = Genotype.phased_gt_to_int(record.v[phased_col])
-			mat_gt = (phased_parent_gt if self.is_mat_imputed
-											else non_phased_parent_gt)
-			pat_gt = (non_phased_parent_gt if self.is_mat_imputed
-											else phased_parent_gt)
+			if self.is_mat_imputed:
+				pat_gt = self.compute_non_phased_parent_gt(hs[i], i)
+				record.set_GT(1, Genotype.int_to_phased_gt(pat_gt))
+				mat_gt = Genotype.phased_gt_to_int(record.v[9])
+			else:
+				mat_gt = self.compute_non_phased_parent_gt(hs[i], i)
+				record.set_GT(0, Genotype.int_to_phased_gt(mat_gt))
+				pat_gt = Genotype.phased_gt_to_int(record.v[10])
 			for j in range(N):	# 個々の後代
 				hc2, hc1 = divmod((hs[i] >> (j * 2)) & 3, 2)
 				gtc_int = self.gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt)

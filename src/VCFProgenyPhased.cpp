@@ -18,7 +18,7 @@ using namespace std;
 //////////////////// VCFProgenyPhased ////////////////////
 
 VCFProgenyPhased::VCFProgenyPhased(const vector<STRVEC>& h, const STRVEC& s,
-									vector<VCFFamilyRecord *> rs,
+									const vector<VCFFamilyRecord *> rs,
 									const Map& gmap, const VCFSmall *ref) :
 				VCFBase(h, s), VCFFamilyBase(), VCFImputable(gmap),
 				records(rs), selection(0), ref_vcf(ref) { }
@@ -154,7 +154,7 @@ VCFProgenyPhased *VCFProgenyPhased::impute_by_progeny(const VCFSmall *orig_vcf,
 }
 
 void VCFProgenyPhased::impute_in_thread(void *config) {
-	const auto	*c = (ConfigThread *)config;
+	const auto	*c = static_cast<const ConfigThread *>(config);
 	for(size_t i = c->first; i < c->size(); i += c->num_threads) {
 		const Family	*family = c->families[i].first;
 		const size_t	ppi = c->families[i].second;

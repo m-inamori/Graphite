@@ -9,13 +9,12 @@ VCFOneParentImputed::VCFOneParentImputed(const std::vector<STRVEC>& header,
 							const std::vector<VCFFamilyRecord *>& rs,
 							const std::vector<std::vector<int>>& ref_hs,
 							bool is_mat_imputed_, const Map& map_, double w) :
-				VCFBase(header, s), VCFSmallBase(),
-				VCFFamilyBase(), VCFMeasurable(map_),
-				records(rs), ref_haps(ref_hs), is_mat_imputed(is_mat_imputed_),
-				E{{log(1.0-w*3), log(w),       log(w),       log(w)},
-				  {log(w),       log(1.0-w*3), log(w),       log(w)},
-				  {log(w),       log(1.0-w*3), log(w),       log(w)},
-				  {log(w),       log(w),       log(1.0-w*3), log(w)}} { }
+				VCFOneParentImputedBase(header, s, rs), VCFMeasurable(map_),
+				ref_haps(ref_hs), is_mat_imputed(is_mat_imputed_),
+				E{{log(1.0-w*2), log(w/2),     log(w/2),     log(w)},
+				  {log(w/2),     log(1.0-w*2), log(w/2),     log(w)},
+				  {log(w/2),     log(1.0-w*2), log(w/2),     log(w)},
+				  {log(w/2),     log(w/2),     log(1.0-w*2), log(w)}} { }
 
 VCFOneParentImputed::~VCFOneParentImputed() {
 	Common::delete_all(records);
@@ -175,8 +174,8 @@ void VCFOneParentImputed::update_dp(size_t i, vector<DP>& dp,
 	const int	op = Genotype::gt_to_int(get_non_phased_parent_gt(record));
 	// observed progenies
 	vector<int>	ocs;
-	for(size_t i = 0; i < num_progenies(); ++i) {
-		ocs.push_back(Genotype::gt_to_int(record->get_gt(i+2)));
+	for(size_t ic = 0; ic < num_progenies(); ++ic) {
+		ocs.push_back(Genotype::gt_to_int(record->get_gt(ic+2)));
 	}
 	
 	for(int h = 0; h < (int)L; ++h) {
@@ -269,4 +268,11 @@ void VCFOneParentImputed::impute() {
 	
 	const vector<int>	hs = trace_back(dp);
 	update_genotypes(hs);
+}
+
+size_t VCFOneParentImputed::amount() const {
+	const size_t	M = ref_haps[0].size();
+	const size_t	NH = ref_haps.size();
+	const size_t	R = NH*NH * (2*NH - 1);
+	return R * M;
 }

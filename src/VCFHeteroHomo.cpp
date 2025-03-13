@@ -63,7 +63,8 @@ void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(int w, int i) {
 //////////////////// VCFHeteroHomo ////////////////////
 
 VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
-							vector<VCFHeteroHomoRecord *> rs, const Map& m) :
+								const vector<VCFHeteroHomoRecord *>& rs,
+								const Map& m) :
 						VCFBase(h, s), VCFSmallBase(),
 						VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
 
@@ -275,7 +276,7 @@ void VCFHeteroHomo::clean_each_sample(size_t i, const vector<double>& cMs,
 }
 
 void VCFHeteroHomo::clean_in_thread(void *config) {
-	auto	*c = (ConfigThreadCleanSeq *)config;
+	auto	*c = static_cast<const ConfigThreadCleanSeq *>(config);
 	const size_t	n = c->vcf->num_progenies();
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		c->vcf->clean_each_sample(i, c->cMs, c->min_c);

@@ -143,7 +143,6 @@ std::pair<ParentComb, WrongType> ClassifyRecord::select_pair(
 	// If the most probable Genotype pair matches only one Genotype
 	// and no other Genotype pair matches the original Genotypes,
 	// the pair can be modified.
-	vector<bool>	bs;
 	for(auto p = combs.begin(); p != combs.end(); ++p) {
 		const auto	gt_pair = TypeDeterminer::int_gt_pair(p->second);
 		const bool	b = (mat_gt == gt_pair.first || mat_gt == gt_pair.second ||

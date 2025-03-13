@@ -48,23 +48,8 @@ bool VCFRecord::is_hetero(size_t i) const {
 	return ptr[0] != '.' && ptr[2] != '.' && ptr[0] != ptr[2];
 }
 
-STRVEC VCFRecord::extract_v(const STRVEC& samples) const {
-	map<string,size_t>	dic;
-	for(size_t i = 0U; i < this->samples.size(); ++i)
-		dic[this->samples[i]] = i;
-	
-	STRVEC	new_v(v.begin(), v.begin() + 9);
-	for(auto p = samples.begin(); p != samples.end(); ++p)
-		new_v.push_back(v[dic[*p]+9]);
-	return new_v;
-}
-
 void VCFRecord::write(ostream& os) const {
 	Common::write_tsv(this->v, os);
-}
-
-void VCFRecord::copy_properties(STRVEC::iterator it) const {
-	std::copy(v.begin(), v.begin() + 9, it);
 }
 
 void VCFRecord::set_GT(size_t i, const string& gt) {
@@ -259,7 +244,7 @@ void VCFSmallBase::write_header(ostream& os) const {
 //////////////////// VCFSmall ////////////////////
 
 VCFSmall::VCFSmall(const vector<STRVEC>& h, const STRVEC& s,
-										vector<VCFRecord *> rs, bool rr) :
+								const vector<VCFRecord *>& rs, bool rr) :
 				VCFBase(h, s), VCFSmallBase(), records(rs), reuses_records(rr) {
 	for(auto p = records.begin(); p != records.end(); ++p)
 		this->record_position(**p);
@@ -290,9 +275,9 @@ void VCFSmall::check_records() const {
 }
 
 VCFSmall *VCFSmall::select_samples(const vector<string>& new_samples) const {
-	const size_t	N = samples.size();
+	const size_t	N = new_samples.size();
 	map<string, size_t>	dic;
-	for(size_t i = 0; i != N; ++i) {
+	for(size_t i = 0; i != samples.size(); ++i) {
 		dic[samples[i]] = i + 9;
 	}
 	
@@ -304,7 +289,7 @@ VCFSmall *VCFSmall::select_samples(const vector<string>& new_samples) const {
 	vector<VCFRecord *>	new_records;
 	for(auto p = records.begin(); p != records.end(); ++p) {
 		vector<string>	v(N+9);
-		std::copy((*p)->get_v().begin(), (*p)->get_v().end(), v.begin());
+		std::copy((*p)->get_v().begin(), (*p)->get_v().begin()+9, v.begin());
 		for(size_t i = 0; i < N; ++i) {
 			v[i+9] = (*p)->get_v()[cs[i]];
 		}
@@ -376,6 +361,33 @@ VCFSmall *VCFSmall::join(const VCFSmallBase *vcf1, const VCFSmallBase *vcf2,
 														const STRVEC& samples) {
 	vector<const VCFSmallBase *>	vcfs{ vcf1, vcf2 };
 	return VCFSmall::join(vcfs, samples);
+}
+
+VCFSmall *VCFSmall::create_by_two_vcfs(const VCFSmallBase *vcf1,
+										 const VCFSmallBase *vcf2,
+										 const STRVEC& samples) {
+	// assume that samples are [mat, pat, prog1, prog2, ...]
+	const vector<size_t>	columns1 = vcf1->extract_columns(samples);
+	const vector<size_t>	columns2 = vcf2->extract_columns(samples);
+	const auto	new_header = vcf1->trim_header(samples);
+	
+	vector<VCFRecord *>	new_records;
+	for(size_t i = 0; i < vcf1->size(); ++i) {
+		const auto	*record1 = vcf1->get_record(i);
+		const auto	*record2 = vcf2->get_record(i);
+		STRVEC	v(record1->get_v().begin(), record1->get_v().begin() + 9);
+		for(size_t j = 0; j < samples.size(); ++j) {
+			if(columns1[j] != string::npos)
+				v.push_back(record1->get_v()[columns1[j]]);
+			else if(columns2[j] != string::npos)
+				v.push_back(record2->get_v()[columns2[j]]);
+			else
+				v.push_back("./.");
+		}
+		auto	*new_record = new VCFRecord(v, samples);
+		new_records.push_back(new_record);
+	}
+	return new VCFSmall(new_header, samples, new_records);
 }
 
 

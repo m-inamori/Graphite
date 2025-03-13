@@ -20,11 +20,12 @@ public:
 	~InvGraph() { }
 	
 	///// virtual methods for GraphBase /////
-	std::vector<Node> collect_nodes() const;
-	std::vector<Node> neighbors(Node v0) const;
+	std::vector<Node> collect_nodes() const override;
+	std::vector<Node> neighbors(Node v0) const override;
 	
 	///// virtual methods for WeightedGraphBase /////
-	std::vector<WeightedGraphBase<double>::Edge> collect_weighted_edges() const;
+	std::vector<WeightedGraphBase<double>::Edge>
+								collect_weighted_edges() const override;
 	
 	///// non-virtual methods /////
 	InvGraph minimum_spanning_tree() const;

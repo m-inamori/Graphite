@@ -29,8 +29,6 @@ public:
 	const std::vector<const KnownFamily *>& get_small_families() const {
 		return small_families;
 	}
-	const KnownFamily *get_large_family(
-				const std::pair<std::string, std::string>& parents) const;
 	
 	bool is_imputed(const std::string& sample) const;
 	bool is_all_progenies_imputed(const KnownFamily *family) const;
@@ -46,18 +44,20 @@ public:
 												const Family *family) const;
 	bool is_progeny_imputed(const Family *family) const;
 	std::vector<std::string> collect_reference() const;
+	std::vector<const Progeny *> extract_unimputed_progenies(
+												const Family * family) const;
 	// families in which parents are phased and progenies are not phased
-	std::vector<const KnownFamily *> extract_small_families() const;
+	std::vector<const KnownFamily *> extract_both_imputed_families() const;
 	// families in which one parent is phased and the other is not
 	std::vector<const KnownFamily *> extract_no_parent_phased_families() const;
-	std::vector<const KnownFamily *>
-			extract_single_parent_phased_families() const;
-	// families in which one parent is phased and the other is unknown
-	std::vector<const KnownFamily *>
-			extract_phased_and_unknown_parents_family() const;
+	std::vector<const KnownFamily *> extract_imputed_and_known_families() const;
+	std::vector<const KnownFamily *> extract_both_known_families() const;
+	std::vector<const KnownFamily *> extract_one_imputed_families() const;
+	std::vector<const KnownFamily *> extract_one_known_parent_families() const;
 	std::vector<const KnownFamily *> extract_progenies_phased_families() const;
 	bool is_all_not_imputed(const std::vector<std::string>& samples) const;
 	std::vector<std::string> extract_isolated_samples() const;
+	std::vector<std::string> extract_non_imputed_samples() const;
 	std::vector<std::string> collect_large_family_parents() const;
 	void display_info() const;
 	

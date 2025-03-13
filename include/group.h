@@ -20,7 +20,7 @@ private:
 	const std::vector<Group>	groups;
 	
 public:
-	Groups(const std::vector<Group>& g) : groups(g) { }
+	explicit Groups(const std::vector<Group>& g) : groups(g) { }
 	~Groups() { }
 	
 	std::size_t size() const { return groups.size(); }
