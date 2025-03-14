@@ -121,7 +121,7 @@ void VCFFillableRecord::fill_PGT() {
 	
 	for(size_t j = 9U; j < this->v.size(); ++j) {
 		auto	vec = Common::split(this->v[j], ':');
-		vec[i_PGT] = v[i_GT];
+		vec[i_PGT] = vec[i_GT];
 		this->v[j] = Common::join(vec, ':');
 	}
 }
@@ -180,6 +180,12 @@ bool VCFFillableRecord::is_near_prog_gts(const STRVEC& gts) const {
 	return dist < max(1, num / 2);
 }
 
+void VCFFillableRecord::modify_prog_GTs(const STRVEC& new_prog_gts) {
+	for(size_t i = 2; i < num_samples(); ++i) {
+		set_GT(i, new_prog_gts[i-2]);
+	}
+}
+
 void VCFFillableRecord::modify_gts(const STRVEC& new_prog_gts) {
 	for(int i = 0; i < 4; ++i) {
 		const bool	inv_mat = (i >> 1) == 1;
@@ -187,11 +193,11 @@ void VCFFillableRecord::modify_gts(const STRVEC& new_prog_gts) {
 		STRVEC	inv_prog_gts = inverse_prog_gts(new_prog_gts, inv_mat, inv_pat);
 		if(is_near_prog_gts(inv_prog_gts)) {
 			inverse_parents_gts(inv_mat, inv_pat);
-			std::copy(inv_prog_gts.begin(), inv_prog_gts.end(), v.begin() + 11);
+			modify_prog_GTs(inv_prog_gts);
 			return;
 		}
 	}
-	std::copy(new_prog_gts.begin(), new_prog_gts.end(), v.begin() + 11);
+	modify_prog_GTs(new_prog_gts);
 }
 
 void VCFFillableRecord::modify_parents_type() {

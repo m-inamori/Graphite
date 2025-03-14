@@ -180,8 +180,17 @@ vector<const Family *> PedigreeTable::make_families(
 		// Parent not found in samples of VCF is treated as unknown
 		const string	mat = parents.first;
 		const string	pat = parents.second;
-		const Family	*family = new Family(mat, pat, progenies);
-		families.push_back(family);
+		if(mat != "0" && pat != "0") {
+			const Family	*family = new Family(mat, pat, progenies);
+			families.push_back(family);
+		}
+		else {
+			for(auto q = progenies.begin(); q != progenies.end(); ++q) {
+				vector<const Progeny *>	new_progs{ *q };
+				const Family	*family = new Family(mat, pat, new_progs);
+				families.push_back(family);
+			}
+		}
 	}
 	std::sort(families.begin(), families.end(),
 				[](const Family *lh, const Family *rh)

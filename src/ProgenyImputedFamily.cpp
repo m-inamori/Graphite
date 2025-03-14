@@ -77,6 +77,9 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 		delete vcf;
 	}
 	
+	if(small_vcfs.empty())
+		return NULL;
+	
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_small_VCFs(small_vcfs, num_threads);
 	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());

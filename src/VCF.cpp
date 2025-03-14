@@ -456,7 +456,7 @@ VCFRecord *VCFHuge::next() {
 	if(v.empty())
 		return NULL;
 	
-	leave_only_GT(v);
+//	leave_only_GT(v);
 	VCFRecord	*record = new VCFRecord(v, this->samples);
 	this->record_position(*record);		// necessary to update chrs
 	return record;

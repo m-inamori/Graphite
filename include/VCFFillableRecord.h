@@ -46,6 +46,7 @@ public:
 	int mat_from(int c) const;
 	int pat_from(int c) const;
 	
+	void modify_prog_GTs(const STRVEC& new_prog_gts);
 	void modify_gts();
 	void modify_parents_type();
 	int from_which_chrom(std::size_t i, bool is_mat) const;

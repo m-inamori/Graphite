@@ -36,10 +36,10 @@ vector<int> VCFHeteroHomoRecord::genotypes_from_hetero_parent() const {
 }
 
 void VCFHeteroHomoRecord::set_haplo(int h) {
-	const int	hetero_col = this->is_mat_hetero() ? 9 : 10;
-	const int	homo_col = hetero_col == 9 ? 10 : 9;
-	this->v[hetero_col] = h == 0 ? "0|1" : "1|0";
-	this->v[homo_col] = this->v[homo_col].c_str()[0] == '0' ? "0|0" : "1|1";
+	const int	hetero_index = this->is_mat_hetero() ? 0 : 1;
+	const int	homo_index = hetero_index == 0 ? 1 : 0;
+	set_GT(hetero_index, h == 0 ? "0|1" : "1|0");
+	set_GT(homo_index, get_gt(homo_index).c_str()[0] == '0' ? "0|0" : "1|1");
 	
 	const auto	gts = this->genotypes_from_hetero_parent();
 	for(size_t i = 0; i < gts.size(); ++i)

@@ -104,12 +104,15 @@ VCFSmall *SmallFamily::impute_vcf_by_imputed_parent(const VCFSmall *orig_vcf,
 	auto	*vcf = OneImputedFamily::impute(orig_vcf, merged_vcf,
 												ref_haps, families,
 												geno_map, num_threads);
+	Common::delete_all(families);
+	if(vcf == NULL)
+		return NULL;
+	
 	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
 													orig_vcf->get_samples());
 	delete merged_vcf;
 	sample_man->add_imputed_samples(new_merged_vcf->get_samples());
 	delete vcf;
-	Common::delete_all(families);
 	return new_merged_vcf;
 }
 
@@ -189,16 +192,17 @@ VCFSmall *SmallFamily::impute_orphan_samples(const VCFSmall *orig_vcf,
 	
 	auto	*vcf = Orphan::impute(samples, orig_vcf, ref_haps,
 												geno_map, num_threads);
-	if(vcf != NULL) {
-		// Currently, all samples may or not may be used in VCF,
-		// but to be on the safe side, use samples of vcf.
-		auto	*merged_vcf2 = VCFSmall::join(merged_vcf, vcf,
-												orig_vcf->get_samples());
-		delete merged_vcf;
-		merged_vcf = merged_vcf2;
-		sample_man->add_imputed_samples(vcf->get_samples());
-		delete vcf;
-	}
+	if(vcf == NULL)
+		return NULL;
+	
+	// Currently, all samples may or not may be used in VCF,
+	// but to be on the safe side, use samples of vcf.
+	auto	*merged_vcf2 = VCFSmall::join(merged_vcf, vcf,
+											orig_vcf->get_samples());
+	delete merged_vcf;
+	merged_vcf = merged_vcf2;
+	sample_man->add_imputed_samples(vcf->get_samples());
+	delete vcf;
 	return merged_vcf;
 }
 

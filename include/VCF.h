@@ -150,7 +150,7 @@ protected:
 public:
 	VCFSmall(const std::vector<STRVEC>& header, const STRVEC& samples,
 						const std::vector<VCFRecord *>& rs, bool rr=false);
-	virtual ~VCFSmall();
+	~VCFSmall();
 	
 	///// virtual methods /////
 	const std::vector<STRVEC>& get_header() const override {
