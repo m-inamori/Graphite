@@ -8,10 +8,11 @@ from VCFFamily import *
 from VCFProgenyImputed import *
 from Map import *
 from KnownFamily import KnownFamily
+from typing import Optional
 
 def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 			families: list[KnownFamily], imputed_progenies: list[list[str]],
-			ref_haps: list[list[int]], gmap: Map) -> VCFSmall:
+			ref_haps: list[list[int]], gmap: Map) -> Optional[VCFSmall]:
 	vcfs: list[VCFSmallBase] = []
 	for i in range(len(families)):
 		family = families[i]
@@ -24,6 +25,11 @@ def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 		vcf1.impute()
 		vcfs.append(vcf1)
 	
+	if not vcfs:
+		return None
+	
+	print("%d families whose progeny is imputed have been imputed." %
+															len(families))
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
 

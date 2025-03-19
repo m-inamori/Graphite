@@ -46,7 +46,7 @@ VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 									const vector<const KnownFamily *>& families,
 									const Map& gmap, int num_threads) {
 	const size_t	N = families.size();
-	vector<VCFBothParentImputed *>	small_vcfs;
+	vector<VCFBothParentImputed *>	vcfs1;
 	for(size_t i = 0; i < N; ++i) {
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
@@ -55,18 +55,20 @@ VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 												   family->get_samples(),
 												   vcf->get_family_records(),
 												   gmap, 0.01);
-		small_vcfs.push_back(vcf1);
+		vcfs1.push_back(vcf1);
 		vcf->clear_records();
 		delete vcf;
 	}
 	
-	if(small_vcfs.empty())
+	if(vcfs1.empty())
 		return NULL;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_VCFs(small_vcfs, num_threads);
-	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
+	impute_VCFs(vcfs1, num_threads);
+	vector<const VCFSmallBase *>	vcfs(vcfs1.begin(), vcfs1.end());
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
-	Common::delete_all(small_vcfs);
+	cout << vcfs.size()
+			<< " both parent imputed families have been imputed." << endl;
+	Common::delete_all(vcfs);
 	return new_vcf;
 }

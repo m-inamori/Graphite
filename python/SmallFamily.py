@@ -19,7 +19,7 @@ from KnownFamily import KnownFamily
 import BothImputedFamily
 import OnePhasedFamily
 from VCFOneParentPhased import VCFOneParentPhased
-import NoPhasedFamily
+import BothKnownFamily
 import OneKnownFamily
 import OneImputedFamily
 import ProgenyImputedFamily
@@ -35,13 +35,12 @@ def impute_vcf_by_both_imputed_parents(orig_vcf: VCFSmall,
 							merged_vcf: VCFSmallBase, sample_man: SampleManager,
 							gmap: Map, num_threads: int) -> Optional[VCFSmall]:
 	families = sample_man.extract_both_imputed_families()
-	if not families:
+	vcf = BothImputedFamily.impute(orig_vcf, merged_vcf, families, gmap)
+	if vcf is None:
 		return None
 	
-	new_imputed_vcf = BothImputedFamily.impute(orig_vcf, merged_vcf,
-															families, gmap)
-	merged_vcf = VCFSmall.join([merged_vcf, new_imputed_vcf], orig_vcf.samples)
-	sample_man.set(new_imputed_vcf.samples)
+	merged_vcf = VCFSmall.join([merged_vcf, vcf], orig_vcf.samples)
+	sample_man.set(vcf.samples)
 	return merged_vcf
 
 def impute_vcf_by_imputed_and_known_parent(
@@ -50,9 +49,6 @@ def impute_vcf_by_imputed_and_known_parent(
 									sample_man: SampleManager,
 									num_threads: int) -> Optional[VCFSmall]:
 	families = sample_man.extract_imputed_and_known_families()
-	if not families:
-		return None
-	
 	# families have been already selected
 	# in which one parent has been imputed and one parent has not been imputed
 	# collect not phased parents
@@ -60,8 +56,11 @@ def impute_vcf_by_imputed_and_known_parent(
 								  for parent in family.parents()
 								  if not sample_man.is_imputed(parent) ]
 	
-	vcf = OnePhasedFamily.impute_by_parent(orig_vcf, imputed_vcf,
+	vcf = ImputedAndKnownFamily.impute_by_parent(orig_vcf, imputed_vcf,
 											ref_haps, families, samples, gmap)
+	if vcf is None:
+		return None
+	
 	merged_vcf = VCFSmall.join([imputed_vcf, vcf], orig_vcf.samples)
 	sample_man.set(vcf.get_samples())
 	return merged_vcf
@@ -70,10 +69,11 @@ def impute_vcf_by_both_known_parents(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 							ref_haps: list[list[int]], gmap: Map,
 							sample_man: SampleManager) -> Optional[VCFSmall]:
 	families = sample_man.extract_both_known_families()
-	if not families:
+	vcf = BothKnownFamily.impute(orig_vcf, imputed_vcf,
+									ref_haps, families, gmap)
+	if vcf is None:
 		return None
 	
-	vcf = NoPhasedFamily.impute(orig_vcf, imputed_vcf, ref_haps, families, gmap)
 	merged_vcf = VCFSmall.join([imputed_vcf, vcf], orig_vcf.samples)
 	sample_man.set(vcf.get_samples())
 	return merged_vcf
@@ -82,9 +82,6 @@ def impute_vcf_by_imputed_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 							ref_haps: list[list[int]], gmap: Map,
 							sample_man: SampleManager) -> Optional[VCFSmall]:
 	families = sample_man.extract_one_imputed_families()
-	if not families:
-		return None
-	
 	vcf = OneImputedFamily.impute(orig_vcf, imputed_vcf,
 												ref_haps, families, gmap)
 	if vcf is None:
@@ -99,10 +96,10 @@ def impute_vcf_by_known_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 										sample_man: SampleManager,
 										num_threads: int) -> Optional[VCFSmall]:
 	families = sample_man.extract_one_known_parent_families()
-	if not families:
+	vcf = OneKnownFamily.impute(orig_vcf, imputed_vcf, ref_haps, families, gmap)
+	if vcf is None:
 		return None
 	
-	vcf = OneKnownFamily.impute(orig_vcf, imputed_vcf, ref_haps, families, gmap)
 	merged_vcf = VCFSmall.join([imputed_vcf, vcf], orig_vcf.samples)
 	sample_man.set(vcf.get_samples())
 	return merged_vcf
@@ -112,31 +109,28 @@ def impute_vcf_by_progenies(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 									gmap: Map, sample_man: SampleManager,
 									num_threads: int) -> Optional[VCFSmall]:
 	families = sample_man.extract_progenies_imputed_families()
-	if not families:
-		return None
-	
 	imputed_progenies = [ [ prog for prog in family.progenies
 									if sample_man.is_imputed(prog) ]
 												for family in families ]
-	new_imputed_vcf = ProgenyImputedFamily.impute(orig_vcf, merged_vcf,
-													families, imputed_progenies,
-													ref_haps, gmap)
-	merged_vcf = VCFSmall.join([merged_vcf, new_imputed_vcf],
-												orig_vcf.samples)
-	sample_man.set(new_imputed_vcf.samples)
+	vcf = ProgenyImputedFamily.impute(orig_vcf, merged_vcf, families,
+										imputed_progenies, ref_haps, gmap)
+	if vcf is None:
+		return None
+	
+	merged_vcf = VCFSmall.join([merged_vcf, vcf], orig_vcf.samples)
+	sample_man.set(vcf.samples)
 	return merged_vcf
 
 def impute_orphan_samples(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 							ref_haps: list[list[int]], gmap: Map,
 							sample_man: SampleManager) -> Optional[VCFSmall]:
 	samples = sample_man.extract_non_imputed_samples()
-	if not samples:
+	vcf = Orphan.impute(samples, orig_vcf, ref_haps, gmap)
+	if vcf is None:
 		return None
 	
-	vcf = Orphan.impute(samples, orig_vcf, ref_haps, gmap)
-	if vcf is not None:
-		merged_vcf = VCFSmall.join([merged_vcf, vcf], orig_vcf.samples)
-		sample_man.set(vcf.get_samples())
+	merged_vcf = VCFSmall.join([merged_vcf, vcf], orig_vcf.samples)
+	sample_man.set(vcf.get_samples())
 	return merged_vcf
 
 def extract_haplotypes(phased_vcf: VCFSmall,
@@ -292,6 +286,7 @@ def impute_isolated_samples(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 		new_vcfs.append(vcf.extract_isolated_samples())
 	
 	new_vcf = VCFSmall.join(new_vcfs, orig_vcf.samples)
+	print("%d idoleted samples have been imputed." % len(vcfs))
 	return new_vcf
 
 __all__ = ['impute_small_family_VCFs', 'impute_isolated_samples']

@@ -8,9 +8,9 @@ class ParentImputer;
 class ProgenyImputer;
 
 
-//////////////////// VCFNoParentImputed ////////////////////
+//////////////////// VCFBothKnown ////////////////////
 
-class VCFNoParentImputed : public VCFBase, public VCFSmallBase {
+class VCFBothKnown : public VCFBase, public VCFSmallBase {
 private:
 	std::vector<VCFFamilyRecord *>	records;
 	ParentImputer	*mat_imputer;
@@ -18,13 +18,13 @@ private:
 	ProgenyImputer	*prog_imputer;
 	
 public:
-	VCFNoParentImputed(const std::vector<STRVEC>& header, const STRVEC& s,
+	VCFBothKnown(const std::vector<STRVEC>& header, const STRVEC& s,
 						const std::vector<VCFFamilyRecord *>& records,
 						const std::vector<std::vector<int>>& ref_haps,
 						const Map& map_, double w);
-	VCFNoParentImputed(const VCFNoParentImputed&) = delete;
-	VCFNoParentImputed& operator=(const VCFNoParentImputed&) = delete;
-	~VCFNoParentImputed();
+	VCFBothKnown(const VCFBothKnown&) = delete;
+	VCFBothKnown& operator=(const VCFBothKnown&) = delete;
+	~VCFBothKnown();
 	
 	///// virtual methods for VCFSmallBase /////
 	const std::vector<STRVEC>& get_header() const override {

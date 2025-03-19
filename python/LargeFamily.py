@@ -238,6 +238,7 @@ def correct_large_family_VCFs(orig_vcf: VCFSmall,
 		VCFHeteroHomo.inverse_phases(vcfs)
 	
 	filled_vcfs = fill_vcf(dic_vcfs, other_recordss, large_families)
+	print("%d large families have been imputed." % len(large_families))
 	return VCFFillable.merge(filled_vcfs, orig_vcf.get_samples())
 
 __all__ = ['correct_large_family_VCFs']

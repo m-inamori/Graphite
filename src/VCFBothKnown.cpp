@@ -1,12 +1,12 @@
 #include <cmath>
-#include "../include/VCFNoParentImputed.h"
+#include "../include/VCFBothKnown.h"
 #include "../include/ParentImputer.h"
 #include "../include/ProgenyImputer.h"
 #include "../include/common.h"
 
 using namespace std;
 
-VCFNoParentImputed::VCFNoParentImputed(const std::vector<STRVEC>& header,
+VCFBothKnown::VCFBothKnown(const std::vector<STRVEC>& header,
 									const STRVEC& s,
 									const std::vector<VCFFamilyRecord *>& rs,
 									const std::vector<std::vector<int>>& ref_hs,
@@ -16,14 +16,14 @@ VCFNoParentImputed::VCFNoParentImputed(const std::vector<STRVEC>& header,
 				pat_imputer(new ParentImputer(records, false, ref_hs, map_, w)),
 				prog_imputer(new ProgenyImputer(records, map_, w)) { }
 
-VCFNoParentImputed::~VCFNoParentImputed() {
+VCFBothKnown::~VCFBothKnown() {
 	Common::delete_all(records);
 	delete mat_imputer;
 	delete pat_imputer;
 	delete prog_imputer;
 }
 
-void VCFNoParentImputed::impute() {
+void VCFBothKnown::impute() {
 	mat_imputer->impute();
 	pat_imputer->impute();
 	for(size_t j = 0; j < num_samples() - 2; ++j) {

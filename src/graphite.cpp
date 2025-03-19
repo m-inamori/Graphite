@@ -20,7 +20,7 @@ using namespace std;
 //////////////////// process ////////////////////
 
 void display_chromosome_info(const VCFSmall *orig_vcf) {
-	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << endl;
+	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << " ";
 	if(orig_vcf->size() == 1) {
 		cerr << "1 record." << endl;
 	}

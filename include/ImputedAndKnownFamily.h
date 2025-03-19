@@ -14,9 +14,9 @@ class KnownFamily;
 class Map;
 
 
-//////////////////// OnePhasedFamily ////////////////////
+//////////////////// ImputedAndKnownFamily ////////////////////
 
-namespace OnePhasedFamily {
+namespace ImputedAndKnownFamily {
 	struct ConfigThread {
 		std::size_t	first;
 		std::size_t	num_threads;

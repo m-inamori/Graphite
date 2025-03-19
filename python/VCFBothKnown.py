@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # coding: utf-8
-# VCFNoParentImputed.py
+# VCFBothKnown.py
 # 両親ともimputeされていない
 # 母親を補完する
 
@@ -15,12 +15,12 @@ from ProgenyImputer import *
 from Genotype import Genotype
 
 
-#################### VCFNoParentImputed ####################
+#################### VCFBothKnown ####################
 
 DP = List[Tuple[float, int]]	# (log of probability, prev h)
 MIN_PROB = -1e300
 
-class VCFNoParentImputed(VCFBase, VCFSmallBase):
+class VCFBothKnown(VCFBase, VCFSmallBase):
 	def __init__(self, header: list[list[str]], records: list[VCFFamilyRecord],
 										ref_haps: list[list[int]], map_: Map):
 		VCFBase.__init__(self, header)

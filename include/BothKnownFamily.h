@@ -4,23 +4,21 @@
 #include <vector>
 #include "VCF.h"
 
-class VCFFamily;
-class VCFNoParentImputed;
-class Family;
+class VCFBothKnown;
 class KnownFamily;
 class Map;
 
 
-//////////////////// NoPhasedFamily ////////////////////
+//////////////////// BothKnownFamily ////////////////////
 
-namespace NoPhasedFamily {
+namespace BothKnownFamily {
 	struct ConfigThread {
 		std::size_t	first;
 		std::size_t	num_threads;
-		const std::vector<VCFNoParentImputed *>&	vcfs;
+		const std::vector<VCFBothKnown *>&	vcfs;
 		
 		ConfigThread(std::size_t i, std::size_t n,
-						const std::vector<VCFNoParentImputed *>& vcfs_) :
+						const std::vector<VCFBothKnown *>& vcfs_) :
 									first(i), num_threads(n), vcfs(vcfs_) { }
 	};
 	
@@ -34,6 +32,6 @@ namespace NoPhasedFamily {
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const std::vector<std::vector<int>>& ref_haps);
 	void impute_small_in_thread(void *config);
-	void impute_small_VCFs(std::vector<VCFNoParentImputed *>& vcfs, int T);
+	void impute_small_VCFs(std::vector<VCFBothKnown *>& vcfs, int T);
 };
 #endif

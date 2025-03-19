@@ -58,6 +58,7 @@ VCFSmallBase *Orphan::impute(const vector<string>& samples,
 										vcf->get_records(),
 										ref_haps, gmap, 0.01);
 		impute_small_VCF(vcf1, num_threads);
+		cout << samples.size() << " orphan samples have been imputed." << endl;
 		vcf->clear_records();
 		delete vcf;
 		return vcf1;

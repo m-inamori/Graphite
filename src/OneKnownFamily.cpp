@@ -89,6 +89,9 @@ VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 	if(vcfs.empty())
 		return NULL;
 	
+	cout << families.size() << " families whose one parent is known and"
+				<< " the other parent is unknown have been imputed." << endl;
+	
 	// Small VCFs are heavy to process, so it will be parallelized.
 	auto	*new_vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
 	Common::delete_all(vcfs2);

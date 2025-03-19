@@ -18,10 +18,14 @@ def is_small(ref_haps: list[list[int]]) -> bool:
 
 def impute(samples: list[str], orig_vcf: VCFSmall,
 			ref_haps: list[list[int]], gmap: Map) -> Optional[VCFSmallBase]:
+	if not samples:
+		return None
+	
 	vcf = orig_vcf.select_samples(samples)
 	if is_small(ref_haps):
 		vcf1 = VCFOrphan(vcf.header, vcf.records, ref_haps, gmap)
 		vcf1.impute()
+		print("%d orphan samples have been imputed." % len(samples))
 		return vcf1
 	else:
 		return None

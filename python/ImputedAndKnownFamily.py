@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 # coding: utf-8
-# OnePhasedFamily.py
+# ImputedAndKnownFamily.py
 # 片親がphasingされて片親は分っているがphasingされていない家系を補完する
 
 from functools import reduce
 from collections import defaultdict, Counter
-from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
+from typing import Optional, Sequence
 
 from VCFFamily import *
 from VCFSmallFillable import *
@@ -109,7 +109,7 @@ def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 										ref_haps: list[list[int]],
 										families: list[Family],
 										non_imputed_parents: list[str],
-										gmap: Map) -> VCFSmallBase:
+										gmap: Map) -> Optional[VCFSmallBase]:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
 		vcf1 = VCFFamily.create_by_two_vcfs(imputed_vcf,
@@ -129,6 +129,11 @@ def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
 			imputed_vcf1 = impute(family, vcf1, non_imputed_parents, gmap)
 			vcfs.append(imputed_vcf1)
 	
+	if not vcfs:
+		return None
+	
+	print("%d families whose one parent is imputed and the other parent is"
+									" known have been imputed." % len(vcfs))
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
 

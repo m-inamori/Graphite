@@ -8,6 +8,18 @@ from typing import Set, TextIO, Optional
 from pedigree import PedigreeTable, Family
 from KnownFamily import KnownFamily
 from common import classify
+from exception_with_code import *
+import error_codes
+
+
+#################### SampleException ####################
+
+class SampleException(ExceptionWithCode):
+	def __init__(self) -> None:
+		super().__init__('error : large family not found')
+	
+	def get_error_code(self) -> error_codes.Type:
+		return error_codes.Type.LARGE_FAMILY_NOT_FOUND
 
 
 #################### SampleManager ####################
@@ -203,4 +215,8 @@ class SampleManager:
 				large_families.append(f)
 			else:
 				small_families.append(f)
+		
+		if not large_families:
+			raise SampleException()
+		
 		return SampleManager(ped, large_families, small_families, lower_progs)

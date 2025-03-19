@@ -5,6 +5,22 @@
 #include "KnownFamily.h"
 
 
+//////////////////// SampleException ////////////////////
+
+class SampleException : public ExceptionWithCode {
+private:
+    std::string	message;
+	
+public:
+    SampleException() : message("error : large family not found") { }
+    
+    ErrorCode::Type get_error_code() const override {
+		return ErrorCode::LARGE_FAMILY_NOT_FOUND;
+	}
+    const char *what() const noexcept override;
+};
+
+
 //////////////////// SampleManager ////////////////////
 
 class SampleManager {

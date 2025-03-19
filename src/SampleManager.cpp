@@ -7,6 +7,13 @@
 using namespace std;
 
 
+//////////////////// SampleException ////////////////////
+
+const char *SampleException::what() const noexcept {
+	return message.c_str();
+}
+
+
 //////////////////// SampleManager ////////////////////
 
 SampleManager::~SampleManager() {
@@ -385,6 +392,9 @@ SampleManager *SampleManager::create(const PedigreeTable *ped,
 		else
 			small_families.push_back(family);
 	}
+	
+	if(large_families.empty())
+		throw SampleException();
 	
 	return new SampleManager(ped, large_families, small_families, lower_progs);
 }

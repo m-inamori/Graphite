@@ -7,11 +7,11 @@
 #include "../include/VCFIsolated.h"
 #include "../include/BothImputedFamily.h"
 #include "../include/OneImputedFamily.h"
-#include "../include/OnePhasedFamily.h"
+#include "../include/BothKnownFamily.h"
+#include "../include/ImputedAndKnownFamily.h"
 #include "../include/ProgenyImputedFamily.h"
 #include "../include/OneKnownFamily.h"
 #include "../include/Orphan.h"
-#include "../include/NoPhasedFamily.h"
 #include "../include/SampleManager.h"
 #include "../include/KnownFamily.h"
 #include "../include/common.h"
@@ -23,18 +23,18 @@ VCFSmall *SmallFamily::impute_vcf_by_both_imputed_parents(
 			SampleManager *sample_man,
 			const Map& geno_map, const Option *option) {
 	auto	families = sample_man->extract_both_imputed_families();
-	if(families.empty())
-		return NULL;
-	
-	auto	*new_imputed_vcf = BothImputedFamily::impute(orig_vcf, merged_vcf,
+	auto	*vcf = BothImputedFamily::impute(orig_vcf, merged_vcf,
 														families, geno_map,
 														option->num_threads);
 	Common::delete_all(families);
-	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, new_imputed_vcf,
+	if(vcf == NULL)
+		return NULL;
+	
+	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
 													orig_vcf->get_samples());
 	delete merged_vcf;
-	sample_man->add_imputed_samples(new_imputed_vcf->get_samples());
-	delete new_imputed_vcf;
+	sample_man->add_imputed_samples(vcf->get_samples());
+	delete vcf;
 	return new_merged_vcf;
 }
 
@@ -59,9 +59,9 @@ VCFSmall *SmallFamily::impute_vcf_by_imputed_and_known_parent(const VCFSmall *or
 			samples.push_back(f->get_pat());
 	}
 	
-	auto	*vcf = OnePhasedFamily::impute_by_parent(orig_vcf, imputed_vcf,
-											ref_haps, families, samples, gmap,
-											option->num_threads);
+	auto	*vcf = ImputedAndKnownFamily::impute_by_parent(orig_vcf,
+											imputed_vcf, ref_haps, families,
+											samples, gmap, option->num_threads);
 	auto	*new_merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
 	delete imputed_vcf;
@@ -81,7 +81,7 @@ VCFSmall *SmallFamily::impute_vcf_by_both_known_parents(
 	if(families.empty())
 		return NULL;
 	
-	auto	*vcf = NoPhasedFamily::impute(orig_vcf, imputed_vcf, ref_haps,
+	auto	*vcf = BothKnownFamily::impute(orig_vcf, imputed_vcf, ref_haps,
 												families, gmap, num_threads);
 	auto	*new_merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
@@ -98,12 +98,8 @@ VCFSmall *SmallFamily::impute_vcf_by_imputed_parent(const VCFSmall *orig_vcf,
 								const Map& geno_map,
 								SampleManager *sample_man, int num_threads) {
 	const auto	families = sample_man->extract_one_imputed_families();
-	if(families.empty())
-		return NULL;
-	
-	auto	*vcf = OneImputedFamily::impute(orig_vcf, merged_vcf,
-												ref_haps, families,
-												geno_map, num_threads);
+	auto	*vcf = OneImputedFamily::impute(orig_vcf, merged_vcf, ref_haps,
+											families, geno_map, num_threads);
 	Common::delete_all(families);
 	if(vcf == NULL)
 		return NULL;

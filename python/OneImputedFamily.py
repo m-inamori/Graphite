@@ -50,6 +50,8 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 	if not vcfs:
 		return None
 	
+	print("%d families whose one parent is imputed and the other parent is"
+									" known have been imputed." % len(families))
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
 

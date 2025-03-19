@@ -82,6 +82,9 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_small_VCFs(small_vcfs, num_threads);
+	cout << small_vcfs.size()
+			<< " families whose progeny is imputed have been imputed." << endl;
+	
 	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(small_vcfs);

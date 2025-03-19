@@ -8,7 +8,7 @@ from VCFFamily import *
 from Map import *
 from KnownFamily import *
 from VCFOneParentKnown import VCFOneParentKnown
-from VCFOneParentImputed import VCFOneParentImputed
+from typing import Optional
 
 # HMMにrefを使っても計算量が十分に小さいか
 
@@ -19,7 +19,7 @@ def is_small(ref_haps: list[list[int]], L: int) -> bool:
 	return R * M < 10**8 and R < 10**5 and L * R * M < 10**9
 
 def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
-						families: list[KnownFamily], gmap: Map) -> VCFSmallBase:
+			families: list[KnownFamily], gmap: Map) -> Optional[VCFSmallBase]:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
@@ -32,6 +32,11 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 			vcf2 = vcf1.extract_samples([parent])
 			vcfs.append(vcf2)
 	
+	if not vcfs:
+		return None
+	
+	print("%d families whose one parent is known and the other parent is"
+								" unknown have been imputed." % len(families))
 	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
 	return new_vcf
 

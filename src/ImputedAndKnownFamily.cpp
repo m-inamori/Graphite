@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <cassert>
-#include "../include/OnePhasedFamily.h"
+#include "../include/ImputedAndKnownFamily.h"
 #include "../include/VCFImpHeteroHomo.h"
 #include "../include/VCFOneParentImputed.h"
 #include "../include/VCFOneParentImputedRough.h"
@@ -14,9 +14,9 @@
 using namespace std;
 
 
-//////////////////// OnePhasedFamily ////////////////////
+//////////////////// ImputedAndKnownFamily ////////////////////
 
-int OnePhasedFamily::get_gt_type(const VCFRecord *record, int i) {
+int ImputedAndKnownFamily::get_gt_type(const VCFRecord *record, int i) {
 	if(record->is_hetero(i))
 		return 0;	// 0/1
 	else if(record->get_gt(i).c_str()[0] == '0')
@@ -25,7 +25,7 @@ int OnePhasedFamily::get_gt_type(const VCFRecord *record, int i) {
 		return 1;	// 1/1
 }
 
-std::pair<ParentComb, FillType> OnePhasedFamily::classify_record(
+std::pair<ParentComb, FillType> ImputedAndKnownFamily::classify_record(
 													const VCFRecord *record) {
 	if(record->is_NA(0) || record->is_NA(1))
 		return make_pair(ParentComb::PNA, FillType::IMPUTABLE);
@@ -56,7 +56,7 @@ std::pair<ParentComb, FillType> OnePhasedFamily::classify_record(
 }
 
 array<vector<VCFFillableRecord *>, 4>
-OnePhasedFamily::classify_records(const vector<VCFFamilyRecord *>& records) {
+ImputedAndKnownFamily::classify_records(const vector<VCFFamilyRecord *>& records) {
 	// hetero x hetero, homo x hetero, hetero x homo, homo x homo
 	array<vector<VCFFillableRecord *>, 4>	rss;
 	for(size_t index = 0; index < records.size(); ++index) {
@@ -73,7 +73,7 @@ OnePhasedFamily::classify_records(const vector<VCFFamilyRecord *>& records) {
 	return rss;
 }
 
-VCFHeteroHomoOnePhased *OnePhasedFamily::create(const vector<STRVEC>& header,
+VCFHeteroHomoOnePhased *ImputedAndKnownFamily::create(const vector<STRVEC>& header,
 										const STRVEC& samples,
 										const vector<VCFFillableRecord *>& rs,
 										bool is_mat_hetero, bool is_mat_imputed,
@@ -84,11 +84,11 @@ VCFHeteroHomoOnePhased *OnePhasedFamily::create(const vector<STRVEC>& header,
 		return new VCFHeteroImpHomo(header, samples, rs, is_mat_hetero, gmap);
 }
 
-bool OnePhasedFamily::compare_record(const VCFRecord *a, const VCFRecord *b) {
+bool ImputedAndKnownFamily::compare_record(const VCFRecord *a, const VCFRecord *b) {
 	return a->pos() < b->pos();
 }
 
-VCFSmallFillable *OnePhasedFamily::merge_vcf(
+VCFSmallFillable *ImputedAndKnownFamily::merge_vcf(
 					const std::vector<STRVEC>& header, const STRVEC& samples,
 					const array<vector<VCFFillableRecord *>, 4>& rss) {
 	vector<VCFFillableRecord *>	rs;
@@ -96,11 +96,11 @@ VCFSmallFillable *OnePhasedFamily::merge_vcf(
 		for(auto p = rss[i].begin(); p != rss[i].end(); ++p)
 			rs.push_back(*p);
 	}
-	std::sort(rs.begin(), rs.end(), OnePhasedFamily::compare_record);
+	std::sort(rs.begin(), rs.end(), ImputedAndKnownFamily::compare_record);
 	return new VCFSmallFillable(header, samples, rs);
 }
 
-VCFSmallBase *OnePhasedFamily::impute(const Family& family, VCFFamily *vcf,
+VCFSmallBase *ImputedAndKnownFamily::impute(const Family& family, VCFFamily *vcf,
 											const STRVEC& non_imputed_parents,
 											const Map& gmap) {
 	const auto&	header = vcf->get_header();
@@ -124,7 +124,7 @@ VCFSmallBase *OnePhasedFamily::impute(const Family& family, VCFFamily *vcf,
 }
 
 // Is the computational cost sufficiently small even when using ref in HMM?
-bool OnePhasedFamily::is_small(const Family *family,
+bool ImputedAndKnownFamily::is_small(const Family *family,
 								const vector<vector<int>>& ref_haps) {
 	const size_t	N = family->num_progenies();
 	if(N > 1)
@@ -136,14 +136,14 @@ bool OnePhasedFamily::is_small(const Family *family,
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
 }
 
-bool OnePhasedFamily::is_small_ref(const vector<vector<int>>& ref_haps) {
+bool ImputedAndKnownFamily::is_small_ref(const vector<vector<int>>& ref_haps) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
 	const size_t	R = NH * NH * (2*NH - 1);
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
 }
 
-void OnePhasedFamily::impute_small_in_thread(void *config) {
+void ImputedAndKnownFamily::impute_small_in_thread(void *config) {
 	auto	*c = static_cast<const ConfigThread *>(config);
 	const auto&	vcfs = c->vcfs;
 	const size_t	n = vcfs.size();
@@ -152,7 +152,7 @@ void OnePhasedFamily::impute_small_in_thread(void *config) {
 	}
 }
 
-void OnePhasedFamily::impute_small_VCFs(
+void ImputedAndKnownFamily::impute_small_VCFs(
 						vector<VCFOneParentImputed *>& vcfs, int T) {
 	// VCFOneParentImputed is heavy for imputation,
 	// so make it multi-threaded and impute in order of processing load.
@@ -183,7 +183,7 @@ void OnePhasedFamily::impute_small_VCFs(
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *OnePhasedFamily::impute_by_parent(
+VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 									const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
@@ -191,6 +191,9 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 									const STRVEC& non_imputed_parents,
 									const Map& gmap, int num_threads) {
 	const size_t	N = families.size();
+	if(N == 0)
+		return NULL;
+	
 	vector<const VCFSmallBase *>	vcfs(N);
 	vector<VCFOneParentImputed *>	small_vcfs;
 	for(size_t i = 0; i < N; ++i) {
@@ -233,6 +236,8 @@ VCFSmallBase *OnePhasedFamily::impute_by_parent(
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_small_VCFs(small_vcfs, num_threads);
+	cout << N << " families whose one parent is imputed and the other parent"
+									<< "is known have been imputed." << endl;
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
