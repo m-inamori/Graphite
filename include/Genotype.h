@@ -54,5 +54,8 @@ public:
 		const int	gt2_ = gt.c_str()[2] == '0' ? 0 : 1;
 		return gt1_ + gt2_;
 	}
+	static std::size_t find_key_position(const std::string& info,
+											const std::string& key);
+
 };
 #endif

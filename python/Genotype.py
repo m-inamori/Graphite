@@ -65,7 +65,7 @@ class Genotype:
 	
 	@staticmethod
 	def gt_to_int(gt: str) -> int:
-		if '.' in gt:
+		if '.' in gt[:3]:
 			return 3
 		gt1 = 0 if gt[0] == '0' else 1
 		gt2 = 0 if gt[2] == '0' else 1
@@ -93,3 +93,11 @@ class Genotype:
 	def gt_by_haplotypes(hc1: int, hc2: int,
 							mat_gt: int, pat_gt: int) -> int:
 		return ((mat_gt >> hc1) & 1) | (((pat_gt >> hc2) & 1) << 1)
+	
+	@staticmethod
+	def find_key_position(info: str, key: str) -> int:
+		for i, t in enumerate(info.split(':')):
+			if t == key:
+				return i
+		else:
+			return -1

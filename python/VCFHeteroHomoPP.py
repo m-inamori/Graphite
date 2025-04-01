@@ -137,7 +137,7 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 			mat_from = record_set.determine_mat_from(i)
 			pat_from = record_set.determine_pat_from(i)
 			v = record.v
-			v[i+9] = v[9][mat_from*2-2] + '|' + v[10][pat_from*2-2]
+			record.set_GT(i, v[9][mat_from*2-2] + '|' + v[10][pat_from*2-2])
 	
 	@staticmethod
 	def classify_record(record: VCFRecord) -> tuple[ParentComb, FillType]:
@@ -170,8 +170,9 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		rss: list[list[VCFFillableRecord]] = [ [] for _ in range(4) ]
 		for index, record in enumerate(records):
 			pair, type = VCFHeteroHomoPP.classify_record(record)
+			probs = record.parse_PL()
 			rss[type.value].append(VCFFillableRecord(record.v, record.samples,
-															index, type, pair))
+													index, type, pair, probs))
 		return rss
 	
 	@staticmethod
@@ -212,14 +213,19 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		v = record1.v + record2.v[9:]
 		record = VCFFamilyRecord(v, samples)
 		pair, type = VCFHeteroHomoPP.classify_record(record)
-		return VCFFillableRecord(v, samples, i, type, pair)
+		probs1 = record1.parse_PL()
+		probs2 = record2.parse_PL()
+		return VCFFillableRecord(v, samples, i, type, pair, probs1 + probs2)
 	
 	@staticmethod
 	def fill_NA(record1: VCFRecord,
 						samples: list[str], i: int) -> VCFFillableRecord:
 		NA_len = len(samples) - len(record1.samples)
 		v = record1.v + ['./.'] * NA_len
-		return VCFFillableRecord(v, samples, i, FillType.UNABLE, ParentComb.PNA)
+		probs = record1.parse_PL()
+		probs.extend((1/3, 1/3, 1/3) for _ in range(NA_len))
+		return VCFFillableRecord(v, samples, i, FillType.UNABLE,
+												ParentComb.PNA, probs)
 	
 	@staticmethod
 	def merge(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,

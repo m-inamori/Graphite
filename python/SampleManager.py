@@ -175,30 +175,33 @@ class SampleManager:
 	@staticmethod
 	def make_families(ped: PedigreeTable, samples: list[str],
 										lower_progs: int) -> list[KnownFamily]:
+		families = ped.make_families(samples)
+		new_families: list[KnownFamily] = []
 		set_samples = set(samples)
-		dic = classify((prog.parents(), prog.name) for prog in ped.table)
-		families = []
-		for (mat, pat), progs in dic.items():
-			set_progs = set(prog for prog in progs if prog in set_samples)
-			filtered_progs = sorted(set_progs)
+		for family in families:
+			# Families without any progeny in the VCF are deleted.
+			filtered_progs: list[str] = []
+			for prog in family.progenies:
+				if prog in set_samples:
+					filtered_progs.append(prog)
 			if not filtered_progs:
 				continue
 			
+			mat = family.mat
+			pat = family.pat
 			mat_known = mat in set_samples
 			pat_known = pat in set_samples
-			if (len(filtered_progs) >= lower_progs and
-						any(p in set_samples for p in (mat, pat))):
-				family = KnownFamily(mat, pat,
-										mat_known, pat_known, filtered_progs)
+			if len(filtered_progs) >= lower_progs and (mat_known or pat_known):
+				new_families.append(KnownFamily(mat, pat, mat_known,
+													pat_known, filtered_progs))
 			else:
-				# VCFに無い親は不明扱い
+				# Treat parents who are not in the VCF as unknown
 				mat_mod = mat if mat_known else '0'
 				pat_mod = pat if pat_known else '0'
-				family = KnownFamily(mat_mod, pat_mod,
-										mat_known, pat_known, filtered_progs)
-			families.append(family)
-		families.sort(key=lambda f: f.parents())
-		return families
+				new_families.append(KnownFamily(mat_mod, pat_mod, mat_known,
+													pat_known, filtered_progs))
+		
+		return new_families
 	
 	@staticmethod
 	def create(ped: PedigreeTable, samples: list[str], lower_progs: int,

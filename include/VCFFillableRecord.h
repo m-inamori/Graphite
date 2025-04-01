@@ -15,11 +15,13 @@ protected:
 	int			index;
 	FillType	type;
 	ParentComb	comb;
+	std::vector<Probs>	probs;
 	
 public:
 	VCFFillableRecord(const STRVEC& v, const STRVEC& s,
-									int i, FillType t, ParentComb c) :
-						VCFFamilyRecord(v, s), index(i), type(t), comb(c) { }
+						int i, FillType t, ParentComb c,
+						const std::vector<Probs>& ps) :
+				VCFFamilyRecord(v, s), index(i), type(t), comb(c), probs(ps) { }
 	~VCFFillableRecord() { }
 	
 	int get_index() const { return index; }
@@ -39,6 +41,14 @@ public:
 	bool is_00x11() const { return comb == ParentComb::P00x11; }
 	void set_00x11() { comb = ParentComb::P00x11; }
 	
+	double get_prob(std::size_t i, int gt) const {
+		switch(gt) {
+			case 0:  return std::get<0>(probs[i]);
+			case 1:  return std::get<1>(probs[i]);
+			default: return std::get<2>(probs[i]);
+		}
+	}
+	
 	VCFFillableRecord *copy() const;
 	std::string gt_from_parent(int mat_from, int pat_from) const;
 	std::string gt_from_mat(int mat_from, int c) const;
@@ -46,10 +56,10 @@ public:
 	int mat_from(int c) const;
 	int pat_from(int c) const;
 	
-	void modify_prog_GTs(const STRVEC& new_prog_gts);
 	void modify_gts();
 	void modify_parents_type();
 	int from_which_chrom(std::size_t i, bool is_mat) const;
+	void modify_prog_GTs(const STRVEC& new_prog_gts);
 	void modify_gts(const STRVEC& new_prog_gts);
 	void fill_PGT();
 	void set(const STRVEC& new_v, FillType new_type);

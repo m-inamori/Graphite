@@ -12,11 +12,11 @@ using namespace std;
 //////////////////// BothKnownFamily ////////////////////
 
 // Is the computational cost sufficiently small even when using ref in HMM?
-bool BothKnownFamily::is_small(const vector<vector<int>>& ref_haps) {
+bool BothKnownFamily::is_small(const vector<vector<int>>& ref_haps, int L) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
 	const size_t	R = NH * NH * (2*NH - 1);
-	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
+	return R * M < 100000000 && R < 100000 && L * R * M < 1000000000;
 }
 
 void BothKnownFamily::impute_small_in_thread(void *config) {
@@ -70,7 +70,7 @@ VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
-		if(is_small(ref_haps)) {
+		if(is_small(ref_haps, (int)N)) {
 			auto	*vcf1 = new VCFBothKnown(vcf->get_header(),
 												   family->get_samples(),
 												   vcf->get_family_records(),
@@ -84,11 +84,10 @@ VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 	if(small_vcfs.empty())
 		return NULL;
 	
-	cout << small_vcfs.size()
-			<< " families whose parents are known have been imputed." << endl;
-	
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_small_VCFs(small_vcfs, num_threads);
+	cout << small_vcfs.size()
+			<< " families whose parents are known have been imputed." << endl;
 	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(small_vcfs);

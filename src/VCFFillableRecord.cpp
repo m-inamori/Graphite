@@ -10,7 +10,7 @@ using namespace std;
 //////////////////// VCFFillableRecord ////////////////////
 
 VCFFillableRecord *VCFFillableRecord::copy() const {
-	return new VCFFillableRecord(v, samples, index, type, comb);
+	return new VCFFillableRecord(v, samples, index, type, comb, probs);
 }
 
 string VCFFillableRecord::gt_from_parent(int mat_from, int pat_from) const {
@@ -113,9 +113,9 @@ int VCFFillableRecord::find_geno_type(const string& type) const {
 }
 
 void VCFFillableRecord::fill_PGT() {
-	const int	i_GT = this->find_geno_type("GT");
+	const int	i_GT = this->find_key_position("GT");
 	assert(i_GT != -1);
-	const int	i_PGT = this->find_geno_type("PGT");
+	const int	i_PGT = this->find_key_position("PGT");
 	if(i_PGT == -1)
 		return;
 	
@@ -182,7 +182,7 @@ bool VCFFillableRecord::is_near_prog_gts(const STRVEC& gts) const {
 
 void VCFFillableRecord::modify_prog_GTs(const STRVEC& new_prog_gts) {
 	for(size_t i = 2; i < num_samples(); ++i) {
-		set_GT(i, new_prog_gts[i-2]);
+		set_GT(i, new_prog_gts[i-2].substr(0, 3));
 	}
 }
 
@@ -319,8 +319,9 @@ string VCFFillableRecord::decide_duplicated_Genotype(
 VCFFillableRecord *VCFFillableRecord::convert(
 									const VCFImpFamilyRecord *record) {
 	const FillType	type = record->get_fill_type();
+	const auto&	probs = record->parse_PL();
 	return new VCFFillableRecord(record->get_v(), record->get_samples(),
-								 record->get_index(), type, record->get_comb());
+						 record->get_index(), type, record->get_comb(), probs);
 }
 
 VCFRecord *VCFFillableRecord::merge(const vector<VCFFillableRecord *>& records,

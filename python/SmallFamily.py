@@ -24,6 +24,7 @@ import OneKnownFamily
 import OneImputedFamily
 import ProgenyImputedFamily
 import Orphan
+import ImputedAndKnownFamily
 from VCFIsolated import VCFIsolated
 from SampleManager import *
 from Map import *
@@ -150,6 +151,9 @@ def extract_haplotypes(phased_vcf: VCFSmall,
 		return int(records[i].v[(h>>1)+9][(h&1)<<1])
 	
 	gts = [ [ geno(h, i) for i in range(M) ] for h in range(N*2) ]
+	MIN_REF_NUM = 10
+	if len(gts) <= MIN_REF_NUM:
+		return gts
 	
 	K = min(10, M)
 	# ローリングハッシュ
@@ -205,10 +209,13 @@ def extract_haplotypes(phased_vcf: VCFSmall,
 					b[k][i] = h2
 	
 	# 2つのハプロタイプが長さの1割以下しかないサンプルは捨てる
+	# ただし、MIN_REF_NUM以下にならないようにする
 	counter = Counter(g for v in b for g in v)
-	indices = [ i for i in range(N*2) if counter[i] * 10 >= M ]
-	ref_gts = [ gts[i] for i in indices ]
-	return ref_gts
+	w = sorted((counter[i], i) for i in range(N*2))
+	if w[N*2-MIN_REF_NUM][0] * 10 >= M:
+		return [ gts[i] for c, i in w if c * 10 >= M ]
+	else:
+		return [ gts[i] for c, i in w[N*2-MIN_REF_NUM:] ]
 
 def impute_small_family_VCFs(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 								geno_map: Map, sample_man: SampleManager,

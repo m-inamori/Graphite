@@ -175,8 +175,11 @@ vector<const Family *> PedigreeTable::make_families(
 	vector<const Family *>	families;
 	const set<string>	set_samples(samples.begin(), samples.end());
 	for(auto p = progs.begin(); p != progs.end(); ++p) {
-		const auto	parents = p->first;
-		const auto	progenies = p->second;
+		const auto&	parents = p->first;
+		vector<const Progeny *>	progenies = p->second;
+		std::sort(progenies.begin(), progenies.end(),
+					[](const Progeny *prog1, const Progeny *prog2)
+					{ return prog1->get_name() < prog2->get_name(); });
 		// Parent not found in samples of VCF is treated as unknown
 		const string	mat = parents.first;
 		const string	pat = parents.second;

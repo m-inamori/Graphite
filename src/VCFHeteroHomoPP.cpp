@@ -178,8 +178,10 @@ map<FillType, vector<VCFFillableRecord *>> VCFHeteroHomoPP::classify_records(
 	for(size_t index = 0; index < records.size(); ++index) {
 		VCFFamilyRecord	*record = records[index];
 		const auto	pair = classify_record(record);
-		VCFFillableRecord	*new_record = new VCFFillableRecord(record->get_v(),
-						record->get_samples(), index, pair.second, pair.first);
+		const auto	probs = record->parse_PL();
+		auto	*new_record = new VCFFillableRecord(record->get_v(),
+												record->get_samples(), index,
+												pair.second, pair.first, probs);
 		rss[pair.second].push_back(new_record);
 	}
 	return rss;
@@ -222,17 +224,23 @@ VCFFillableRecord *VCFHeteroHomoPP::merge_record(const VCFRecord *record1,
 	const auto	pair1 = VCFHeteroHomoPP::classify_record(record);
 	const ParentComb	pc = pair1.first;
 	const FillType		type = pair1.second;
-	return new VCFFillableRecord(v, samples, i, type, pc);
+	auto	probs = record1->parse_PL();
+	const auto	probs2 = record2->parse_PL();
+	probs.insert(probs.end(), probs2.begin(), probs2.end());
+	return new VCFFillableRecord(v, samples, i, type, pc, probs);
 }
 
 VCFFillableRecord *VCFHeteroHomoPP::fill_NA(VCFRecord *record1,
 											const STRVEC& samples, int i) {
 	const size_t	NA_len = samples.size() - record1->num_samples();
 	auto	v = record1->get_v();
-	for(size_t j = 0; j < NA_len; ++j)
+	auto	probs = record1->parse_PL();
+	for(size_t j = 0; j < NA_len; ++j) {
 		v.push_back("./.");
+		probs.push_back(VCFRecord::Probs(1./3, 1./3, 1.3));
+	}
 	return new VCFFillableRecord(v, samples, i,
-									FillType::UNABLE, ParentComb::PNA);
+									FillType::UNABLE, ParentComb::PNA, probs);
 }
 
 VCFHeteroHomoPP *VCFHeteroHomoPP::merge(const VCFSmallBase *vcf_parents,

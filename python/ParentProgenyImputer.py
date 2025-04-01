@@ -187,7 +187,7 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 			for j in range(N):	# 個々の後代
 				hc2, hc1 = divmod((hs[i] >> (j * 2)) & 3, 2)
 				gtc_int = self.gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt)
-				record.v[j+11] = Genotype.int_to_phased_gt(gtc_int)
+				record.set_GT(j+2, Genotype.int_to_phased_gt(gtc_int))
 	
 	def impute(self) -> None:
 		# DP

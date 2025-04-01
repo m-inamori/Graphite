@@ -11,6 +11,7 @@ from VCF import VCFRecord
 from VCFFillableRecord import VCFFillableRecord
 from TypeDeterminer import ParentComb
 from Genotype import Genotype
+from log import modified_log
 from common import unique_list
 
 
@@ -157,13 +158,13 @@ class RecordSet:
 	def from_which_chrom_next_pat(self, gt: str) -> int:
 		return self.from_which_chrom(gt, self.next_pat_record, False)
 	
-	def gen_gts(self) -> Iterator[tuple[str, str, str, str, str]]:
+	def gen_gts(self) -> Iterator[tuple[int, str, str, str, str]]:
 		if self.record is None:
 			return
 		
 		for c in range(11, len(self.record.v)):
 			gts = [ r.v[c] if r else '' for r in self.records() ]
-			yield (gts[0], gts[1], gts[2], gts[3], gts[4])
+			yield (c-9, gts[1], gts[2], gts[3], gts[4])
 	
 	def is_mat_prev_near(self) -> bool:
 		if (self.record is None or self.prev_mat_record is None or
@@ -282,27 +283,40 @@ class RecordSet:
 								   next_chrom: int) -> list[float]:
 			return memo[(prev_chrom, next_chrom)]
 		
-		def likelihood_each(gt: str, probs_mat: list[float],
-									 probs_pat: list[float]) -> float:
-			sum_gt = int(gt[0]) + int(gt[2])
-			likelihood = sum(probs_mat[i] * probs_pat[j]
-								for i, j in product(range(2), repeat=2)
-								if ((mat_gt >> i) & 1) +
-								   ((pat_gt >> j) & 1) == sum_gt)
-			return log(likelihood)
+		def likelihood_mat() -> float:
+			if self.record is None:
+				return 0.0		# ここには来ない
+			return modified_log(self.record.probs[0][(mat_gt*3+1)>>2])
 		
-		ll = 0.0	# log of likelihood
-		for gt, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in self.gen_gts():
-			if not Genotype.is_valid(gt, mat_gt, pat_gt):
-				ll += log(0.0001)
-				continue
+		def likelihood_pat() -> float:
+			if self.record is None:
+				return 0.0		# ここには来ない
+			return modified_log(self.record.probs[1][(pat_gt*3+1)>>2])
+		
+		def likelihood_each(probs_mat: list[float],
+							probs_pat: list[float], i: int) -> float:
+			if self.record is None:
+				return log(0.0001)
+			
+			likelihood = 0.0
+			for j, k in product(range(2), repeat=2):
+				gt = ((mat_gt >> j) & 1) + ((pat_gt >> k) & 1)
+				likelihood += (probs_mat[j] * probs_pat[k] *
+												self.record.probs[i][gt])
+			return modified_log(likelihood)
+		
+		if self.record is None:
+			return log(0.0001)
+		
+		ll = likelihood_mat() + likelihood_pat()	# log of likelihood
+		for i, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in self.gen_gts():
 			prev_mat_from = self.from_which_chrom_prev_mat(mat_gt1)
 			next_mat_from = self.from_which_chrom_next_mat(mat_gt2)
 			prev_pat_from = self.from_which_chrom_prev_pat(pat_gt1)
 			next_pat_from = self.from_which_chrom_next_pat(pat_gt2)
 			probs_mat = probs_from_which_chrom(prev_mat_from, next_mat_from)
 			probs_pat = probs_from_which_chrom(prev_pat_from, next_pat_from)
-			ll += likelihood_each(gt, probs_mat, probs_pat)
+			ll += likelihood_each(probs_mat, probs_pat, i)
 		return ll
 	
 	def determine_parents_phasing(self) -> None:

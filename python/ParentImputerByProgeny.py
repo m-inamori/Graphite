@@ -115,10 +115,10 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 		for i in range(M):
 			record = self.records[i]
 			parent_gt = self.compute_parent_gt(i, hs[i])
-			record.v[9] = Genotype.int_to_phased_gt(parent_gt)
+			record.set_GT(0, Genotype.int_to_phased_gt(parent_gt))
 			if is_swapped:
-				gt = record.v[10]
-				record.v[10] = gt[2] + '|' + gt[0] + gt[3:]
+				gt = record.v[9]
+				record.set_GT(0, gt[2] + '|' + gt[0])
 	
 	def impute(self) -> None:
 		# DP

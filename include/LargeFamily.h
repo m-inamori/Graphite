@@ -40,6 +40,7 @@ namespace LargeFamily {
 					heho_records(heho_rs), other_records(other_rs) { }
 	};
 	
+	int get_int_gt(const std::string& gt);
 	VCFHeteroHomoRecord *create_heterohomo_record(const STRVEC& v,
 									const KnownFamily *family, std::size_t i,
 									WrongType wrong_type, ParentComb pc);

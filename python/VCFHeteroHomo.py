@@ -57,10 +57,11 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 		return [ encode(gt, homo) for gt in gts[2:] ]
 	
 	def set_haplo(self, h: int) -> None:
-		hetero_col = 9 if self.mat_int_gt() == 1 else 10
-		homo_col = 10 if hetero_col == 9 else 9
-		self.v[hetero_col] = '0|1' if h == 0 else '1|0'
-		self.v[homo_col] = '0|0' if self.v[homo_col][0] == '0' else '1|1'
+		hetero_index = 0 if self.mat_int_gt() == 1 else 1
+		homo_index = 1 if hetero_index == 0 else 0
+		self.set_GT(hetero_index, '0|1' if h == 0 else '1|0')
+		self.set_GT(homo_index, '0|0' if self.get_gt(homo_index)[0] == '0'
+																	else '1|1')
 		
 		gts = self.genotypes_from_hetero_parent()
 		for i, gt in enumerate(gts):
@@ -73,11 +74,11 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 		if self.is_mat_hetero():
 			pat_int_gt = int(pat_gt[0])
 			for i in range(self.num_progenies()):
-				self.v[i+11] = '%s|%d' % (mat_gt[ws[i]*2], pat_int_gt)
+				self.set_GT(i+2, '%s|%d' % (mat_gt[ws[i]*2], pat_int_gt))
 		else:
 			mat_int_gt = int(mat_gt[0])
 			for i in range(self.num_progenies()):
-				self.v[i+11] = '%d|%s' % (mat_int_gt, pat_gt[ws[i]*2])
+				self.set_GT(i+2, '%d|%s' % (mat_int_gt, pat_gt[ws[i]*2]))
 
 
 #################### VCFHeteroHomo ####################

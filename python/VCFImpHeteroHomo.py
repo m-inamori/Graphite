@@ -47,7 +47,7 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 		v = self.records[i].v
 		k = int(c) * 2
 		if self.is_mat_hetero:
-			return v[9][k] + v[10][1:]
+			return v[9][k] + v[10][1:3]
 		else:
 			return v[9][:2] + v[10][k]
 	
@@ -55,7 +55,7 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 		gt = self.records[i].get_gt(self.unimputed_index())
 		self.records[i].set_GT(self.unimputed_index(), gt[0] + '|' + gt[2])
 		for j in range(2, len(self.get_samples())):
-			self.records[i].v[j+9] = self.update_each(i, j, seqs[j-2][i])
+			self.records[i].set_GT(j, self.update_each(i, j, seqs[j-2][i]))
 	
 	# 0|1 1/1 0/0 -> '0'
 	# 0|1 1/1 0/1 -> '0'

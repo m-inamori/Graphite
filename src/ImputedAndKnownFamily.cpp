@@ -64,9 +64,10 @@ ImputedAndKnownFamily::classify_records(const vector<VCFFamilyRecord *>& records
 		const auto	p = classify_record(record);
 		const ParentComb	comb = p.first;
 		const FillType		type = p.second;
+		const auto			probs = record->parse_PL();
 		auto	r = new VCFFillableRecord(record->get_v(),
 											record->get_samples(),
-											index, type, comb);
+											index, type, comb, probs);
 		assert(static_cast<int>(type) < 4);
 		rss[static_cast<int>(type)].push_back(r);
 	}
@@ -125,7 +126,7 @@ VCFSmallBase *ImputedAndKnownFamily::impute(const Family& family, VCFFamily *vcf
 
 // Is the computational cost sufficiently small even when using ref in HMM?
 bool ImputedAndKnownFamily::is_small(const Family *family,
-								const vector<vector<int>>& ref_haps) {
+								const vector<vector<int>>& ref_haps, int L) {
 	const size_t	N = family->num_progenies();
 	if(N > 1)
 		return false;
@@ -133,14 +134,15 @@ bool ImputedAndKnownFamily::is_small(const Family *family,
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
 	const size_t	R = NH * NH * (2*NH + 2*N - 1) << (N*2);
-	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
+	return R * M < 100000000 && R < 100000 && L * R * M < 1000000000;
 }
 
-bool ImputedAndKnownFamily::is_small_ref(const vector<vector<int>>& ref_haps) {
+bool ImputedAndKnownFamily::is_small_ref(const vector<vector<int>>& ref_haps,
+																		int L) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
 	const size_t	R = NH * NH * (2*NH - 1);
-	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
+	return R * M < 100000000 && R < 100000 && L * R * M < 1000000000;
 }
 
 void ImputedAndKnownFamily::impute_small_in_thread(void *config) {
@@ -204,7 +206,7 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 											   non_imputed_parents.end(),
 											   family->get_pat())
 										!= non_imputed_parents.end();
-		if(is_small(family, ref_haps)) {
+		if(is_small(family, ref_haps, (int)N)) {
 			auto	*vcf = new VCFOneParentImputed(vcf1->get_header(),
 												   family->get_samples(),
 												   vcf1->get_family_records(),
@@ -216,7 +218,7 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 			// so the original VCF is emptied before being deleted.
 			vcf1->clear_records();
 		}
-		else if(is_small_ref(ref_haps)) {
+		else if(is_small_ref(ref_haps, (int)N)) {
 			auto	*vcf2 = new VCFOneParentImputedRough(vcf1->get_header(),
 												family->get_samples(),
 												vcf1->get_family_records(),
@@ -237,7 +239,7 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_small_VCFs(small_vcfs, num_threads);
 	cout << N << " families whose one parent is imputed and the other parent"
-									<< "is known have been imputed." << endl;
+									<< " is known have been imputed." << endl;
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;

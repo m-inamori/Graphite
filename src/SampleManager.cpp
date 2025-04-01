@@ -133,13 +133,17 @@ vector<const KnownFamily *> SampleManager::extract_both_known_families() const {
 	vector<const KnownFamily *>	families;
 	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
 		const KnownFamily	*family = *p;
+		const auto	progs = extract_unimputed_progenies(family);
 		if(this->is_imputed(family->get_mat()) ||
 				this->is_imputed(family->get_pat()) ||
 				this->is_unknown(family->get_mat()) ||
-				this->is_unknown(family->get_pat()))
+				this->is_unknown(family->get_pat()) ||
+				progs.empty()) {
+			Common::delete_all(progs);
 			continue;
+		}
 		
-		families.push_back(family->create(extract_unimputed_progenies(family)));
+		families.push_back(family->create(progs));
 	}
 	return families;
 }

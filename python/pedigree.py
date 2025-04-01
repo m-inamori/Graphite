@@ -2,6 +2,7 @@
 # pedigree.py
 
 from __future__ import annotations
+from collections import defaultdict
 from typing import Iterator, Optional
 import sys
 
@@ -128,6 +129,28 @@ class PedigreeTable:
 	def extract_families(self) -> list[Family]:
 		parents = sorted(set((prog.mat, prog.pat) for prog in self.table))
 		return [ Family(*p, self.get_children(p)) for p in parents ]
+	
+	def make_families(self, samples: list[str]) -> list[Family]:
+		progs: dict[tuple[str, str], list[str]] = defaultdict(list)
+		used: set[str] = set()
+		for progeny in self.table:
+			if progeny.name not in used:
+				progs[progeny.parents()].append(progeny.name)
+				used.add(progeny.name)
+		
+		families: list[Family] = []
+		set_samples = set(samples)
+		for (mat, pat), progenies in sorted(progs.items(), key=lambda e: e[0]):
+			progenies.sort()
+			if mat != '0' and pat != '0':
+				family = Family(mat, pat, progenies)
+				families.append(family)
+			else:
+				for prog in progenies:
+					family = Family(mat, pat, [prog])
+					families.append(family)
+		families.sort(key=lambda f: f.parents())
+		return families
 	
 	def limit_samples(self, samples: list[str]) -> PedigreeTable:
 		ped_samples = set(p.name for p in self.table)

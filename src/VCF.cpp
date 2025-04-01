@@ -1,5 +1,6 @@
 #include <sstream>
-#include <algorithm>
+#include <cmath>
+#include <numeric>
 #include "../include/VCF.h"
 #include "../include/common.h"
 
@@ -75,6 +76,41 @@ WrongRecordType VCFRecord::check() const {
 			return WrongRecordType::GENOTYPEERROR;
 	}
 	return WrongRecordType::RIGHT;
+}
+
+size_t VCFRecord::find_key_position(const string& key) const {
+	return Genotype::find_key_position(v[8], key);
+}
+
+vector<VCFRecord::Probs> VCFRecord::parse_PL() const {
+	vector<Probs>	probs;
+	const size_t	N = this->num_samples();
+	const size_t	PL_pos = this->find_key_position("PL");
+	for(size_t i = 0; i < N; ++i) {
+		const auto	w = Common::split(this->v[i+9], ':');
+		try {
+			// If PL_pos is std::string::npos,
+			// throw std::out_of_range and
+			// execute the processing in the catch block.
+			const auto	pls = Common::split(w.at(PL_pos), ',');
+			vector<double>	ps(3);
+			for(size_t k = 0; k < 3; ++k) {
+				ps[k] = exp(-log(10.0)*stoi(pls[k]));
+			}
+			const double	sum_ps = std::accumulate(ps.begin(), ps.end(), 0.0);
+			probs.push_back(make_tuple(ps[0]/sum_ps,
+										ps[1]/sum_ps, ps[2]/sum_ps));
+		}
+		catch(...) {
+			switch(get_int_gt(i)) {
+				case 0:  probs.push_back(make_tuple(1.0, 0.0, 0.0)); break;
+				case 1:  probs.push_back(make_tuple(0.0, 1.0, 0.0)); break;
+				case 2:  probs.push_back(make_tuple(0.0, 0.0, 1.0)); break;
+				default: probs.push_back(make_tuple(1./3, 1./3, 1./3)); break;
+			}
+		}
+	}
+	return probs;
 }
 
 

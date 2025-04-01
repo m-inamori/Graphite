@@ -62,6 +62,9 @@ VCFSmall *SmallFamily::impute_vcf_by_imputed_and_known_parent(const VCFSmall *or
 	auto	*vcf = ImputedAndKnownFamily::impute_by_parent(orig_vcf,
 											imputed_vcf, ref_haps, families,
 											samples, gmap, option->num_threads);
+	if(vcf == NULL)
+		return NULL;
+	
 	auto	*new_merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
 	delete imputed_vcf;
@@ -78,11 +81,11 @@ VCFSmall *SmallFamily::impute_vcf_by_both_known_parents(
 							const Map& gmap,
 							SampleManager *sample_man, int num_threads) {
 	const auto	families = sample_man->extract_both_known_families();
-	if(families.empty())
-		return NULL;
-	
 	auto	*vcf = BothKnownFamily::impute(orig_vcf, imputed_vcf, ref_haps,
 												families, gmap, num_threads);
+	if(vcf == NULL)
+		return NULL;
+	
 	auto	*new_merged_vcf = VCFSmall::join(imputed_vcf, vcf,
 													orig_vcf->get_samples());
 	delete imputed_vcf;
@@ -163,11 +166,11 @@ VCFSmall *SmallFamily::impute_vcf_by_known_parent(const VCFSmall *orig_vcf,
 								  const Map& geno_map,
 								  SampleManager *sample_man, int num_threads) {
 	auto	families = sample_man->extract_one_known_parent_families();
-	if(families.empty())
-		return NULL;
-	
 	auto	*vcf = OneKnownFamily::impute(orig_vcf, merged_vcf, ref_haps,
 											families, geno_map, num_threads);
+	if(vcf == NULL)
+		return NULL;
+	
 	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
 													orig_vcf->get_samples());
 	delete merged_vcf;
@@ -222,6 +225,10 @@ vector<vector<int>> SmallFamily::extract_haplotypes(
 			gts[k][i] = (int)(v[c].c_str()[(k&1)<<1] - '0');
 		}
 	}
+	
+	const size_t	MIN_REF_NUM = 10;
+	if(gts.size() <= MIN_REF_NUM)
+		return gts;
 	
 	// rolling hash
 	const size_t	K = std::min<size_t>(10, M);
@@ -306,16 +313,30 @@ vector<vector<int>> SmallFamily::extract_haplotypes(
 	
 	// If the difference between the two haplotypes is less than 10% in length,
 	// discard one haplotype.
+	// But ensure that the number does not fall below MIN_REF_NUM.
 	map<size_t, size_t>	counter;
 	for(size_t i = 0; i < NH; ++i) {
 		for(auto p = b[i].begin(); p != b[i].end(); ++p)
 			counter[*p] += 1;
 	}
 	
+	vector<pair<size_t, size_t>>	w(NH);
+	for(size_t i = 0; i < NH; ++i) {
+		w[i] = make_pair(counter[i], i);
+	}
+	std::sort(w.begin(), w.end());
+	
 	vector<vector<int>>	ref_gts;
-	for(auto p = counter.begin(); p != counter.end(); ++p) {
-		if(p->second * 10 >= M)
-			ref_gts.push_back(gts[p->first]);
+	if(w[NH-MIN_REF_NUM].first * 10 >= M) {
+		for(size_t i = 0; i < NH; ++i) {
+			if(w[i].first * 10 >= M)
+				ref_gts.push_back(gts[w[i].second]);
+		}
+	}
+	else {
+		for(size_t i = NH-MIN_REF_NUM; i < NH; ++i) {
+			ref_gts.push_back(gts[w[i].second]);
+		}
 	}
 	return ref_gts;
 }

@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include "../include/Genotype.h"
+#include "../include/common.h"
 
 using namespace std;
 
@@ -22,7 +23,7 @@ int Genotype::get_int_gt(const string& s) {
 		return stoi(s.substr(0, 1)) + stoi(s.substr(2, 1));
 	}
 	catch(std::invalid_argument& e) {
-		return -1;
+		return 3;
 	}
 }
 
@@ -88,4 +89,14 @@ string Genotype::int_to_phased_gt(int gt_int) {
 		case 2:  return "0|1";
 		default: return "1|1";
 	}
+}
+
+size_t Genotype::find_key_position(const string& info, const string& key) {
+	const auto	keys = Common::split(info, ':');
+	for(size_t i = 0; i < keys.size(); ++i) {
+		if(keys[i] == key) {
+			return i;
+		}
+	}
+	return string::npos;
 }

@@ -48,7 +48,7 @@ int ParentImputerByProgeny::compute_parent_gt(size_t i, int h) const {
 
 double ParentImputerByProgeny::emission_probability(size_t i, int h) const {
 	const int	parent_phased_gt = compute_parent_gt(i, h);
-	const int	parent_gt = records[i]->get_int_gt(0);
+	const int	parent_gt = Genotype::gt_to_int(records[i]->get_GT(0));
 	return E[parent_phased_gt][parent_gt];
 }
 
@@ -118,7 +118,7 @@ void ParentImputerByProgeny::update_genotypes(const vector<int>& hs) {
 		const int	parent_gt = compute_parent_gt(i, hs[i]);
 		record->set_GT(0, Genotype::int_to_phased_gt(parent_gt));
 		if(is_swapped) {
-			string&	gt = record->get_mut_gt(1);
+			string&	gt = record->get_mut_gt(0);
 			std::swap(gt[0], gt[2]);
 		}
 	}

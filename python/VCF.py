@@ -2,7 +2,7 @@
 # VCF.py
 
 from __future__ import annotations
-from typing import Dict, Generator, Iterator, Optional, IO, TextIO, TypeVar
+from typing import Dict, Generator, Iterator, Optional, IO, TextIO, Tuple
 from abc import ABC, abstractmethod
 from itertools import *
 from math import log
@@ -12,7 +12,10 @@ from enum import Enum
 
 from exception_with_code import *
 import error_codes
+from Genotype import Genotype
 from common import *
+
+Probs = Tuple[float, float, float]
 
 
 #################### WrongRecordType ####################
@@ -111,6 +114,32 @@ class VCFRecord(object):
 				return WrongRecordType.GENOTYPEERROR
 		
 		return WrongRecordType.RIGHT
+	
+	def find_key_position(self, key: str) -> int:
+		return Genotype.find_key_position(self.v[8], key)
+	
+	def parse_PL(self) -> list[Probs]:
+		probs: list[Probs] = []
+		PL_pos = self.find_key_position('PL')
+		for i, s in enumerate(self.v[9:]):
+			v = s.split(':')
+			try:
+				pls = v[PL_pos].split(',')
+				ps = [ 10**(-int(pl)) for pl in pls ]
+				sum_ps = sum(ps)
+				probs.append((ps[0]/sum_ps, ps[1]/sum_ps, ps[2]/sum_ps))
+			except:
+				# PLが無いときもここに来る
+				int_gt = self.get_int_gt(i)
+				if int_gt == 0:
+					probs.append((1.0, 0.0, 0.0))
+				elif int_gt == 1:
+					probs.append((0.0, 1.0, 0.0))
+				elif int_gt == 2:
+					probs.append((0.0, 0.0, 1.0))
+				else:
+					probs.append((1/3, 1/3, 1/3))
+		return probs
 
 
 #################### VCFBase ####################

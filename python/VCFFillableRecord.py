@@ -7,21 +7,25 @@ from functools import reduce
 from itertools import *
 from collections import Counter
 
+import VCF
 from VCFFamily import *
 from VCFImpFamily import FillType, VCFImpFamilyRecord
 from TypeDeterminer import ParentComb
 from common import *
+from Genotype import Genotype
 
 
 #################### VCFFillableRecord ####################
 
 class VCFFillableRecord(VCFFamilyRecord):
 	def __init__(self, v: list[str], samples: list[str], index: int,
-											type: FillType, pair: ParentComb):
+									type: FillType, pair: ParentComb,
+									probs: list[VCF.Probs]) -> None:
 		super().__init__(v, samples)
 		self.index: int = index
 		self.type: FillType = type
 		self.pair: ParentComb = pair
+		self.probs: list[VCF.Probs] = probs
 	
 	def group_ids(self) -> list[int]:
 		w = self.v[7].split('=')
@@ -112,17 +116,10 @@ class VCFFillableRecord(VCFFamilyRecord):
 		else:
 			return 2
 	
-	def find_geno_type(self, type: str) -> int:
-		for i, t in enumerate(self.v[8].split(':')):
-			if t == type:
-				return i
-		else:
-			return -1
-	
 	def fill_PGT(self) -> None:
-		i_GT: int = self.find_geno_type('GT')
+		i_GT: int = self.find_key_position('GT')
 		assert(i_GT != -1)
-		i_PGT: int = self.find_geno_type('PGT')
+		i_PGT: int = self.find_key_position('PGT')
 		if i_PGT == -1:
 			return
 		
@@ -183,7 +180,7 @@ class VCFFillableRecord(VCFFamilyRecord):
 				return
 		for c in range(11, len(self.v)):
 			self.v[c] = new_prog_gts[c-11]
-
+	
 	def modify_parents_type(self) -> None:
 		if (self.pair != ParentComb.P00x11 and
 				((self.v[9][:3] == '0|0' and self.v[10][:3] == '1|1') or
@@ -198,8 +195,9 @@ class VCFFillableRecord(VCFFamilyRecord):
 	@staticmethod
 	def convert(record: VCFImpFamilyRecord) -> VCFFillableRecord:
 		type = record.get_fill_type()
+		probs = record.parse_PL()
 		return VCFFillableRecord(record.v, record.samples, record.index,
-															type, record.pair)
+												type, record.pair,  probs)
 	
 	@staticmethod
 	def merge(records: list[VCFFillableRecord],

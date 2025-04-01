@@ -84,14 +84,17 @@ public:
 												int next_chrom) const;
 	std::vector<double> likelihoods_from_which_chrom(std::size_t i,
 												bool is_mat) const;
-	double compute_phasing_likelihood_each(std::size_t i,
-								int mat_phasing, int pat_phasing) const;
-	double likelihood_each(const std::string& gt,
-							const std::vector<double>& probs_mat,
+	double likelihood_mat(int mat_gt) const;
+	double likelihood_pat(int pat_gt) const;
+	
+	double compute_phasing_likelihood_each(int mat_phasing,
+										int pat_phasing, std::size_t i) const;
+	double likelihood_each(const std::vector<double>& probs_mat,
 							const std::vector<double>& probs_pat,
-							int mat_phasing, int pat_phasing) const;
+							int mat_phasing, int pat_phasing,
+							std::size_t i) const;
 	virtual double compute_phasing_likelihood(int mat_phasing,
-												int pat_phasing) const;
+													int pat_phasing) const;
 	std::pair<int, int> select_phasing(
 					const std::vector<std::pair<int, int>>& candidates) const;
 	std::pair<int, int> determine_phasing_core(

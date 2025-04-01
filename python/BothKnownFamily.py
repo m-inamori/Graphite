@@ -29,7 +29,7 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 			vcf1.impute()
 			vcfs.append(vcf1)
 	
-	if not families:
+	if not vcfs:
 		return None
 	
 	print("%d families whose parents are known have been imputed." %

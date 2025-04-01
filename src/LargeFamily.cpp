@@ -16,13 +16,18 @@ using namespace std;
 
 //////////////////// LargeFamily ////////////////////
 
+int LargeFamily::get_int_gt(const string& gt) {
+	const int	int_gt = Genotype::get_int_gt(gt);
+	return int_gt == 3 ? -1 : int_gt;
+}
+
 VCFHeteroHomoRecord *LargeFamily::create_heterohomo_record(const STRVEC& v,
 										const KnownFamily *family, size_t i,
 										WrongType wrong_type, ParentComb pc) {
 	const STRVEC&	samples = family->get_samples();
 	const int	total_int_gt = pc == ParentComb::P00x01 ? 1 : 3;
 	if(!family->is_mat_known()) {
-		const int	pat_int_gt = Genotype::get_int_gt(v[10]);
+		const int	pat_int_gt = LargeFamily::get_int_gt(v[10]);
 		const int	mat_int_gt = total_int_gt - pat_int_gt;
 		if(mat_int_gt < 0 || 2 < mat_int_gt)
 			wrong_type = WrongType::MODIFIABLE;
@@ -34,7 +39,7 @@ VCFHeteroHomoRecord *LargeFamily::create_heterohomo_record(const STRVEC& v,
 		}
 	}
 	else if(!family->is_pat_known()) {
-		const int	mat_int_gt = Genotype::get_int_gt(v[9]);
+		const int	mat_int_gt = LargeFamily::get_int_gt(v[9]);
 		const int	pat_int_gt = total_int_gt - mat_int_gt;
 		if(pat_int_gt < 0 || 2 < pat_int_gt)
 			wrong_type = WrongType::MODIFIABLE;

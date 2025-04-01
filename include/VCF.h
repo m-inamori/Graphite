@@ -28,6 +28,9 @@ enum class WrongRecordType {
 //////////////////// VCFRecord ////////////////////
 
 class VCFRecord {
+public:
+	using Probs = std::tuple<double, double, double>;
+
 protected:
 	STRVEC	v;
 	const STRVEC&	samples;
@@ -53,7 +56,10 @@ public:
 	const std::string& get_gt(std::size_t i) const { return v[i+9]; }
 	std::string& get_mut_gt(std::size_t i) { return v[i+9]; }
 	std::string get_GT(std::size_t i) const { return v[i+9].substr(0, 3); }
-	int get_int_gt(std::size_t i) const { return Genotype::get_int_gt(v[i+9]); }
+	int get_int_gt(std::size_t i) const {
+		const int	int_gt = Genotype::get_int_gt(v[i+9]);
+		return int_gt == 3 ? -1 : int_gt;
+	}
 	std::vector<int> get_int_gts() const;
 	bool is_homo(std::size_t i) const;
 	bool is_hetero(std::size_t i) const;
@@ -63,6 +69,8 @@ public:
 	void set_int_GT(std::size_t i, int gt);
 	void set(const STRVEC& new_v) { v = new_v; }
 	WrongRecordType check() const;
+	std::size_t find_key_position(const std::string& key) const;
+	std::vector<Probs> parse_PL() const;
 };
 
 

@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "../include/RecordSet.h"
+#include "../include/log.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -119,41 +120,44 @@ vector<double> RecordSet::likelihoods_from_which_chrom(
 		return likelihoods_from_which_chrom(prev_pat_from(i), next_pat_from(i));
 }
 
-double RecordSet::likelihood_each(const string& gt,
-									const vector<double>& probs_mat,
-									const vector<double>& probs_pat,
-									int mat_phasing, int pat_phasing) const {
-	const int	sum = Genotype::sum_gt(gt);
-	double	likelihood = 0.0;
-	for(int k = 0; k < 4; ++k) {
-		const int	i = k >> 1;
-		const int	j = k & 1;
-		// does this pair match genotype?
-		if((((mat_phasing >> i) & 1) + ((pat_phasing >> j) & 1)) == sum)
-			likelihood += probs_mat[i] * probs_pat[j];
-	}
-	if(likelihood == 0.0)	// no matching pair
-		return log(0.0001);
-	else
-		return log(likelihood);
+double RecordSet::likelihood_mat(int mat_gt) const {
+	return Log::modified_log(record->get_prob(0, (mat_gt*3+1)>>2));
 }
 
-double RecordSet::compute_phasing_likelihood_each(size_t i,
-									int mat_phasing, int pat_phasing) const {
+double RecordSet::likelihood_pat(int pat_gt) const {
+	return Log::modified_log(record->get_prob(1, (pat_gt*3+1)>>2));
+}
+
+double RecordSet::likelihood_each(const vector<double>& probs_mat,
+									const vector<double>& probs_pat,
+									int mat_phasing, int pat_phasing,
+									size_t i) const {
+	double	likelihood = 0.0;
+	for(int l = 0; l < 4; ++l) {
+		const int	j = l >> 1;
+		const int	k = l & 1;
+		const int	gt = ((mat_phasing >> j) & 1) + ((pat_phasing >> k) & 1);
+		likelihood += probs_mat[j] * probs_pat[k] * record->get_prob(i, gt);
+	}
+	return Log::modified_log(likelihood);
+}
+
+double RecordSet::compute_phasing_likelihood_each(int mat_phasing,
+											int pat_phasing, size_t i) const {
 	const auto	probs_mat = this->likelihoods_from_which_chrom(i, true);
 	const auto	probs_pat = this->likelihoods_from_which_chrom(i, false);
-	return this->likelihood_each(this->gt(i), probs_mat, probs_pat,
-											mat_phasing, pat_phasing);
+	return this->likelihood_each(probs_mat, probs_pat,
+									mat_phasing, pat_phasing, i);
 }
 
 double RecordSet::compute_phasing_likelihood(int mat_phasing,
-														int pat_phasing) const {
-	double	ll = 0.0;
+												int pat_phasing) const {
+	if(this->record == NULL)
+		return log(0.0001);
+	
+	double	ll = likelihood_mat(mat_phasing) + likelihood_pat(pat_phasing);
 	for(int i = 2; i < (int)record->num_samples(); ++i) {
-		if(record->get_GT(i) == "./.")
-			ll += log(0.0001);	// to match the Python version
-		else
-			ll += compute_phasing_likelihood_each(i, mat_phasing, pat_phasing);
+		ll += compute_phasing_likelihood_each(mat_phasing, pat_phasing, i);
 	}
 	return ll;
 }
