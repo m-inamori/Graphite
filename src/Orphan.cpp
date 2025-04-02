@@ -64,6 +64,7 @@ VCFSmallBase *Orphan::impute(const vector<string>& samples,
 		return vcf1;
 	}
 	else {
+		delete vcf;
 		return NULL;
 	}
 }

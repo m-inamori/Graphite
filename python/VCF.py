@@ -132,11 +132,11 @@ class VCFRecord(object):
 				# PLが無いときもここに来る
 				int_gt = self.get_int_gt(i)
 				if int_gt == 0:
-					probs.append((1.0, 0.0, 0.0))
+					probs.append((0.98, 0.01, 0.01))
 				elif int_gt == 1:
-					probs.append((0.0, 1.0, 0.0))
+					probs.append((0.01, 0.98, 0.01))
 				elif int_gt == 2:
-					probs.append((0.0, 0.0, 1.0))
+					probs.append((0.01, 0.01, 0.98))
 				else:
 					probs.append((1/3, 1/3, 1/3))
 		return probs

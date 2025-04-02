@@ -155,7 +155,8 @@ double RecordSet::compute_phasing_likelihood(int mat_phasing,
 	if(this->record == NULL)
 		return log(0.0001);
 	
-	double	ll = likelihood_mat(mat_phasing) + likelihood_pat(pat_phasing);
+	// double	ll = likelihood_mat(mat_phasing) + likelihood_pat(pat_phasing);
+	double	ll = 0.0;
 	for(int i = 2; i < (int)record->num_samples(); ++i) {
 		ll += compute_phasing_likelihood_each(mat_phasing, pat_phasing, i);
 	}

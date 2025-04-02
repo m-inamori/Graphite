@@ -308,7 +308,8 @@ class RecordSet:
 		if self.record is None:
 			return log(0.0001)
 		
-		ll = likelihood_mat() + likelihood_pat()	# log of likelihood
+#		ll = likelihood_mat() + likelihood_pat()	# log of likelihood
+		ll = 0.0
 		for i, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in self.gen_gts():
 			prev_mat_from = self.from_which_chrom_prev_mat(mat_gt1)
 			next_mat_from = self.from_which_chrom_next_mat(mat_gt2)

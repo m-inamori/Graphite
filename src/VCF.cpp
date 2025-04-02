@@ -103,9 +103,9 @@ vector<VCFRecord::Probs> VCFRecord::parse_PL() const {
 		}
 		catch(...) {
 			switch(get_int_gt(i)) {
-				case 0:  probs.push_back(make_tuple(1.0, 0.0, 0.0)); break;
-				case 1:  probs.push_back(make_tuple(0.0, 1.0, 0.0)); break;
-				case 2:  probs.push_back(make_tuple(0.0, 0.0, 1.0)); break;
+				case 0:  probs.push_back(make_tuple(0.98, 0.01, 0.01)); break;
+				case 1:  probs.push_back(make_tuple(0.01, 0.98, 0.01)); break;
+				case 2:  probs.push_back(make_tuple(0.01, 0.01, 0.98)); break;
 				default: probs.push_back(make_tuple(1./3, 1./3, 1./3)); break;
 			}
 		}
