@@ -89,7 +89,7 @@ def impute_progenies(vcf: VCFHuge, materials: Materials,
 	# とりあえず、後代のVCFも同じ染色体があるとする
 	for b, prog_chr, vcf_chr, gmap in zip(iter, vcf.divide_into_chromosomes(),
 											vcf_ref.divide_into_chromosomes(),
-											materials.chr_maps):
+											materials.iter_chr_maps()):
 		if not b:
 			continue
 		vcf_imputed = impute_prog_vcf_chr(vcf_chr, prog_chr, gmap, option)

@@ -131,6 +131,7 @@ class SampleManager:
 	def extract_isolated_samples(self) -> list[str]:
 		# 繋がっているサンプルがあっても、
 		# 家系の全サンプルがphasingされていないなら孤立とみなす
+		"""
 		samples: list[str] = []
 		for family in self.small_families:
 			if family.mat == '0' and family.pat == '0':
@@ -150,6 +151,14 @@ class SampleManager:
 		
 		set_samples = set(samples)
 		return list(set_samples)
+		"""
+		
+		samples: set[str] = set()
+		for family in self.small_families:
+			for s in family.samples():
+				if s != '0' and s not in self.imputed_samples:
+					samples.add(s)
+		return list(samples)
 	
 	def extract_non_imputed_samples(self) -> list[str]:
 		samples = set(s for family in self.small_families

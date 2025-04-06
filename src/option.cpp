@@ -151,7 +151,7 @@ Option *Option::create(int argc, char **argv) {
 };
 
 void Option::usage(char **argv) {
-	cerr << argv[0] << " -i VCF [-ref ref VCF] -p ped [-m map] "
+	cerr << argv[0] << " -i VCF [--ref ref VCF] -p ped [-m map] "
 				<< "[-t num_threads] [-f family indices] [-c chrom indices] "
 				<< "[--lower-progs lower num progenies] [--large-only] "
 				<< "[--not-impute-isolated [--out-isolated]] "

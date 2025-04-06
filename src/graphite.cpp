@@ -45,7 +45,7 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 														option);
 	
 	// At last, impute isolated samples
-	const STRVEC	samples = sample_man->extract_isolated_samples();
+	const STRVEC	samples = sample_man->extract_non_imputed_samples();
 	if(!samples.empty() && option->imputes_isolated_samples) {
 		VCFSmall	*new_imputed_vcf = SmallFamily::impute_iolated_samples(
 											orig_vcf, merged_vcf,
