@@ -352,6 +352,7 @@ VCFSmall *SmallFamily::impute_non_imputed_samples(const VCFSmall *orig_vcf,
 		vcf->impute();
 		VCFSmall	*new_vcf = VCFSmall::join(merged_vcf, vcf,
 												orig_vcf->get_samples());
+		delete merged_vcf;
 		delete vcf;
 		return new_vcf;
 	}

@@ -3,44 +3,27 @@
 GRAPHITE
 GRAph used tool to correct, PHase, and ImpuTE VCF
 
-
 ## Usage
 
-graphite  -i VCF [--ref ref VCF] -p ped [-m map] [-t num_threads] [-f family indices] [-c chrom indices] [--lower-progs lower num progenies] [--large-only] [--not-impute-isolated [--out-isolated]] [--not-correct-isolated] -o out.
-family indices: (index|first:last)[,(index|first:last)[,..]]
-chrom indices: same as family indices.
+  graphite [options]
 
-*VCF*			  : input VCF
+  -i <path>/--input <path>     Input VCF file  
+  -p <path>/--pedigree <path>  Pedigree file  
+  -o <path>/--output <path>    Output file  
 
-*ped*			  : pedigree file
-					A text file with 4 columns and without header.
-					Its delimiter is a space.
-					Its columns are family name, sample name, a parent name, and other parent name.
-					Parent order is reflected in the VCF's Genotype.
+### Options
 
-*out*			  : output VCF
-
-### optional
-
-*ref VCF*		  : reference VCF
-
-*map*			  : genetic map file
-					A CSV file with 3 columns and without header.
-					Its deliimiter is a comma.
-					Its columns are scaffold name, cM, and Mbp.
-					If not specified, 1cM = 1Mbp.
-
-*chrom indices*   : output scaffolds' indices
-
-*lower num progenies* : the lower limit on the number of progeny that can be regarded as large families.
-
---large-only	  : output large families only
-
---not-impute-isolated : not impute isolated samples
-
---out-isolated	  : output not imputed isolated samples
-
---not-correct-isolated : impute and phase, but not correct isolated samples
+  -m <path>/--map <path>       Input map file (CSV format with 3 columns: scaffold name, cM, Mbp)  
+  -r <path>/--ref <path>       Reference VCF file  
+  -t <int>/--num-threads <int> Number of threads (default: 1)  
+  --lower-progs <int>          Lower limit on the number of progenies considered as a large family  
+  --not-impute-isolated        Do not impute isolated samples  
+  --not-correct-isolated       Do not correct wrong genotypes of isolated samples  
+  --out-isolated               Output isolated samples separately (valid only with --not-impute-isolated)  
+  -c <int>/--chrom <int>       Impute only the chromosome specified by the 0-based index  
+  --precision-ratio <float>    Control runtime for small pedigree HMM analysis (default: 1.0; larger values increase runtime)  
+  --fast                       Shortcut for --precision-ratio=0.1 (optimized for faster runtime, reduced precision)  
+  --precision                  Shortcut for --precision-ratio=10.0 (enhanced precision, increased runtime)  
 
 #### 
 
