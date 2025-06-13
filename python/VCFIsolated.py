@@ -9,6 +9,7 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator
 
 from VCF import *
 from VCFImputable import *
+from OptionSmall import *
 
 
 #################### VCFIsolated ####################
@@ -67,6 +68,7 @@ class VCFIsolated(VCFBase, VCFImputable):
 		haps = [(h, h)] * self.num_imputed_samples
 		for vcf_cM in self.divide_by_cM():
 			haps = vcf_cM.impute_cM(haps)
+		print("%d samples are imputed." % self.num_imputed_samples)
 	
 	def extract_isolated_samples(self) -> VCFSmall:
 		isolated_samples = self.samples[:self.num_imputed_samples]
@@ -75,35 +77,21 @@ class VCFIsolated(VCFBase, VCFImputable):
 	@staticmethod
 	def create(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 						samples: list[str], references: list[str],
-						gmap: Map, num_threads: int) -> list[VCFIsolated]:
+						op: OptionSmall) -> VCFIsolated:
 		sample_columns = orig_vcf.extract_columns(samples)
 		ref_columns = merged_vcf.extract_columns(references)
-		column_table = VCFIsolated.divide_columns(sample_columns, num_threads)
-		vcfs: list[VCFIsolated] = []
-		for cs in column_table:
-			div_samples = [ orig_vcf.samples[c-9] for c in cs ]
-			new_samples = div_samples + references
-			header = orig_vcf.trim_header(new_samples)
-			records: list[VCFRecord] = []
-			for j in range(len(orig_vcf)):
-				record = orig_vcf.records[j]
-				v = (record.v[:9] +
-						[ record.v[c] for c in cs ] +
-						[ merged_vcf.records[j].v[c] for c in ref_columns ])
-				new_record = VCFRecord(v, new_samples)
-				records.append(new_record)
-			vcf = VCFIsolated(header, len(cs), records, gmap)
-			vcfs.append(vcf)
-		return vcfs
-	
-	@staticmethod
-	def divide_columns(cs: list[int], num: int) -> list[list[int]]:
-		if len(cs) <= num:
-			return [ [c] for c in cs ]
-		
-		css: list[list[int]] = [ [] for _ in range(num) ]
-		for i, c in enumerate(cs):
-			css[i%num].append(c)
-		return css
+		new_samples = [ orig_vcf.samples[c-9]
+								for c in sample_columns ] + references
+		header = orig_vcf.trim_header(new_samples)
+		new_records = []
+		for i in range(len(orig_vcf)):
+			record = orig_vcf.records[i]
+			imputed_record = merged_vcf.records[i]
+			v = (record.v[:9] + [ record.v[c] for c in sample_columns ] +
+								[ imputed_record.v[c] for c in ref_columns ])
+			new_record = VCFRecord(v, new_samples)
+			new_records.append(new_record)
+		vcf = VCFIsolated(header, len(samples), new_records, op.map)
+		return vcf
 
 __all__ = ['VCFIsolated']

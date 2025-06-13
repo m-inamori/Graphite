@@ -40,6 +40,15 @@ string Option::flag_value(const string& s, int argc, char **argv) {
 	return string();
 }
 
+string Option::flags_value(const string& short_key, const string& long_key,
+														int argc, char **argv) {
+	const string	value = Option::flag_value(long_key, argc, argv);
+	if(!value.empty()) {
+		return value;
+	}
+	return Option::flag_value(short_key, argc, argv);
+}
+
 bool Option::exists(const string& s, int argc, char **argv) {
 	for(size_t i = 3U; i < (size_t)argc; ++i) {
 		if(argv[i] == s)
@@ -68,7 +77,7 @@ vector<size_t> Option::parse_array(const string& f) {
 }
 
 vector<size_t> Option::get_families(int argc, char **argv) {
-	const string	s = flag_value("-f", argc, argv);
+	const string	s = flags_value("-f", "--family", argc, argv);
 	if(s.empty())
 		return vector<size_t>();
 	else
@@ -76,7 +85,7 @@ vector<size_t> Option::get_families(int argc, char **argv) {
 }
 
 vector<size_t> Option::get_chroms(int argc, char **argv) {
-	const string	s = flag_value("-c", argc, argv);
+	const string	s = flags_value("-c", "--chrom", argc, argv);
 	if(s.empty())
 		return vector<size_t>();
 	else
@@ -84,7 +93,7 @@ vector<size_t> Option::get_chroms(int argc, char **argv) {
 }
 
 int Option::get_num_threads(int argc, char **argv) {
-	const string	s = flag_value("-t", argc, argv);
+	const string	s = flags_value("-t", "--num-threads", argc, argv);
 	if(s.empty())
 		return 1;
 	else
@@ -104,42 +113,67 @@ size_t Option::get_lower_progenies(int argc, char ** argv) {
 	}
 }
 
+double Option::get_precision_ratio(int argc, char **argv) {
+	const bool	b1 = exists("--fast", argc, argv);
+	const bool	b2 = exists("--precision", argc, argv);
+	const bool	b3 = exists("--precision-ratio", argc, argv);
+	int	counter = 0;
+	counter += b1 ? 1 : 0;
+	counter += b2 ? 1 : 0;
+	counter += b3 ? 1 : 0;
+	if(counter >= 2) {
+		throw std::runtime_error("--fast, --precision, and --precision cannot "
+												"specified at the same time.");
+	}
+	else if(counter == 0) {
+		return 1.0;
+	}
+	else if(b1) {
+		return 0.1;
+	}
+	else if(b2) {
+		return 10.0;
+	}
+	else {
+		return stof(flag_value("--precision-ratio", argc, argv));
+	}
+}
+
 Option *Option::create(int argc, char **argv) {
 	try {
 		// The top three are required arguments
-		const string	path_vcf = flag_value("-i", argc, argv);
+		const string	path_vcf = flags_value("-i", "--input", argc, argv);
 		if(path_vcf.empty())
 			throw std::runtime_error("input VCF not specified.");
 		
-		const string	path_ped = flag_value("-p", argc, argv);
+		const string	path_ped = flags_value("-p", "--pedigree", argc, argv);
 		if(path_ped.empty())
 			throw std::runtime_error("pedigree file not specified.");
 		
-		const string	path_out = flag_value("-o", argc, argv);
+		const string	path_out = flags_value("-o", "--output", argc, argv);
 		if(path_out.empty())
 			throw std::runtime_error("output VCF not specified.");
 		
 		// Optional
-		const string	ref = flag_value("--ref", argc, argv);
-		const string	path_map = flag_value("-m", argc, argv);
+		const string	path_ref = flags_value("-r", "--ref", argc, argv);
+		const string	path_map = flags_value("-m", "--map", argc, argv);
 		const vector<size_t>	families = get_families(argc, argv);
 		const vector<size_t>	chroms = get_chroms(argc, argv);
 		const int	num_threads = get_num_threads(argc, argv);
 		const size_t	lower_progs = get_lower_progenies(argc, argv);
-		const bool	only_large_families = exists("-large-only", argc, argv);
+		const double	prec_ratio = get_precision_ratio(argc,argv);
 		const bool	impute_isolated = !exists("--not-impute-isolated",
+																argc, argv);
+		const bool	correct_isolated = !exists("--not-correct-isolated",
 																argc, argv);
 		const bool	out_isolated = exists("--out-isolated", argc, argv);
 		if(impute_isolated && out_isolated)
 			return NULL;
 		
-		const bool	corrects_isolated_samples
-							= !exists("--correct-isolated", argc, argv);
-		
-		return new Option(path_vcf, ref, path_ped, path_map, families,
-							chroms, num_threads, lower_progs,
-							only_large_families, impute_isolated,
-							out_isolated, corrects_isolated_samples, path_out);
+		return new Option(path_vcf, path_ref, path_ped, path_map, families,
+							chroms, num_threads, lower_progs, prec_ratio,
+							impute_isolated, correct_isolated,
+							out_isolated, path_out);
 	}
 	catch(const std::runtime_error& e) {
 		cerr << "error : " << e.what() << endl;
@@ -151,18 +185,35 @@ Option *Option::create(int argc, char **argv) {
 };
 
 void Option::usage(char **argv) {
-	cerr << argv[0] << " -i VCF [--ref ref VCF] -p ped [-m map] "
-				<< "[-t num_threads] [-f family indices] [-c chrom indices] "
-				<< "[--lower-progs lower num progenies] [--large-only] "
-				<< "[--not-impute-isolated [--out-isolated]] "
-				<< "[--correct-isolated] "
-				<< "-o out." << endl;
-	cerr << "family indices: (index|first:last)[,(index|first:last)[,..]]"
-																	<< endl;
-	cerr << "chrom indices: same as family indices." << endl;
-	cerr << "--large-only: large families only." << endl;
-	cerr << "--not-impute-isolated: not impute isolated samples." << endl;
-	cerr << "--out-isolated: output not imputed isolated samples." << endl;
-	cerr << "--correct-isolated: "
-		 << "correct wrong genotypes of isolated samples." << endl;
+	cerr << "Usage:" << endl;
+	cerr << "  graphite [options]" << endl;
+	cerr << "" << endl;
+	cerr << "  -i <path>/--input <path>     Input VCF file" << endl;
+	cerr << "  -p <path>/--pedigree <path>  Pedigree file" << endl;
+	cerr << "  -o <path>/--output <path>    Output file" << endl;
+	cerr << "" << endl;
+	cerr << "Options:" << endl;
+	cerr << "  -m <path>/--map <path>       Input map file" << endl;
+	cerr << "  -r <path>/--ref <path>       Reference VCF file" << endl;
+	cerr << "  -t <int>/--num-threads <int> Number of threads (1)" << endl;
+	cerr << "  --lower-progs <int>          Lower number of progenies" << endl;
+	cerr << "                               considered to a large family" << endl;
+	cerr << "  --not-impute-isolated        Samples that are isolated in the" << endl;
+	cerr << "                               pedigree are not imputed" << endl;
+	cerr << "  --not-correct-isolated       Not correct wrong genotypes of" << endl;
+	cerr << "                               isolated samples" << endl;
+	cerr << "  --out-isolated               Do not output isolated samples" << endl;
+	cerr << "                               only valid when used in conjunction" << endl;
+	cerr << "                               with --not-impute-isolated" << endl;
+	cerr << "  -c <int>/--chrom <int>       Impute only the chromosome represented" << endl;
+	cerr << "                               by the specified index (0-based)." << endl;
+	cerr << "  --precision-ratio <float>    Control the runtime for small pedigree" << endl;
+	cerr << "                               HMM analysis. Default is 1.0." << endl;
+	cerr << "                               Larger values increase runtime." << endl;
+	cerr << "  --fast                       Shortcut for setting --precision-ratio" << endl;
+	cerr << "                               to 0.1. Optimized for faster runtime" << endl;
+	cerr << "                               with reduced precision." << endl;
+	cerr << "  --precision                  Shortcut for setting --precision-ratio" << endl;
+	cerr << "                               to 10.0. Enhanced precision at the" << endl;
+	cerr << "                               cost of increased runtime." << endl;
 }

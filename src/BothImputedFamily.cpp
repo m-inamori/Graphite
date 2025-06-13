@@ -4,6 +4,7 @@
 #include "../include/VCFBothParentImputed.h"
 #include "../include/Pedigree.h"
 #include "../include/KnownFamily.h"
+#include "../include/OptionSmall.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -44,7 +45,7 @@ void BothImputedFamily::impute_VCFs(vector<VCFBothParentImputed *>& v, int T) {
 VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const vector<const KnownFamily *>& families,
-									const Map& gmap, int num_threads) {
+									const OptionSmall& op) {
 	const size_t	N = families.size();
 	vector<VCFBothParentImputed *>	vcfs1;
 	for(size_t i = 0; i < N; ++i) {
@@ -54,7 +55,7 @@ VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 		auto	*vcf1 = new VCFBothParentImputed(vcf->get_header(),
 												   family->get_samples(),
 												   vcf->get_family_records(),
-												   gmap, 0.01);
+												   op.map, 0.01);
 		vcfs1.push_back(vcf1);
 		vcf->clear_records();
 		delete vcf;
@@ -64,7 +65,7 @@ VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 		return NULL;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_VCFs(vcfs1, num_threads);
+	impute_VCFs(vcfs1, op.num_threads);
 	vector<const VCFSmallBase *>	vcfs(vcfs1.begin(), vcfs1.end());
 	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
 	cout << vcfs.size()

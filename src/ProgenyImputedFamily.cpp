@@ -4,6 +4,7 @@
 #include "../include/VCFFamily.h"
 #include "../include/VCFProgenyImputed.h"
 #include "../include/KnownFamily.h"
+#include "../include/OptionSmall.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -47,7 +48,7 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 								const vector<const KnownFamily *>& families,
 								const vector<vector<string>>& imputed_progenies,
 								const vector<vector<int>>& ref_haps,
-								const Map& gmap, int num_threads) {
+								const OptionSmall& op) {
 	const size_t	L = families.size();
 	// samples must survive until VCFSmall::join, so create them first.
 	vector<vector<string>>	sample_table(L);
@@ -71,7 +72,7 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 											  sample_table[i],
 											  vcf->get_records(),
 											  ref_haps, family->is_mat_known(),
-											  gmap, 0.01);
+											  op.map, 0.01);
 		small_vcfs.push_back(vcf1);
 		vcf->clear_records();
 		delete vcf;
@@ -81,7 +82,7 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 		return NULL;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_small_VCFs(small_vcfs, num_threads);
+	impute_small_VCFs(small_vcfs, op.num_threads);
 	cout << small_vcfs.size()
 			<< " families whose progeny is imputed have been imputed." << endl;
 	

@@ -9,6 +9,7 @@ class VCFBothParentImputed;
 class Family;
 class KnownFamily;
 class Map;
+class OptionSmall;
 
 
 //////////////////// BothImputedFamily ////////////////////
@@ -29,7 +30,7 @@ namespace BothImputedFamily {
 	VCFSmallBase *impute(const VCFSmall *orig_vcf,
 							const VCFSmall *imputed_vcf,
 							const std::vector<const KnownFamily *>& families,
-							const Map& gmap, int num_threads);
+							const OptionSmall& op);
 	void impute_VCFs(std::vector<VCFBothParentImputed *>& vcfs, int T);
 };
 #endif

@@ -7,6 +7,7 @@
 class VCFProgenyImputed;
 class KnownFamily;
 class Map;
+class OptionSmall;
 
 
 //////////////////// ProgenyImputedFamily ////////////////////
@@ -28,6 +29,6 @@ namespace ProgenyImputedFamily {
 				const std::vector<const KnownFamily *>& families,
 				const std::vector<std::vector<std::string>>& imputed_progenies,
 				const std::vector<std::vector<int>>& ref_haps,
-				const Map& gmap, int num_threads);
+				const OptionSmall& op);
 };
 #endif

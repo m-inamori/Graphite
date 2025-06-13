@@ -4,6 +4,7 @@
 #include "../include/VCFOneParentImputed.h"
 #include "../include/VCFOneParentImputedRough.h"
 #include "../include/KnownFamily.h"
+#include "../include/OptionSmall.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -12,22 +13,21 @@ using namespace std;
 //////////////////// OneImputedeFamily ////////////////////
 
 // Is the computational cost sufficiently small even when using ref in HMM?
-bool OneImputedFamily::is_small(const vector<vector<int>>& ref_haps, size_t L) {
+bool OneImputedFamily::is_small(const vector<vector<int>>& ref_haps,
+											size_t L, const OptionSmall& op) {
 	const size_t	N = 1;
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
-	const size_t	R = (NH * NH << (2*N)) * (2*NH + 2*N - 1);
-	return R*M < 100000000 && R < 100000 && L*R*M < 1000000000;
-													// 10^8 & 10^5 & 10^9
+	const double	R = ((NH*NH << (2*N)) * (2*NH+2*N-1)) / op.precision_ratio;
+	return R*M < 1e8 && R < 1e5 && L*R*M < 1e9;
 }
 
 bool OneImputedFamily::is_small_ref(const vector<vector<int>>& ref_haps,
-																	size_t L) {
+											size_t L, const OptionSmall& op) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
-	const size_t	R = NH * NH * (2*NH - 1);
-	return R*M < 100000000 && R < 100000 && L*R*M < 1000000000;
-													// 10^8 & 10^5 & 10^9
+	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
+	return R*M < 1e8 && R < 1e5 && L*R*M < 1e9;
 }
 
 void OneImputedFamily::impute_small_in_thread(void *config) {
@@ -72,7 +72,7 @@ VCFSmallBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
-									const Map& gmap, int num_threads) {
+									const OptionSmall& op) {
 	const size_t	L = families.size();
 	vector<VCFOneParentImputedBase *>	small_vcfs;
 	for(auto p = families.begin(); p != families.end(); ++p) {
@@ -81,21 +81,21 @@ VCFSmallBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 		const STRVEC&	samples = family->get_samples();
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf, 
 														orig_vcf, samples);
-		if(is_small(ref_haps, L)) {
+		if(is_small(ref_haps, L, op)) {
 			auto	*vcf1 = new VCFOneParentImputed(vcf->get_header(),
 												samples,
 												vcf->get_family_records(),
 												ref_haps, is_mat_known,
-												gmap, 0.01);
+												op.map, 0.01);
 			small_vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
-		else if(is_small_ref(ref_haps, L)) {
+		else if(is_small_ref(ref_haps, L, op)) {
 			auto	*vcf1 = new VCFOneParentImputedRough(vcf->get_header(),
 												samples,
 												vcf->get_family_records(),
 												ref_haps, is_mat_known,
-												gmap, 0.01);
+												op.map, 0.01);
 			small_vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
@@ -106,7 +106,7 @@ VCFSmallBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 		return NULL;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_small_VCFs(small_vcfs, num_threads);
+	impute_small_VCFs(small_vcfs, op.num_threads);
 	cout << small_vcfs.size() << " families whose one parent is imputed and"
 					<< " the other parent is known have been imputed." << endl;
 	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());

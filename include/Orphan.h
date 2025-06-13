@@ -8,6 +8,7 @@ class VCFOrphan;
 class Family;
 class KnownFamily;
 class Map;
+class OptionSmall;
 
 
 //////////////////// Orphan ////////////////////
@@ -29,8 +30,9 @@ namespace Orphan {
 	VCFSmallBase *impute(const std::vector<std::string>& samples,
 							const VCFSmall *orig_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
-							const Map& gmap, int num_threads);
+							const OptionSmall& op);
 	// Is the computational cost sufficiently small even when using ref in HMM?
-	bool is_small(const std::vector<std::vector<int>>& ref_haps);
+	bool is_small(const std::vector<std::vector<int>>& ref_haps,
+													const OptionSmall& op);
 };
 #endif

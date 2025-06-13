@@ -72,27 +72,6 @@ void VCFFillable::modify(int T) {
 		(*p)->fill_PGT();
 }
 
-void VCFFillable::phase_hetero_hetero() {
-	// Group records with type 'IMPUTABLE', 'MAT', 'PAT' and 'FIXED'
-	const Groups	*groups = Groups::create(records);
-	const auto	record_sets = groups->create_record_sets();
-	for(auto p = record_sets.begin(); p != record_sets.end(); ++p) {
-		(*p)->impute(false);
-	}
-	
-	for(size_t i = 0U; i < records.size(); ++i) {
-		auto	*record = records[i];
-		if(record->is_mat_type())
-			this->impute_NA_mat(i);
-		else if(record->is_pat_type())
-			this->impute_NA_pat(i);
-		else if(record->is_fillable_type())
-			this->impute_others(i);
-	}
-	Common::delete_all(record_sets);
-	delete groups;
-}
-
 template<typename Iter>
 VCFFillableRecord *VCFFillable::find_neighbor_same_type_record(
 							size_t i, size_t c, Iter first, Iter last) const {

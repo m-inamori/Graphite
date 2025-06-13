@@ -4,15 +4,17 @@ from __future__ import annotations
 # ProgenyImputedFamily.py
 # 片親がknownで後代が一つ以上imputeされている家系を補完する
 
+from typing import Optional
+
 from VCFFamily import *
 from VCFProgenyImputed import *
 from Map import *
 from KnownFamily import KnownFamily
-from typing import Optional
+from OptionSmall import OptionSmall
 
 def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 			families: list[KnownFamily], imputed_progenies: list[list[str]],
-			ref_haps: list[list[int]], gmap: Map) -> Optional[VCFSmall]:
+			ref_haps: list[list[int]], op: OptionSmall) -> Optional[VCFSmall]:
 	vcfs: list[VCFSmallBase] = []
 	for i in range(len(families)):
 		family = families[i]
@@ -21,7 +23,7 @@ def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 		samples = [parent, progeny]
 		vcf = VCFSmall.create_by_two_vcfs(merged_vcf, orig_vcf, samples)
 		vcf1 = VCFProgenyImputed(vcf.header, vcf.records, ref_haps,
-													family.mat_known, gmap)
+													family.mat_known, op.map)
 		vcf1.impute()
 		vcfs.append(vcf1)
 	

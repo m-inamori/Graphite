@@ -65,7 +65,6 @@ public:
 	}
 	
 	void modify(int num_threads);
-	void phase_hetero_hetero();
 	void set_records(const std::vector<VCFFillableRecord *>& rs) {
 		records = rs;
 	}

@@ -17,6 +17,7 @@ from materials import *
 from SampleManager import SampleManager
 from Map import *
 from option import *
+from OptionSmall import OptionSmall
 from common import *
 from exception_with_code import *
 
@@ -29,24 +30,16 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 	sys.stdout.flush()
 	merged_vcf = correct_large_family_VCFs(orig_vcf, sample_man.large_families,
 														geno_map, option)
-	if option.only_large_families:
-		return merged_vcf
+	op_small = OptionSmall(geno_map, option.num_threads, option.precision_ratio,
+											option.imputes_isolated_samples,
+											option.outputs_unimputed_samples)
 	
 	# 補完できる家系がなくなるまで繰り返す
 	sample_man.set(merged_vcf.samples)
 	
-	merged_vcf = SmallFamily.impute_small_family_VCFs(orig_vcf, merged_vcf,
-														geno_map, sample_man,
-														option.num_threads)
-	
-	# 最後に孤立したサンプルを補完する
-	samples = sample_man.extract_isolated_samples()
-	if samples:
-		new_imputed_vcf = SmallFamily.impute_isolated_samples(orig_vcf,
-												merged_vcf, sample_man, samples,
-												geno_map, option.num_threads)
-		vcfs: list[VCFSmallBase] = [merged_vcf, new_imputed_vcf]
-		merged_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
+	merged_vcf = SmallFamily.impute_small_family(orig_vcf, merged_vcf,
+												op_small, sample_man,
+												option.imputes_isolated_samples)
 	
 	sample_man.clear()
 	return merged_vcf

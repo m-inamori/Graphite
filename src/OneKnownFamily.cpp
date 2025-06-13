@@ -3,6 +3,7 @@
 #include "../include/OneKnownFamily.h"
 #include "../include/VCFOneParentKnown.h"
 #include "../include/KnownFamily.h"
+#include "../include/OptionSmall.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -11,12 +12,12 @@ using namespace std;
 //////////////////// OneKnownFamily ////////////////////
 
 // Is the computational cost sufficiently small even when using ref in HMM?
-bool OneKnownFamily::is_small(const vector<vector<int>>& ref_haps, size_t L) {
+bool OneKnownFamily::is_small(const vector<vector<int>>& ref_haps,
+											size_t L, const OptionSmall& op) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
-	const size_t	R = NH * NH * (2*NH - 1);
-	return R*M < 100000000 && R < 100000 && L*R*M < 1000000000;
-													// 10^8 & 10^5 & 10^9
+	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
+	return R*M < 1e8 && R < 1e5 && L*R*M < 1e9;
 }
 
 void OneKnownFamily::impute_small_in_thread(void *config) {
@@ -54,7 +55,7 @@ VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
-									const Map& gmap, int num_threads) {
+									const OptionSmall& op) {
 	const size_t	L = families.size();
 	vector<VCFOneParentKnown *>	vcfs;
 	for(size_t i = 0; i < L; ++i) {
@@ -63,19 +64,19 @@ VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
 		
-		if(is_small(ref_haps, L)) {
+		if(is_small(ref_haps, L, op)) {
 			auto	*vcf1 = new VCFOneParentKnown(vcf->get_header(),
 												   family->get_samples(),
 												   vcf->get_family_records(),
 												   ref_haps, is_mat_known,
-												   gmap, 0.01);
+												   op.map, 0.01);
 			vcf->clear_records();
 			vcfs.push_back(vcf1);
 		}
 		delete vcf;
 	}
 	
-	impute_small_VCFs(vcfs, num_threads);
+	impute_small_VCFs(vcfs, op.num_threads);
 	
 	vector<const VCFSmallBase *>	vcfs2;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {

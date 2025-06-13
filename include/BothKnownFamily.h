@@ -7,6 +7,7 @@
 class VCFBothKnown;
 class KnownFamily;
 class Map;
+class OptionSmall;
 
 
 //////////////////// BothKnownFamily ////////////////////
@@ -24,14 +25,15 @@ namespace BothKnownFamily {
 	
 	void create_in_thread(void *config);
 	
+	// Is the computational cost sufficiently small even when using ref in HMM?
+	bool is_small(const std::vector<std::vector<int>>& ref_haps,
+											int L, const OptionSmall& op);
+	void impute_small_in_thread(void *config);
+	void impute_small_VCFs(std::vector<VCFBothKnown *>& vcfs, int T);
 	VCFSmallBase *impute(const VCFSmall *orig_vcf,
 							const VCFSmall *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
-							const Map& gmap, int num_threads);
-	// Is the computational cost sufficiently small even when using ref in HMM?
-	bool is_small(const std::vector<std::vector<int>>& ref_haps, int L);
-	void impute_small_in_thread(void *config);
-	void impute_small_VCFs(std::vector<VCFBothKnown *>& vcfs, int T);
+							const OptionSmall& op);
 };
 #endif

@@ -36,35 +36,10 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	const auto	large_families = sample_man->get_large_families();
 	auto	merged_vcf = LargeFamily::correct_large_family_VCFs(
 									orig_vcf, large_families, geno_map, option);
-	if(option->only_large_families)
-		return merged_vcf;
 	sample_man->add_imputed_samples(merged_vcf->get_samples());
 	
-	merged_vcf = SmallFamily::impute_small_family_VCFs(orig_vcf, merged_vcf,
-														geno_map, sample_man,
-														option);
-	
-	// At last, impute isolated samples
-	const STRVEC	samples = sample_man->extract_non_imputed_samples();
-	if(!samples.empty() && option->imputes_isolated_samples) {
-		VCFSmall	*new_imputed_vcf = SmallFamily::impute_iolated_samples(
-											orig_vcf, merged_vcf,
-											sample_man, samples, geno_map,
-											option->corrects_isolated_samples,
-											option->num_threads);
-		VCFSmall	*vcf = merged_vcf;
-		merged_vcf = VCFSmall::join(merged_vcf, new_imputed_vcf,
-												orig_vcf->get_samples());
-		delete vcf;
-		delete new_imputed_vcf;
-	}
-	else if(!samples.empty() && option->outputs_unimputed_samples) {
-		auto	*vcf_isolated = orig_vcf->extract_samples(samples);
-		VCFSmall	*vcf = merged_vcf;
-		merged_vcf = VCFSmall::join(merged_vcf, vcf_isolated,
-												orig_vcf->get_samples());
-		delete vcf;
-	}
+	merged_vcf = SmallFamily::impute_small_family(orig_vcf, merged_vcf,
+												geno_map, option, sample_man);
 	
 	sample_man->clear_imputed_samples();
 	return merged_vcf;

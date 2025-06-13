@@ -3,6 +3,7 @@
 #include "../include/Orphan.h"
 #include "../include/VCFOrphan.h"
 #include "../include/Pedigree.h"
+#include "../include/OptionSmall.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -11,10 +12,11 @@ using namespace std;
 //////////////////// Orphan ////////////////////
 
 // Is the computational cost sufficiently small even when using ref in HMM?
-bool Orphan::is_small(const vector<vector<int>>& ref_haps) {
+bool Orphan::is_small(const vector<vector<int>>& ref_haps,
+												const OptionSmall& op) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
-	const size_t	R = NH * NH * (2*NH - 1);
+	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
 }
 
@@ -51,13 +53,13 @@ void Orphan::impute_small_VCF(VCFOrphan *vcf, int T) {
 VCFSmallBase *Orphan::impute(const vector<string>& samples,
 								const VCFSmall *orig_vcf,
 								const vector<vector<int>>& ref_haps,
-								const Map& gmap, int num_threads) {
+								const OptionSmall& op) {
 	auto	*vcf = orig_vcf->select_samples(samples);
-	if(is_small(ref_haps)) {
+	if(is_small(ref_haps, op)) {
 		auto	*vcf1 = new VCFOrphan(vcf->get_header(), samples,
 										vcf->get_records(),
-										ref_haps, gmap, 0.01);
-		impute_small_VCF(vcf1, num_threads);
+										ref_haps, op.map, 0.01);
+		impute_small_VCF(vcf1, op.num_threads);
 		cout << samples.size() << " orphan samples have been imputed." << endl;
 		vcf->clear_records();
 		delete vcf;

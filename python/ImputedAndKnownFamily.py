@@ -4,8 +4,6 @@ from __future__ import annotations
 # ImputedAndKnownFamily.py
 # 片親がphasingされて片親は分っているがphasingされていない家系を補完する
 
-from functools import reduce
-from collections import defaultdict, Counter
 from typing import Optional, Sequence
 
 from VCFFamily import *
@@ -21,7 +19,7 @@ import ClassifyRecord
 from TypeDeterminer import *
 from VCFOneParentImputed import VCFOneParentImputed
 from VCFOneParentImputedRough import VCFOneParentImputedRough
-from Genotype import Genotype
+from OptionSmall import OptionSmall
 
 
 # VCFHeteroHomoPPを使わずにこれを使う あとで統合する
@@ -77,20 +75,21 @@ def merge_vcf(rss: list[list[VCFFillableRecord]],
 	return VCFSmallFillable(header, rs)
 
 # HMMにrefを使っても計算量が十分に小さいか
-def is_small(family: Family, ref_haps: list[list[int]], L: int) -> bool:
+def is_small(family: Family, ref_haps: list[list[int]],
+									L: int, op: OptionSmall) -> bool:
 	N = family.num_progenies()
 	if N > 1:
 		return False
 	
 	M = len(ref_haps[0])				# マーカー数
 	NH = len(ref_haps)
-	R: int = NH**2 * 4**N * (2*NH + 2*N - 1)
+	R: float = NH**2 * 4**N * (2*NH + 2*N - 1) / op.precision_ratio
 	return R * M < 10**8 and R < 10**5 and L * R * M < 10**9
 
-def is_small_ref(ref_haps: list[list[int]], L: int) -> bool:
+def is_small_ref(ref_haps: list[list[int]], L: int, op: OptionSmall) -> bool:
 	M = len(ref_haps[0])				# マーカー数
 	NH = len(ref_haps)
-	R = NH**2 * (2*NH - 1)
+	R = NH**2 * (2*NH - 1) / op.precision_ratio
 	return R * M < 10**8 and R < 10**5 and L * R * M < 10**9
 
 def impute(family: Family, vcf: VCFFamily,
@@ -107,27 +106,27 @@ def impute(family: Family, vcf: VCFFamily,
 	return merged_vcf
 
 def impute_by_parent(orig_vcf: VCFSmall, imputed_vcf: VCFSmall,
-										ref_haps: list[list[int]],
-										families: list[Family],
-										non_imputed_parents: list[str],
-										gmap: Map) -> Optional[VCFSmallBase]:
+									ref_haps: list[list[int]],
+									families: list[Family],
+									non_imputed_parents: list[str],
+									op: OptionSmall) -> Optional[VCFSmallBase]:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
 		vcf1 = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
 		is_mat_imputed = family.pat in non_imputed_parents
-		if is_small(family, ref_haps, len(families)):
+		if is_small(family, ref_haps, len(families), op):
 			vcf = VCFOneParentImputed(vcf1.header, vcf1.records,
-										ref_haps, is_mat_imputed, gmap)
+										ref_haps, is_mat_imputed, op.map)
 			vcf.impute()
 			vcfs.append(vcf)
-		elif is_small_ref(ref_haps, len(families)):
+		elif is_small_ref(ref_haps, len(families), op):
 			vcf2 = VCFOneParentImputedRough(vcf1.header, vcf1.records,
-										ref_haps, is_mat_imputed, gmap)
+										ref_haps, is_mat_imputed, op.map)
 			vcf2.impute()
 			vcfs.append(vcf2)
 		else:
-			imputed_vcf1 = impute(family, vcf1, non_imputed_parents, gmap)
+			imputed_vcf1 = impute(family, vcf1, non_imputed_parents, op.map)
 			vcfs.append(imputed_vcf1)
 	
 	if not vcfs:

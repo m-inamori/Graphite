@@ -65,8 +65,6 @@ public:
 	void set(const STRVEC& new_v, FillType new_type);
 	
 private:
-	int find_geno_type(const std::string& type) const;
-	
 	std::string inverse_gt(const std::string& gt, bool inv) const;
 	std::string inverse_prog_gt(const std::string& gt,
 									bool inv_mat, bool inv_pat) const;

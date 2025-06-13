@@ -10,31 +10,26 @@ import sys
 #################### Option ####################
 
 class Option:
-	def __init__(self, VCF: str, ref: str, ped: str, m: str, r: str,
+	def __init__(self, VCF: str, ref: str, ped: str, m: str,
 						families: list[int], chroms: list[int],
-						num: int, lp: int, ol: bool, ii: bool,
-						ou: bool, ci: bool, out: str):
+						num: int, lp: int, pr: float,
+						ii: bool, ou: bool, out: str) -> None:
 		self.path_VCF: str						= VCF
 		self.path_ped: str						= ped
 		self.path_ref_VCF: str					= ref
 		self.path_map: str						= m
-		self.path_ref: str						= r
 		self.families: list[int]				= families
 		self.chroms: list[int]					= chroms
 		self.num_threads: int					= num
 		self.path_out: str						= out
 		self.ratio: float						= 0.01
 		self.lower_progs: int					= lp
-		self.only_large_families: bool			= ol
+		self.precision_ratio: float				= pr
 		self.imputes_isolated_samples: bool		= ii
 		self.outputs_unimputed_samples: bool	= ou
-		self.corrects_isolated_samples: bool	= ci
 	
 	def exists_ref(self) -> bool:
 		return self.path_ref_VCF != ''
-	
-	def exists_reference(self) -> bool:
-		return self.path_VCF != ''
 	
 	def print_info(self) -> None:
 		# required
@@ -46,8 +41,8 @@ class Option:
 		print("number of threads : %s" % self.num_threads, file=sys.stderr)
 		print("number of progenies for large family : %s" % self.lower_progs,
 															file=sys.stderr)
-		if self.path_ref:
-			print("ref VCF : %s" % self.path_ref, file=sys.stderr)
+		if self.path_ref_VCF:
+			print("ref VCF : %s" % self.path_ref_VCF, file=sys.stderr)
 		else:
 			print("ref VCF is not specified.", file=sys.stderr)
 		
@@ -61,9 +56,17 @@ class Option:
 		return s in argv[1:]
 	
 	@staticmethod
-	def flag_value(s: str, argv: list[str]) -> str:
+	def flag_value(flag: str, argv: list[str]) -> str:
 		for option, value in zip(argv, argv[1:]):
-			if option == s:
+			if option == flag:
+				return value
+		else:
+			return ''
+	
+	@staticmethod
+	def flags_value(flags: list[str], argv: list[str]) -> str:
+		for option, value in zip(argv, argv[1:]):
+			if any(option == f for f in flags):
 				return value
 		else:
 			return ''
@@ -85,7 +88,7 @@ class Option:
 	
 	@staticmethod
 	def get_families(argv: list[str]) -> list[int]:
-		s = Option.flag_value('-f', argv)
+		s = Option.flags_value(['-f', '--family'], argv)
 		if s == '':
 			return []	# all
 		else:
@@ -93,7 +96,7 @@ class Option:
 	
 	@staticmethod
 	def get_chroms(argv: list[str]) -> list[int]:
-		s = Option.flag_value('-c', argv)
+		s = Option.flags_value(['-c', '--chrom'], argv)
 		if s == '':
 			return []	# all
 		else:
@@ -101,7 +104,7 @@ class Option:
 	
 	@staticmethod
 	def get_num_threads(argv: list[str]) -> int:
-		s = Option.flag_value('-t', argv)
+		s = Option.flags_value(['-t', '--num-threads'], argv)
 		if s == '':
 			return 1
 		else:
@@ -116,42 +119,50 @@ class Option:
 			return int(s)
 	
 	@staticmethod
+	def get_precision_ratio(argv: list[str]) -> float:
+		if Option.exists('--fast', argv):
+			return 0.1
+		elif Option.exists('--precision', argv):
+			return 10.0
+		
+		s = Option.flag_value('--precision-ratio', argv)
+		if s == '':
+			return 1.0
+		else:
+			return float(s)
+	
+	@staticmethod
 	def create(argv: list[str]) -> Optional[Option]:
 		try:
 			# The top three are required arguments
-			path_vcf = Option.flag_value('-i', argv)
+			path_vcf = Option.flags_value(['-i', '--input'], argv)
 			if not path_vcf:
 				raise Exception('input VCF not specified.')
 			
-			path_ped = Option.flag_value('-p', argv)
+			path_ped = Option.flags_value(['-p', '--pedigree'], argv)
 			if not path_ped:
 				raise Exception('pedigree file not specified.')
 			
-			path_out = Option.flag_value('-o', argv)
+			path_out = Option.flags_value(['-o', '--output'], argv)
 			if not path_out:
 				raise Exception('output VCF not specified.')
 			
 			# Optional
-			ref_vcf = Option.flag_value('--ref', argv)
-			path_map = Option.flag_value('-m', argv)
-			path_ref = Option.flag_value('-r', argv)
+			path_map = Option.flags_value(['-m', '--map'], argv)
+			ref_vcf = Option.flags_value(['-r', '--ref'], argv)
 			families = Option.get_families(argv)
 			chroms = Option.get_chroms(argv)
 			num_threads = Option.get_num_threads(argv)
 			lower_progs = Option.get_lower_progenies(argv)
-			ol = Option.exists('-l', argv)
-			only_large_families = Option.exists('-large-only', argv)
+			prec_ratio = Option.get_precision_ratio(argv)
 			impute_isolated = not Option.exists('--not-impute-isolated', argv)
 			out_isolated = Option.exists('--out-isolated',  argv)
 			if impute_isolated and out_isolated:
 				return None
 			
-			corrects_isolated_samples = Option.exists(
-												"--correct-isolated", argv)
-			return Option(path_vcf, ref_vcf, path_ped, path_map, path_ref,
+			return Option(path_vcf, ref_vcf, path_ped, path_map,
 							families, chroms, num_threads, lower_progs,
-							only_large_families, impute_isolated,
-							out_isolated, corrects_isolated_samples, path_out)
+							prec_ratio, impute_isolated, out_isolated, path_out)
 		except ValueError:
 			return None
 		except Exception as e:
@@ -160,20 +171,37 @@ class Option:
 	
 	@staticmethod
 	def usage() -> None:
-		u = ('python graphite.py -i VCF [--ref ref VCF] ' +
-				'-p ped [-m map] [-r ref] [-t num_threads] ' +
-				'[-f family indices] [-c chrom indices] ' +
-				'[--lower-progs lower num progenies] [--large-only] ' +
-				'[--not-impute-isolated [--out-isolated]] ' +
-				'[--correct-isolated] ' +
-				'-o out.')
-		messages = ['usage : ' + u,
-					'indices: (index|first:last)[,(index|first:last)[,..]]',
-					'--large-only: large families only.',
-					'--not-impute-isolated: not impute isolated samples.',
-					'--out-isolated: output not imputed isolated samples.',
-					'--correct-isolated: ' +
-						'correct wrong genotypes of isolated samples.']
+		messages: list[str] = [
+			'Usage:',
+			'  python graphite.py [options]',
+			'',
+			'  -i <path>/--input <path>     Input VCF file',
+			'  -p <path>/--pedigree <path>  Pedigree file',
+			'  -o <path>/--output <path>    Output file',
+			'',
+			'Options:',
+			'  -m <path>/--map <path>       Input map file',
+			'  -r <path>/--ref <path>       Reference VCF file',
+			'  -t <int>/--num-threads <int> Number of threads (1)',
+			'  --lower-progs <int>          Lower number of progenies',
+			'                               considered to a large family',
+			'  --not-impute-isolated        Samples that are isolated in the',
+			'                               pedigree are not imputed',
+			'  --out-isolated               Do not output isolated samples',
+			'                               only valid when used in conjunction',
+			'                               with --not-impute-isolated',
+			'  -c <int>/--chrom <int>       Impute only the chromosome represented',
+			'                               by the specified index (0-based).',
+			'  --precision-ratio <float>    Control the runtime for small pedigree',
+			'                               HMM analysis. Default is 1.0.',
+			'                               Larger values increase runtime.',
+			'  --fast                       Shortcut for setting --precision-ratio',
+			'                               to 0.1. Optimized for faster runtime',
+			'                               with reduced precision.',
+			'  --precision                  Shortcut for setting --precision-ratio',
+			'                               to 10.0. Enhanced precision at the',
+			'                               cost of increased runtime.'
+		]
 		for msg in messages:
 			print(msg, file=sys.stderr)
 

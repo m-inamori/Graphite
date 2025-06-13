@@ -103,15 +103,6 @@ int VCFFillableRecord::pat_from(int c) const {
 		return 2;
 }
 
-int VCFFillableRecord::find_geno_type(const string& type) const {
-	const auto	vec = Common::split(this->v[8], ':');
-	for(auto p = vec.begin(); p != vec.end(); ++p) {
-		if(*p == type)
-			return p - vec.begin();
-	}
-	return -1;
-}
-
 void VCFFillableRecord::fill_PGT() {
 	const int	i_GT = this->find_key_position("GT");
 	assert(i_GT != -1);

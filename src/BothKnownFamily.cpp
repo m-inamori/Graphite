@@ -4,6 +4,7 @@
 #include "../include/VCFBothKnown.h"
 #include "../include/Pedigree.h"
 #include "../include/KnownFamily.h"
+#include "../include/OptionSmall.h"
 #include "../include/common.h"
 
 using namespace std;
@@ -12,11 +13,12 @@ using namespace std;
 //////////////////// BothKnownFamily ////////////////////
 
 // Is the computational cost sufficiently small even when using ref in HMM?
-bool BothKnownFamily::is_small(const vector<vector<int>>& ref_haps, int L) {
+bool BothKnownFamily::is_small(const vector<vector<int>>& ref_haps,
+												int L, const OptionSmall& op) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
-	const size_t	R = NH * NH * (2*NH - 1);
-	return R * M < 100000000 && R < 100000 && L * R * M < 1000000000;
+	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
+	return R * M < 1e8 && R < 1e5 && L * R * M < 1e9;
 }
 
 void BothKnownFamily::impute_small_in_thread(void *config) {
@@ -63,18 +65,18 @@ VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 									const VCFSmall *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
-									const Map& gmap, int num_threads) {
+									const OptionSmall& op) {
 	const size_t	N = families.size();
 	vector<VCFBothKnown *>	small_vcfs;
 	for(size_t i = 0; i < N; ++i) {
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
-		if(is_small(ref_haps, (int)N)) {
+		if(is_small(ref_haps, (int)N, op)) {
 			auto	*vcf1 = new VCFBothKnown(vcf->get_header(),
 												   family->get_samples(),
 												   vcf->get_family_records(),
-												   ref_haps, gmap, 0.01);
+												   ref_haps, op.map, 0.01);
 			small_vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
@@ -85,7 +87,7 @@ VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 		return NULL;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_small_VCFs(small_vcfs, num_threads);
+	impute_small_VCFs(small_vcfs, op.num_threads);
 	cout << small_vcfs.size()
 			<< " families whose parents are known have been imputed." << endl;
 	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());

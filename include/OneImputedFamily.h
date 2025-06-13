@@ -8,6 +8,7 @@ class VCFOneParentImputedBase;
 class Family;
 class KnownFamily;
 class Map;
+class OptionSmall;
 
 
 //////////////////// OneImputedFamily ////////////////////
@@ -26,18 +27,17 @@ namespace OneImputedFamily {
 	VCFSmallBase *impute(const VCFSmall *orig_vcf, const VCFSmall *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
-							const Map& gmap, int num_threads);
+							const OptionSmall& op);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const std::vector<std::vector<int>>& ref_haps,
-					std::size_t L);
+									std::size_t L, const OptionSmall& op);
 	bool is_small_ref(const std::vector<std::vector<int>>& ref_haps,
-														std::size_t L);
+									std::size_t L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFOneParentImputedBase *>& vcfs, int T);
-	VCFSmallBase *impute(const VCFSmall *orig_vcf,
-							const VCFSmall *imputed_vcf,
+	VCFSmallBase *impute(const VCFSmall *orig_vcf, const VCFSmall *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
-							const Map& gmap, int num_threads);
+							const OptionSmall& op);
 };
 #endif

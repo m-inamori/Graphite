@@ -5,6 +5,8 @@
 #include "Map.h"
 #include "VCFImputable.h"
 
+class OptionSmall;
+
 
 //////////////////// VCFIsolated ////////////////////
 
@@ -56,7 +58,6 @@ public:
 	///// non-virtual methods /////
 	VCFIsolated *divide_by_positions(std::size_t first, std::size_t last) const;
 	void impute();
-	VCFSmall *extract_isolated_samples() const;
 	void add_record(VCFRecord *record) { records.push_back(record); }
 	
 	std::vector<Haplotype> collect_haplotype_from_refs() const;
@@ -66,18 +67,10 @@ private:
 								const std::vector<HaplotypePair>& prev_haps);
 	
 public:
-	static std::vector<VCFIsolated *> create(const VCFSmall *orig_vcf,
-					const VCFSmall *merged_vcf,
-					const STRVEC& samples, const STRVEC& references,
-					const Map& gmap, bool modify_genotypes, int num_threads);
-	static std::vector<VCFSmallBase *> impute_all(
-										const std::vector<VCFIsolated *>& vcfs,
-										int num_threads);
-	
-private:
-	static std::vector<std::vector<std::size_t>>
-			divide_columns(const std::vector<std::size_t>& cs, int num);
-	static void impute_parellel(const std::vector<VCFIsolated *>& vcfs,
-															int num_threads);
+	static VCFIsolated *create(const VCFSmall *orig_vcf,
+								const VCFSmall *merged_vcf,
+								const STRVEC& samples,
+								const STRVEC& references,
+								const OptionSmall& op);
 };
 #endif

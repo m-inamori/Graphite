@@ -64,8 +64,6 @@ public:
 												const Family * family) const;
 	// families in which parents are phased and progenies are not phased
 	std::vector<const KnownFamily *> extract_both_imputed_families() const;
-	// families in which one parent is phased and the other is not
-	std::vector<const KnownFamily *> extract_no_parent_phased_families() const;
 	std::vector<const KnownFamily *> extract_imputed_and_known_families() const;
 	std::vector<const KnownFamily *> extract_both_known_families() const;
 	std::vector<const KnownFamily *> extract_one_imputed_families() const;

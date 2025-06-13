@@ -12,6 +12,7 @@ class VCFSmallFillable;
 class Family;
 class KnownFamily;
 class Map;
+class OptionSmall;
 
 
 //////////////////// ImputedAndKnownFamily ////////////////////
@@ -44,8 +45,10 @@ namespace ImputedAndKnownFamily {
 							const STRVEC& non_imputed_parents, const Map& gmap);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const Family *family,
-					const std::vector<std::vector<int>>& ref_haps, int L);
-	bool is_small_ref(const std::vector<std::vector<int>>& ref_haps, int L);
+							const std::vector<std::vector<int>>& ref_haps,
+							int L, const OptionSmall& op);
+	bool is_small_ref(const std::vector<std::vector<int>>& ref_haps,
+							int L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFOneParentImputed *>& vcfs, int T);
 	VCFSmallBase *impute_by_parent(
@@ -54,6 +57,6 @@ namespace ImputedAndKnownFamily {
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
 							const STRVEC& non_imputed_parents,
-							const Map& gmap, int num_threads);
+							const OptionSmall& op);
 };
 #endif
