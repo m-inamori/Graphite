@@ -7,21 +7,21 @@ GRAph used tool to correct, PHase, and ImpuTE VCF
 
   graphite [options]
 
-  -i <path>/--input <path>     Input VCF file  
-  -p <path>/--pedigree <path>  Pedigree file  
-  -o <path>/--output <path>    Output file  
+  -i &lt;path&gt;/--input &lt;path&gt;     Input VCF file  
+  -p &lt;path&gt;/--pedigree &lt;path&gt;  Pedigree file  
+  -o &lt;path&gt;/--output &lt;path&gt;    Output file  
 
 ### Options
 
-  -m <path>/--map <path>       Input map file (CSV format with 3 columns: scaffold name, cM, Mbp)  
-  -r <path>/--ref <path>       Reference VCF file  
-  -t <int>/--num-threads <int> Number of threads (default: 1)  
-  --lower-progs <int>          Lower limit on the number of progenies considered as a large family  
+  -m &lt;path&gt;/--map &lt;path&gt;       Input map file (CSV format with 3 columns: scaffold name, cM, Mbp)  
+  -r &lt;path&gt;/--ref &lt;path&gt;       Reference VCF file  
+  -t &lt;int&gt;/--num-threads &lt;int&gt; Number of threads (default: 1)  
+  --lower-progs &lt;int&gt;          Lower limit on the number of progenies considered as a large family  
   --not-impute-isolated        Do not impute isolated samples  
   --not-correct-isolated       Do not correct wrong genotypes of isolated samples  
   --out-isolated               Output isolated samples separately (valid only with --not-impute-isolated)  
-  -c <int>/--chrom <int>       Impute only the chromosome specified by the 0-based index  
-  --precision-ratio <float>    Control runtime for small pedigree HMM analysis (default: 1.0; larger values increase runtime)  
+  -c &lt;int&gt;/--chrom &lt;int&gt;       Impute only the chromosome specified by the 0-based index  
+  --precision-ratio &lt;float&gt;    Control runtime for small pedigree HMM analysis (default: 1.0; larger values increase runtime)  
   --fast                       Shortcut for --precision-ratio=0.1 (optimized for faster runtime, reduced precision)  
   --precision                  Shortcut for --precision-ratio=10.0 (enhanced precision, increased runtime)  
 
