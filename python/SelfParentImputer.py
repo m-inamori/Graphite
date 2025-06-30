@@ -26,6 +26,7 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		self.ref_haps = ref_haps
 		self.ic = iprog		# 何番目の後代か
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
+		self.Epc = self.calc_Epc(w)
 		# crossover values
 		# 後代
 		self.Cc = [ Map.Kosambi(self.dist(r1, r2))
@@ -35,8 +36,22 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		self.Cp = [ Map.Kosambi(self.dist(r1, r2) * K)
 							for r1, r2 in zip(self.records, self.records[1:]) ]
 	
+	# 親と後代のnon-phased genotypeからの後代の排出確率
+	def calc_Epc(self, w: float) -> list[list[float]]:
+		E1: list[list[float]] = [
+				[ 1.0-w*2,  w/2,       w/2,    w ],
+				[ 0.25-w/4, 0.5-w/2, 0.25-w/4, w ],
+				[ 0.25-w/4, 0.5-w/2, 0.25-w/4, w ],
+				[ w/2,      w/2,     1.0-w*2,  w ]
+		]
+		E = [ [ log(p) for p in v ] for v in E1 ]
+		return E
+	
 	def NH(self) -> int:
 		return len(self.ref_haps)
+	
+	def num_progenies(self) -> int:
+		return len(self.records[0].v) - 10
 	
 	def decode_state(self, h: int) -> tuple[int, int, int, int]:
 		# 1bit目: 後代の左は親のどちらのハプロタイプ由来か
@@ -72,20 +87,26 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		return ((gt_parent >> hc1) & 1) | ((gt_parent >> hc2) & 1)
 	
 	# phasedなGenotypeに対してphasedなGenotypeが排出される確率
-	def phased_emission_probability(self, gt1: int, gt2: int) -> float:
-		d = gt1 ^ gt2
+	def phased_emission_probability(self, h: int, i: int,
+												prog_gt: int) -> float:
+		phased_prog_gt = self.progeny_genotype(h, i, prog_gt)
+		d = phased_prog_gt ^ prog_gt
 		return log((0.99 if (d & 1) == 0 else 0.01) *
 					(0.99 if (d >> 1) == 0 else 0.01))
 	
+	def non_phased_emission_probability(self, ocs: list[int],
+												parent_gt: int) -> float:
+		return sum(self.Epc[parent_gt][oc] for oc in ocs)
+	
 	# i: record index
-	def emission_probability(self, h: int, i: int,
-									op: int, prog_gt: int) -> float:
+	def emission_probability(self, h: int, i: int, op: int,
+									prog_gt: int, ocs: list[int]) -> float:
 		# imputedな後代も排出確率を計算する
-		gt_parent = self.parent_genotype(h, i, prog_gt)
-		Ep = self.E[gt_parent][op]
-		gt_child = self.progeny_genotype(h, i, prog_gt)
-		Ec = self.phased_emission_probability(gt_child, prog_gt)
-		return Ep + Ec
+		parent_gt = self.parent_genotype(h, i, prog_gt)
+		Ep = self.E[parent_gt][op]
+		Ec = self.phased_emission_probability(h, i, prog_gt)
+		Ecs = self.non_phased_emission_probability(ocs, parent_gt)
+		return Ep + Ec + Ecs
 	
 	def initialize_dp(self) -> list[DP]:
 		M = len(self.records)	# マーカー数
@@ -95,8 +116,11 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		parent_gt = Genotype.gt_to_int(record.v[9])
 		op = Genotype.gt_to_int(record.v[9])	# observed parent
 		prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
+		ocs = [ Genotype.gt_to_int(record.v[j+10])
+						for j in range(self.num_progenies())
+						if j != self.ic ]
 		for h in range(L):		# hidden state
-			E_all = self.emission_probability(h, 0, op, prog_gt)
+			E_all = self.emission_probability(h, 0, op, prog_gt, ocs)
 			dp[0][h] = (E_all, h)
 		return dp
 	
@@ -138,9 +162,12 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		cp = self.Cp[i-1]	# 親の遷移確率
 		op = Genotype.gt_to_int(record.v[9])	# observed parent
 		prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
+		ocs = [ Genotype.gt_to_int(record.v[j+10])
+						for j in range(self.num_progenies())
+						if j != self.ic ]
 		
 		for h in range(L):		# hidden state
-			E_all = self.emission_probability(h, i, op, prog_gt)
+			E_all = self.emission_probability(h, i, op, prog_gt, ocs)
 			
 			for prev_h in self.prev_h_table[h]:
 				T_all = self.transition_probability(h, prev_h, cc, cp)
