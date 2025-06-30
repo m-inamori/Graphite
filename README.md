@@ -3,6 +3,7 @@
 GRAPHITE
 GRAph used tool to correct, PHase, and ImpuTE VCF
 
+<pre>
 ## Usage
 
   graphite [options]
@@ -24,6 +25,7 @@ GRAph used tool to correct, PHase, and ImpuTE VCF
   --precision-ratio &lt;float&gt;    Control runtime for small pedigree HMM analysis (default: 1.0; larger values increase runtime)  
   --fast                       Shortcut for --precision-ratio=0.1 (optimized for faster runtime, reduced precision)  
   --precision                  Shortcut for --precision-ratio=10.0 (enhanced precision, increased runtime)  
+</pre>
 
 #### 
 

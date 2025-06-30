@@ -90,6 +90,9 @@ class Family:
 	
 	def samples(self) -> list[str]:
 		return [self.mat, self.pat] + self.progenies
+	
+	def is_self(self) -> bool:
+		return self.mat == self.pat and self.mat != '0'
 
 
 #################### Progeny ####################

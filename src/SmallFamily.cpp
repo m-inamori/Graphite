@@ -150,6 +150,9 @@ VCFSmall *SmallFamily::impute_vcf_by_progenies(const VCFSmall *orig_vcf,
 	auto	*vcf = ProgenyImputedFamily::impute(orig_vcf, merged_vcf,
 													families, imputed_progenies,
 													ref_haps, op_small);
+	if(vcf == NULL)
+		return NULL;
+	
 	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
 													orig_vcf->get_samples());
 	delete merged_vcf;
