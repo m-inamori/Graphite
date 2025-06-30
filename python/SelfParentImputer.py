@@ -137,11 +137,10 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		cc = self.Cc[i-1]	# 遷移確率
 		cp = self.Cp[i-1]	# 親の遷移確率
 		op = Genotype.gt_to_int(record.v[9])	# observed parent
-		# observed progs
-		oc = Genotype.phased_gt_to_int(record.v[self.ic+10])
+		prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
 		
 		for h in range(L):		# hidden state
-			E_all = self.emission_probability(h, i, op, oc)
+			E_all = self.emission_probability(h, i, op, prog_gt)
 			
 			for prev_h in self.prev_h_table[h]:
 				T_all = self.transition_probability(h, prev_h, cc, cp)
