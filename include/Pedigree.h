@@ -112,6 +112,7 @@ public:
 	std::pair<std::string, std::string> parents() const {
 		return std::pair<std::string, std::string>(mat, pat);
 	}
+	bool is_self() const { return mat == pat && mat != "0"; }
 	std::vector<std::string> collect_samples() const;
 	const std::vector<std::string>& get_samples() const { return samples; }
 };

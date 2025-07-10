@@ -32,6 +32,16 @@ namespace SmallFamily {
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 						const std::vector<std::vector<int>>& ref_haps,
 						SampleManager *sample_man, const OptionSmall& op_small);
+	VCFSmall *impute_self_vcf(const VCFSmall *orig_vcf,
+								const VCFSmall *merged_vcf,
+								const std::vector<std::vector<int>>& ref_haps,
+								SampleManager *sample_man,
+								const OptionSmall& op_small);
+	VCFSmall *impute_self_non_imputed_vcf(const VCFSmall *orig_vcf,
+								const VCFSmall *merged_vcf,
+								const std::vector<std::vector<int>>& ref_haps,
+								SampleManager *sample_man,
+								const OptionSmall& op_small);
 	VCFSmall *impute_one_parent_vcf(
 						const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
 						SampleManager *sample_man, const OptionSmall& op_small);

@@ -113,7 +113,6 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		L = self.num_states()
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
 		record = self.records[0]
-		parent_gt = Genotype.gt_to_int(record.v[9])
 		op = Genotype.gt_to_int(record.v[9])	# observed parent
 		prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
 		ocs = [ Genotype.gt_to_int(record.v[j+10])

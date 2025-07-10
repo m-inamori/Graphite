@@ -5,7 +5,7 @@ from __future__ import annotations
 # 自殖でimputedなサンプルが一つもない
 
 from VCFFamily import *
-from SelfParentImputer import *
+from SelfParentImputerLessImputed import *
 from SelfProgenyImputer import *
 from Map import *
 
@@ -19,8 +19,8 @@ class VCFSelfNoImputedRough(VCFBase, VCFSmallBase):
 		VCFBase.__init__(self, header)
 		VCFSmallBase.__init__(self)
 		self.records: list[VCFRecord] = records
-		self.parent_imputer = SelfParentImputer(records, ref_haps,
-															ic, map_, 0.01)
+		self.parent_imputer = SelfParentImputerLessImputed(records, ref_haps,
+																	map_, 0.01)
 		self.imputers = [ SelfProgenyImputer(records, i, map_, 0.01)
 										for i in range(self.num_progenies()) ]
 	

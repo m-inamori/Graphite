@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # coding: utf-8
-# SelfParentImputer.py
+# SelfImputer.py
 # 自殖で親と後代を一度にimputeする
 
 from math import log
@@ -15,7 +15,7 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
+class SelfImputer(VCFHMM[VCFRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
 	def __init__(self, records: list[VCFRecord],
@@ -38,7 +38,7 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		return len(self.ref_haps)
 	
 	def M(self) -> int:
-		return len(self.ref_haps[0])
+		return len(self.records)
 	
 	def num_states(self) -> int:
 		return self.NH()**2 << (self.num_progenies() * 2)
@@ -46,8 +46,14 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 	def num_progenies(self) -> int:
 		return len(self.records[0].v) - 10
 	
-	def compute_parent_phased_gt(self, hp: int, i: int) -> int:
+	def decode_state(self, h: int) -> tuple[int, int, int]:
+		hc = h & ((1 << self.num_states()) - 1)
+		hp = h >> self.num_states()
 		hp2, hp1 = divmod(hp, self.NH())
+		return (hp1, hp2, hc)
+	
+	def compute_parent_phased_gt(self, h: int, i: int) -> int:
+		hp1, hp2, hc = self.decode_state(h)
 		return self.ref_haps[hp1][i] | (self.ref_haps[hp2][i] << 1)
 	
 	def compute_progeny_phased_gts(self, hc: int, parent_gt: int) -> list[int]:
@@ -63,22 +69,14 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 			Ec += self.E[phased_gts[j]][ocs[j]]
 		return Ec
 	
-	def parent_emission_probability(self, i: int, h: int,
-											parent_gt: int) -> float:
-		record = self.records[i]
-		hc, hp = divmod(h, self.NH()**2)
-		phased_parent_gt = self.compute_parent_phased_gt(h, i)
-		return self.E[phased_parent_gt][parent_gt]
-	
-	def parent_genotype(self, hp: int, i: int) -> int:
-		h2, h1 = divmod(hp, self.NH())
-		return self.ref_haps[h1][i] | (self.ref_haps[h2][i] << 1)
+	def parent_genotype(self, hp1: int, hp2: int, i: int) -> int:
+		return self.ref_haps[hp1][i] | (self.ref_haps[hp2][i] << 1)
 	
 	# i: record index
 	def emission_probability(self, i: int, h: int,
 									op: int, ocs: list[int]) -> float:
-		hc, hp = divmod(h, self.NH()**2)
-		gt_parent = self.parent_genotype(hp, i)
+		hp1, hp2, hc = self.decode_state(h)
+		gt_parent = self.parent_genotype(hp1, hp2, i)
 		Ep = self.E[gt_parent][op]	# parent emission
 		# progenies emission
 		Ec = self.progs_emission_probability(hc, ocs, gt_parent)
@@ -98,25 +96,39 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 			dp[0][h] = (E_all, h)
 		return dp
 	
+	def is_only_one_or_zero_crossover(self, hp1: int, hp2: int, hc: int,
+														prev_h: int) -> bool:
+		prev_hp1, prev_hp2, prev_hc = self.decode_state(prev_h)
+		if hp1 != prev_hp1 and hp2 != prev_hp2:
+			return False
+		elif hp1 == prev_hp1 and hp2 == prev_hp2:
+			d = hc ^ prev_hc
+			counter = 0
+			while d > 0:
+				if (d & 1) == 1:
+					counter += 1
+					if counter > 1:
+						return False
+				d >>= 1
+			return True
+		else:	# 片側が乗り換える
+			return hc == prev_hc
+	
 	# hidden stateに対して、可能な前のhidden stateを集めておく
 	def collect_possible_previous_hidden_states(self) -> list[list[int]]:
 		L = self.num_states()
 		prev_h_table: list[list[int]] = [ [] for _ in range(L) ]
 		for h in range(L):		# hidden state
-			hp1, hp2 = divmod(h, self.NH())
-			# 両側乗り換えることはないとする
-			# non-phasedの親のあり得る前の状態
+			hp1, hp2, hc = self.decode_state(h)
+			# 複数乗り換えることはないとする
 			for prev_h in range(L):
-				prev_hp1, prev_hp2 = divmod(prev_h, self.NH())
-				if hp1 == prev_hp1 or hp2 == prev_hp2:
+				if self.is_only_one_or_zero_crossover(hp1, hp2, hc, prev_h):
 					prev_h_table[h].append(prev_h)
 		
 		return prev_h_table
 	
-	def parent_transition_probability(self, i: int, hp: int,
-													prev_hp: int) -> float:
-		hp1, hp2 = divmod(hp, self.NH())
-		prev_hp1, prev_hp2 = divmod(prev_hp, self.NH())
+	def parent_transition_probability(self, i: int, hp1: int, hp2: int,
+										prev_hp1: int, prev_hp2: int) -> float:
 		cp = self.Cp[i-1]	# 親の遷移確率
 		return (log(cp if hp1 != prev_hp1 else 1.0 - cp) +
 				log(cp if hp2 != prev_hp2 else 1.0 - cp))
@@ -133,9 +145,9 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		return T
 	
 	def transition_probability(self, i: int, h: int, prev_h: int) -> float:
-		hc, hp = divmod(h, self.NH()**2)
-		prev_hc, prev_hp = divmod(prev_h, self.NH()**2)
-		Tp = self.parent_transition_probability(i, hp, prev_hp)
+		hp1, hp2, hc = self.decode_state(h)
+		prev_hp1, prev_hp2, prev_hc = self.decode_state(prev_h)
+		Tp = self.parent_transition_probability(i, hp1, hp2, prev_hp1, prev_hp2)
 		Tc = self.progeny_transition_probability(i, hc, prev_hc)
 		return Tp + Tc
 	
@@ -160,9 +172,13 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		M = len(self.records)
 		for i in range(M):
 			record = self.records[i]
-			hc, hp = divmod(hs[i], self.NH()**2)
-			parent_gt = self.parent_genotype(hp, i)
+			hp1, hp2, hc = self.decode_state(hs[i])
+			parent_gt = self.parent_genotype(hp1, hp2, i)
 			record.set_GT(0, Genotype.int_to_phased_gt(parent_gt))
+			prog_phased_gts = self.compute_progeny_phased_gts(hc, parent_gt)
+			for j in range(self.num_progenies()):
+				GT = Genotype.int_to_phased_gt(prog_phased_gts[j])
+				record.set_GT(j + 1, GT)
 	
 	def impute(self) -> None:
 		# DP

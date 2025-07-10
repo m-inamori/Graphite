@@ -23,7 +23,7 @@ public:
 	
 	static bool is_homo(const std::string& gt) {
 		return gt.length() >= 3 &&
-				(gt.c_str()[0] == '0' or gt.c_str()[0] == '1') &&
+				(gt.c_str()[0] == '0' || gt.c_str()[0] == '1') &&
 				gt[0] == gt[2];
 	}
 	static int get_int_gt(const std::string& s);

@@ -316,14 +316,14 @@ def impute_small_family(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 			continue
 		
 		# 自殖で一つでもサンプルがimputedな家系
-		new_merged_vcf7 = impute_self_vcf(orig_vcf,merged_vcf, ref_haps,
+		new_merged_vcf7 = impute_self_vcf(orig_vcf, merged_vcf, ref_haps,
 														op_small, sample_man)
 		if new_merged_vcf7 is not None:
 			merged_vcf = new_merged_vcf7
 			continue
 		
 		# 自殖でimputedなサンプルが一つもない家系
-		new_merged_vcf8 = impute_self_non_imputed_vcf(orig_vcf,merged_vcf,
+		new_merged_vcf8 = impute_self_non_imputed_vcf(orig_vcf, merged_vcf,
 												ref_haps, op_small, sample_man)
 		if new_merged_vcf8 is not None:
 			merged_vcf = new_merged_vcf8

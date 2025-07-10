@@ -40,9 +40,9 @@ char VCFImpHeteroHomo::determine_haplotype(int which_zero,
 		const int	mat_int = (i + which_zero) & 1;
 		if(mat_int + pat_int == prog_int_gt)
 			return '0' + i;
-		else if(mat_int == 1 and mat_int + pat_int < prog_int_gt)
+		else if(mat_int == 1 && mat_int + pat_int < prog_int_gt)
 			return '0' + i;
-		else if(mat_int == 0 and mat_int + pat_int > prog_int_gt)
+		else if(mat_int == 0 && mat_int + pat_int > prog_int_gt)
 			return '0' + i;
 	}
 	return 'N';

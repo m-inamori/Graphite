@@ -2,7 +2,7 @@ from __future__ import annotations
 
 # coding: utf-8
 # SelfParentImputerLessImputed.py
-# 自殖で後代がimputedなサンプルがないとき親をimputeする
+# 自殖で後代にもimputedなサンプルがないとき親をimputeする
 
 from math import log
 from typing import List, Tuple
@@ -20,7 +20,7 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 	
 	def __init__(self, records: list[VCFRecord],
 							ref_haps: list[list[int]],
-							iprog: int, map_: Map, w: float) -> None:
+							map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
 		self.records: list[VCFRecord] = records
 		self.ref_haps = ref_haps
@@ -32,26 +32,15 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		self.Cp = [ Map.Kosambi(self.dist(r1, r2) * K)
 							for r1, r2 in zip(self.records, self.records[1:]) ]
 	
-	# 両親と後代のnon-phased genotypeからの後代の排出確率
-	def calc_Epc(self, w: float) -> list[list[list[float]]]:
-		E1: list[list[list[float]]] = [
-			   [ [ 1.0-w*2,   w/2,       w/2,       w   ],
-				 [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ],
-				 [ w/2,       1.0-w*2,   w/2,       w   ],
-				 [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ] ],
-			   [ [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ],
-			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w   ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ],
-			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w   ] ],
-			   [ [ w/2,       1.0-w*2,   w/2,       w   ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ],
-			     [ w/2,       w/2,       1.0-w*2,   w   ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ] ],
-			   [ [ 0.5-w*3/4, 0.5-w*3/4, w/2,       w   ],
-			     [ 1/4-w/8,   0.5-w*3/4, 1/4-w/8,   w   ],
-			     [ w/2,       0.5-w*3/4, 0.5-w*3/4, w   ],
-			     [ 1/4,       1/4,       1/4,       1/4 ] ] ]
-		E = [ [ [ log(p) for p in v ] for v in w ] for w in E1 ]
+	# 親と後代のnon-phased genotypeからの後代の排出確率
+	def calc_Epc(self, w: float) -> list[list[float]]:
+		E1: list[list[float]] = [
+				[ 1.0-w*2,  w/2,       w/2,    w ],
+				[ 0.25-w/4, 0.5-w/2, 0.25-w/4, w ],
+				[ 0.25-w/4, 0.5-w/2, 0.25-w/4, w ],
+				[ w/2,      w/2,     1.0-w*2,  w ]
+		]
+		E = [ [ log(p) for p in v ] for v in E1 ]
 		return E
 	
 	def NH(self) -> int:
@@ -66,26 +55,22 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 	def num_progenies(self) -> int:
 		return len(self.records[0].v) - 10
 	
-	def compute_phased_gt_by_refhaps(self, hp: int, i: int) -> int:
-		hp2, hp1 = divmod(hp, self.NH())
-		return self.ref_haps[hp1][i] | (self.ref_haps[hp2][i] << 1)
+	def parent_genotype(self, h: int, i: int) -> int:
+		h2, h1 = divmod(h, self.NH())
+		return self.ref_haps[h1][i] | (self.ref_haps[h2][i] << 1)
 	
 	def progs_emission_probability(self, ocs: list[int],
 												parent_gt: int) -> float:
 		Ec = 0.0
 		for oc in ocs:
-			Ec += self.Epc[parent_gt][parent_gt][oc]
+			Ec += self.Epc[parent_gt][oc]
 		return Ec
 	
 	def parent_emission_probability(self, i: int, h: int,
 											parent_gt: int) -> float:
 		record = self.records[i]
-		phased_parent_gt = self.compute_phased_gt_by_refhaps(h, i)
+		phased_parent_gt = self.parent_genotype(h, i)
 		return self.E[phased_parent_gt][parent_gt]
-	
-	def parent_genotype(self, h: int, i: int) -> int:
-		h2, h1 = divmod(h, self.NH())
-		return self.ref_haps[h1][i] | (self.ref_haps[h2][i] << 1)
 	
 	# i: record index
 	def emission_probability(self, i: int, h: int,
@@ -125,27 +110,27 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		
 		return prev_h_table
 	
-	def transition_probability(self, h: int, prev_h: int, cp: float) -> float:
+	def transition_probability(self, i: int, h: int, prev_h: int) -> float:
 		hp1, hp2 = divmod(h, self.NH())
 		prev_hp1, prev_hp2 = divmod(prev_h, self.NH())
 		# 遷移確率 0なら(1-c)、1ならcを掛ける
+		cp = self.Cp[i-1]	# 親の遷移確率
 		return (log(cp if hp1 != prev_hp1 else 1.0 - cp) +
 				log(cp if hp2 != prev_hp2 else 1.0 - cp))
 	
 	def update_dp(self, i: int, dp: list[DP]) -> None:
 		L = self.num_states()
 		record = self.records[i]
-		cp = self.Cp[i-1]	# 親の遷移確率
 		op = Genotype.gt_to_int(record.v[9])	# observed parent
 		# observed progs
-		ocs = [ Genotype.phased_gt_to_int(record.v[i+10])
+		ocs = [ Genotype.gt_to_int(record.v[i+10])
 						for i in range(self.num_progenies()) ]
 		
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(i, h, op, ocs)
 			
 			for prev_h in self.prev_h_table[h]:
-				T_all = self.transition_probability(h, prev_h, cp)
+				T_all = self.transition_probability(i, h, prev_h)
 				
 				prob = dp[i-1][prev_h][0] + (T_all + E_all)
 				dp[i][h] = max(dp[i][h], (prob, prev_h))

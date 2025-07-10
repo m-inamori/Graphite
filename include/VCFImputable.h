@@ -26,7 +26,7 @@ public:
 		if(length < 1.0)
 			return true;
 		else
-			return last - first < 10 and length < 10.0;
+			return last - first < 10 && length < 10.0;
 	}
 	
 	template<typename T>

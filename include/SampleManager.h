@@ -47,6 +47,7 @@ public:
 	}
 	
 	bool is_imputed(const std::string& sample) const;
+	bool is_all_samples_imputed(const KnownFamily *family) const;
 	bool is_all_progenies_imputed(const KnownFamily *family) const;
 	bool is_known(const std::string& sample) const {
 		return sample != "0";
@@ -59,6 +60,8 @@ public:
 	bool is_parent_imputed_and_progenies_not_imputed(
 												const Family *family) const;
 	bool is_progeny_imputed(const Family *family) const;
+	std::vector<std::string> collect_imputed_samples(
+						const std::vector<const KnownFamily *>& families) const;
 	std::vector<std::string> collect_reference() const;
 	std::vector<const Progeny *> extract_unimputed_progenies(
 												const Family * family) const;
@@ -68,8 +71,9 @@ public:
 	std::vector<const KnownFamily *> extract_both_known_families() const;
 	std::vector<const KnownFamily *> extract_one_imputed_families() const;
 	std::vector<const KnownFamily *> extract_one_known_parent_families() const;
+	// families in which at least one sample is imputed by self-breeding
+	std::vector<const KnownFamily *> extract_self_families() const;
 	std::vector<const KnownFamily *> extract_progenies_phased_families() const;
-	bool is_all_not_imputed(const std::vector<std::string>& samples) const;
 	std::vector<std::string> extract_isolated_samples() const;
 	std::vector<std::string> extract_non_imputed_samples() const;
 	std::vector<std::string> collect_large_family_parents() const;

@@ -18,9 +18,6 @@ from OptionSmall import OptionSmall
 def is_small(family: Family, ref_haps: list[list[int]],
 									L: int, op: OptionSmall) -> bool:
 	N = family.num_progenies()
-	if N > 1:
-		return False
-	
 	M = len(ref_haps[0])				# マーカー数
 	NH = len(ref_haps)
 	R: float = NH**2 * 4**N * (2*NH + 2*N - 1) / op.precision_ratio
@@ -37,8 +34,8 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 									op: OptionSmall) -> Optional[VCFSmallBase]:
 	vcfs: list[VCFSmallBase] = []
 	for family in families:
-		vcf = VCFSmall.create_by_two_vcfs(imputed_vcf,
-												orig_vcf, family.samples())
+		samples = [family.mat] + family.progenies
+		vcf = VCFSmall.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
 		if is_small(family, ref_haps, len(families), op):
 			vcf1 = VCFSelfNoImputed(vcf.header, vcf.records, ref_haps, op.map)
 			vcf1.impute()

@@ -11,6 +11,8 @@
 #include "../include/ImputedAndKnownFamily.h"
 #include "../include/ProgenyImputedFamily.h"
 #include "../include/OneKnownFamily.h"
+#include "../include/SelfFamily.h"
+#include "../include/SelfNonImputedFamily.h"
 #include "../include/Orphan.h"
 #include "../include/SampleManager.h"
 #include "../include/KnownFamily.h"
@@ -104,6 +106,45 @@ VCFSmall *SmallFamily::impute_vcf_by_imputed_parent(const VCFSmall *orig_vcf,
 	auto	*vcf = OneImputedFamily::impute(orig_vcf, merged_vcf,
 												ref_haps, families, op_small);
 	Common::delete_all(families);
+	if(vcf == NULL)
+		return NULL;
+	
+	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
+													orig_vcf->get_samples());
+	delete merged_vcf;
+	sample_man->add_imputed_samples(new_merged_vcf->get_samples());
+	delete vcf;
+	return new_merged_vcf;
+}
+
+VCFSmall *SmallFamily::impute_self_vcf(const VCFSmall *orig_vcf,
+										const VCFSmall *merged_vcf,
+										const vector<vector<int>>& ref_haps,
+										SampleManager *sample_man,
+										const OptionSmall& op_small) {
+	const auto	families = sample_man->extract_self_families();
+	auto	imputed_samples = sample_man->collect_imputed_samples(families);
+	auto	*vcf = SelfFamily::impute(orig_vcf, merged_vcf, ref_haps,
+										families, imputed_samples, op_small);
+	if(vcf == NULL)
+		return NULL;
+	
+	auto	*new_merged_vcf = VCFSmall::join(merged_vcf, vcf,
+													orig_vcf->get_samples());
+	delete merged_vcf;
+	sample_man->add_imputed_samples(new_merged_vcf->get_samples());
+	delete vcf;
+	return new_merged_vcf;
+}
+
+VCFSmall *SmallFamily::impute_self_non_imputed_vcf(const VCFSmall *orig_vcf,
+											const VCFSmall *merged_vcf,
+											const vector<vector<int>>& ref_haps,
+											SampleManager *sample_man,
+											const OptionSmall& op_small) {
+	const auto	families = sample_man->extract_self_families();
+	auto	*vcf = SelfNonImputedFamily::impute(orig_vcf, merged_vcf,
+												ref_haps, families, op_small);
 	if(vcf == NULL)
 		return NULL;
 	
@@ -435,6 +476,22 @@ VCFSmall *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 													sample_man, op_small);
 		if(new_merged_vcf6 != NULL) {
 			merged_vcf = new_merged_vcf6;
+			continue;
+		}
+		
+		auto	*new_merged_vcf7 = impute_self_vcf(orig_vcf,
+													merged_vcf, ref_haps,
+													sample_man, op_small);
+		if(new_merged_vcf7 != NULL) {
+			merged_vcf = new_merged_vcf7;
+			continue;
+		}
+		
+		auto	*new_merged_vcf8 = impute_self_non_imputed_vcf(orig_vcf,
+													merged_vcf, ref_haps,
+													sample_man, op_small);
+		if(new_merged_vcf8 != NULL) {
+			merged_vcf = new_merged_vcf8;
 			continue;
 		}
 		

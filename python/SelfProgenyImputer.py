@@ -47,7 +47,7 @@ class SelfProgenyImputer(VCFHMM[VCFRecord]):
 		record = self.records[0]
 		parent_gt = Genotype.phased_gt_to_int(self.records[0].v[9])
 		# observed progeny
-		oc = Genotype.phased_gt_to_int(record.v[self.ic+10])
+		oc = Genotype.gt_to_int(record.v[self.ic+10])
 		for h in range(4):		# hidden state
 			E_all = self.emission_probability(h, parent_gt, oc)
 			dp[0][h] = (E_all, h)
