@@ -336,6 +336,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	
 	@staticmethod
 	def inverse_phases(vcfs: list[VCFHeteroHomo]) -> None:
+		# 同じ親が複数の家系にまたがるとき
 		graph = VCFHeteroHomo.make_vcf_graph(vcfs)
 		if not graph:
 			return

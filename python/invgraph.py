@@ -11,7 +11,8 @@ from kruskal import Kruskal
 
 #################### Type ####################
 
-Edge = Tuple[Node, Node, float]
+Edge = Tuple[Node, Node, bool]
+WeightedEdge = Tuple[Node, Node, float]
 Value = Tuple[Node, float, bool]
 
 
@@ -35,7 +36,7 @@ class InvGraph(Dict[Node, List[Value]], WeightedGraphBase):
 		return [ v for v, d, b in value ]
 	
 	##### virtual methods for WeightedGraphBase #####
-	def generate_weighted_edges(self) -> Iterator[Edge]:
+	def generate_weighted_edges(self) -> Iterator[WeightedEdge]:
 		return ((u, v, w) for u, neis in self.items()
 									for v, w, b in neis if u < v)
 	

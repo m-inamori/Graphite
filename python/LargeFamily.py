@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 import sys
 from multiprocessing import Pool
 
-from typing import Optional, Dict, List, Tuple, Set, IO
+from typing import Optional
 
 from VCF import *
 from VCFFamily import VCFFamily, VCFFamilyBase, VCFFamilyRecord
@@ -31,27 +31,21 @@ from common import *
 
 #################### process ####################
 
-def get_int_gt(gt: str) -> int:
-	if gt[0] == '.' or gt[2] == '.':
-		return -1
-	else:
-		return int(gt[0]) + int(gt[2])
-
 def create_heterohomo_record(v: list[str], family: KnownFamily, i: int,
 					wrong_type: str, pair: ParentComb) -> VCFHeteroHomoRecord:
 	# 片親が不明の時、Genotypeを補う
 	total_int_gt = 1 if pair == ParentComb.P00x01 else 3
 	if not family.mat_known:
-		pat_int_gt: int = get_int_gt(v[10])
-		mat_int_gt: int = total_int_gt - pat_int_gt
-		if mat_int_gt < 0 or 2 < mat_int_gt:
+		pat_int_gt = Genotype.gt_to_int(v[10])
+		mat_int_gt = total_int_gt - pat_int_gt
+		if pat_int_gt == 3 or mat_int_gt < 0 or 2 < mat_int_gt:
 			wrong_type = 'Modifiable'
 		else:
 			v[9] = Genotype.int_to_gt(mat_int_gt)
 	elif not family.pat_known:
-		mat_int_gt = get_int_gt(v[9])
+		mat_int_gt = Genotype.get_int_gt(v[9])
 		pat_int_gt = total_int_gt - mat_int_gt
-		if pat_int_gt < 0 or 2 < pat_int_gt:
+		if mat_int_gt == 3 or pat_int_gt < 0 or 2 < pat_int_gt:
 			wrong_type = 'Modifiable'
 		else:
 			v[10] = Genotype.int_to_gt(pat_int_gt)
@@ -198,30 +192,36 @@ def fill_vcf(dic_vcfs: dict[str, list[VCFHeteroHomo]],
 	return [ VCFFillable.fill(vcfs, other_records)
 				for vcfs, other_records in zip(vcfss_heho, other_recordss) ]
 
-def correct_large_family_VCFs(orig_vcf: VCFSmall,
-							  large_families: list[KnownFamily],
-							  geno_map: Map, option: Option) -> VCFSmall:
-	num_threads = option.num_threads
+def impute_hetero_homo(orig_vcf: VCFSmall, families: list[KnownFamily],
+									geno_map: Map, op: Option
+									) -> tuple[list[list[VCFHeteroHomo]],
+											   list[list[VCFImpFamilyRecord]]]:
 	# create a VCF for each large family
-	family_vcfs = create_family_vcfs(orig_vcf, large_families, num_threads)
+	family_vcfs = create_family_vcfs(orig_vcf, families, op.num_threads)
 	# classify records
 	heho_recordss, other_recordss = divide_vcf_into_record_types(family_vcfs,
-														large_families, option)
+																families, op)
 	# 家系間で調整するから家系をまとめて処理しなければならない
-	modify_00x11(heho_recordss, other_recordss, large_families)
+	modify_00x11(heho_recordss, other_recordss, families)
 	
 	# 家系ごとに処理する
-	vcfss = []
-	for records, others, family in zip(heho_recordss,
-										other_recordss, large_families):
+	vcfss: list[list[VCFHeteroHomo]] = []
+	for records, others, family in zip(heho_recordss, other_recordss, families):
 		header = orig_vcf.trim_header(family.samples())
 		vcfs, unused = VCFHeteroHomo.impute_vcfs(records, header, geno_map)
 		vcfss.append(vcfs)
 		others.extend(unused)
 	
+	return (vcfss, other_recordss)
+
+def impute(orig_vcf: VCFSmall, families: list[KnownFamily],
+							  geno_map: Map, option: Option) -> VCFSmall:
+	vcfss, other_recordss = impute_hetero_homo(orig_vcf, families,
+															geno_map, option)
+	
 	# 同じ親でVCFをまとめる
 	dic_vcfs: dict[str, list[VCFHeteroHomo]] = defaultdict(list)
-	for vcfs, family in zip(vcfss, large_families):
+	for vcfs, family in zip(vcfss, families):
 		for vcf in vcfs:
 			if len(vcf) == 0:
 				# 家系で一つもVCFが無いと家系がわからなるので、
@@ -237,8 +237,8 @@ def correct_large_family_VCFs(orig_vcf: VCFSmall,
 	for parent, vcfs in v:
 		VCFHeteroHomo.inverse_phases(vcfs)
 	
-	filled_vcfs = fill_vcf(dic_vcfs, other_recordss, large_families)
-	print("%d large families have been imputed." % len(large_families))
+	filled_vcfs = fill_vcf(dic_vcfs, other_recordss, families)
+	print("%d large families have been imputed." % len(families))
 	return VCFFillable.merge(filled_vcfs, orig_vcf.get_samples())
 
-__all__ = ['correct_large_family_VCFs']
+__all__ = ['impute_large_normal_families']

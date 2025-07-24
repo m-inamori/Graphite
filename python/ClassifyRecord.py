@@ -34,6 +34,25 @@ def classify_record(record: VCFRecord, td: TypeDeterminer,
 	pair, wrong_type = classify_record_core(pairs, gts[0], gts[1], one_parent)
 	return (wrong_type, pair)
 
+def classify_self_record(record: VCFRecord,
+								td: TypeDeterminer) -> tuple[str, ParentComb]:
+	gts = record.get_int_gts()
+	counter = count_int_gts(gts[1:])
+	pairs = td.determine(counter)
+	if not pairs:
+		return ('Unspecified', ParentComb.PNA)
+	
+	parent_gt = gts[0]
+	comb, prob = pairs[0]
+	if comb == ParentComb.P01x01 and parent_gt in (1, -1):
+		return ('Right', ParentComb.P01x01)
+	elif comb == ParentComb.P00x00 and parent_gt in (0, -1):
+		return ('Right', ParentComb.P00x00)
+	elif comb == ParentComb.P11x11 and parent_gt in (2, -1):
+		return ('Right', ParentComb.P11x11)
+	else:
+		return ('Unspecified', ParentComb.PNA)
+
 def classify_record_core(pairs: list[tuple[ParentComb, float]],
 						 mat_gt: int, pat_gt: int,
 						 one_parent: bool) -> tuple[ParentComb, str]:

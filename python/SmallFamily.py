@@ -263,7 +263,7 @@ def impute_non_imputed_samples(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 	else:
 		return merged_vcf
 
-def impute_small_family(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
+def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
 						op_small: OptionSmall, sample_man: SampleManager,
 						imputes_isolated_samples: bool) -> VCFSmall:
 	ref_haps = extract_haplotypes(merged_vcf, sample_man)

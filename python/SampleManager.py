@@ -130,6 +130,16 @@ class SampleManager:
 		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
 									f.progenies) for f in families ]
 	
+	def extract_self_parent_non_imputed_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+						if family.is_self() and
+							not self.is_imputed(family.mat) and
+							any(not self.is_imputed(s)
+									for s in family.samples()) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
+									f.progenies) for f in families ]
+	
 	# 両親は補完されていないが子どもの一部が補完されている家系
 	def extract_progenies_imputed_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.small_families

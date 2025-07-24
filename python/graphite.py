@@ -10,7 +10,8 @@ from typing import Iterator
 
 from VCF import *
 from pedigree import PedigreeTable, Family
-from LargeFamily import correct_large_family_VCFs
+import LargeFamily
+import LargeSelfFamily
 import SmallFamily
 from impute_prog_only import *
 from materials import *
@@ -28,8 +29,15 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 						geno_map: Map, option: Option) -> VCFSmall:
 	print('chr: %s %d records' % (orig_vcf.records[0].chrom(), len(orig_vcf)))
 	sys.stdout.flush()
-	merged_vcf = correct_large_family_VCFs(orig_vcf, sample_man.large_families,
+	merged_vcf = LargeFamily.impute(orig_vcf, sample_man.large_families,
 														geno_map, option)
+	sample_man.set(merged_vcf.samples)
+	
+	self_families = sample_man.extract_self_parent_non_imputed_families()
+	merged_vcf = LargeSelfFamily.impute(orig_vcf, merged_vcf, sample_man,
+															geno_map, option)
+	sample_man.set(merged_vcf.samples)
+	
 	op_small = OptionSmall(geno_map, option.num_threads, option.precision_ratio,
 											option.imputes_isolated_samples,
 											option.outputs_unimputed_samples)
@@ -37,8 +45,7 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 	# 補完できる家系がなくなるまで繰り返す
 	sample_man.set(merged_vcf.samples)
 	
-	merged_vcf = SmallFamily.impute_small_family(orig_vcf, merged_vcf,
-												op_small, sample_man,
+	merged_vcf = SmallFamily.impute(orig_vcf, merged_vcf, op_small, sample_man,
 												option.imputes_isolated_samples)
 	
 	sample_man.clear()
