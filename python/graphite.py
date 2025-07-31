@@ -34,9 +34,11 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 	sample_man.set(merged_vcf.samples)
 	
 	self_families = sample_man.extract_self_parent_non_imputed_families()
-	merged_vcf = LargeSelfFamily.impute(orig_vcf, merged_vcf, sample_man,
+	imputed_vcf = LargeSelfFamily.impute(orig_vcf, merged_vcf, self_families,
 															geno_map, option)
-	sample_man.set(merged_vcf.samples)
+	if imputed_vcf:
+		merged_vcf = imputed_vcf
+		sample_man.set(imputed_vcf.samples)
 	
 	op_small = OptionSmall(geno_map, option.num_threads, option.precision_ratio,
 											option.imputes_isolated_samples,

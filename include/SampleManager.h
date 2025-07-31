@@ -73,6 +73,8 @@ public:
 	std::vector<const KnownFamily *> extract_one_known_parent_families() const;
 	// families in which at least one sample is imputed by self-breeding
 	std::vector<const KnownFamily *> extract_self_families() const;
+	std::vector<const KnownFamily *>
+				extract_self_parent_non_imputed_families() const;
 	std::vector<const KnownFamily *> extract_progenies_phased_families() const;
 	std::vector<std::string> extract_isolated_samples() const;
 	std::vector<std::string> extract_non_imputed_samples() const;

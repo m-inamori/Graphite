@@ -44,11 +44,6 @@ private:
 														int prev_h) const;
 	std::vector<std::vector<int>>
 	collect_possible_previous_hidden_states() const;
-	int progeny_genotype(int h, int parent_gt) const {
-		const int	hc1 = h & 1;
-		const int	hc2 = h >> 1;
-		return ((parent_gt >> hc1) & 1) | ((parent_gt >> hc2) & 1);
-	}
 	
 	int compute_parent_phased_gt(int h, int i) const {
 		const auto	t = decode_state(h);

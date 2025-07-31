@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <tuple>
+#include <array>
 
 
 //////////////////// ParentComb ////////////////////
@@ -28,6 +29,10 @@ public:
 	
 	std::vector<std::pair<double, ParentComb>> determine(
 												const State& counter) const;
+	std::vector<std::pair<double, ParentComb>> determine(
+											const std::array<int, 3>& a) const {
+		return determine(std::make_tuple(a[0], a[1], a[2]));
+	}
 	
 private:
 	void make_memo00();

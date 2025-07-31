@@ -167,7 +167,7 @@ void SelfImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const int	op = Genotype::gt_to_int(record->get_gt(0));
 	// observed progs
 	vector<int>	ocs;
-	for(size_t i = 0; i != num_progenies(); ++i) {
+	for(size_t j = 0; j != num_progenies(); ++j) {
 		ocs.push_back(Genotype::gt_to_int(record->get_gt(i+1)));
 	}
 	for(int h = 0; h < (int)L; ++h) {

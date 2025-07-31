@@ -63,9 +63,8 @@ def extract_parents(vcfs: list[VCFSelfFillable]) -> VCFSmall:
 	return VCFSmall(header, records)
 
 def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
-				sample_man: SampleManager, geno_map: Map, op: Option
-									) -> Optional[VCFSmallBase]:
-	families = sample_man.extract_self_parent_non_imputed_families()
+				families: list[KnownFamily], geno_map: Map, op: Option
+										) -> Optional[VCFSmall]:
 	if not families:
 		return None
 	

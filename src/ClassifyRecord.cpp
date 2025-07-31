@@ -1,3 +1,4 @@
+#include <array>
 #include <numeric>
 #include <algorithm>
 #include "../include/ClassifyRecord.h"
@@ -27,10 +28,34 @@ pair<ParentComb, WrongType> ClassifyRecord::classify(
 									const TypeDeterminer *td,
 									bool one_parent) {
 	const vector<int>	gts = record->get_progeny_int_gts();
-	const tuple<int, int, int>	counter = count_int_gts(gts);
+	const array<int, 3>	counter = count_int_gts(gts);
 	const auto	combs = td->determine(counter);
 	return classify_record_core(combs, record->mat_int_gt(),
 										record->pat_int_gt(), one_parent);
+}
+
+pair<ParentComb, WrongType> ClassifyRecord::classify_self_record(
+												const VCFRecord *record,
+												const TypeDeterminer *td) {
+	const vector<int>	gts = record->get_int_gts();
+	const array<int, 3>	counter = count_int_gts(gts.begin() + 1, gts.end());
+	const auto	pairs = td->determine(counter);
+	if(pairs.empty())
+		return make_pair(ParentComb::PNA, WrongType::UNSPECIFIED);
+	
+	const int	parent_gt = gts[0];
+	const ParentComb	comb = pairs[0].second;
+	if(comb == ParentComb::P01x01 &&
+						(parent_gt == 1 || parent_gt == -1))
+		return make_pair(ParentComb::P01x01, WrongType::RIGHT);
+	else if(comb == ParentComb::P00x00 &&
+						(parent_gt == 0 || parent_gt == -1))
+		return make_pair(ParentComb::P00x00, WrongType::RIGHT);
+	else if(comb == ParentComb::P11x11 &&
+						(parent_gt == 2 || parent_gt == -1))
+		return make_pair(ParentComb::P11x11, WrongType::RIGHT);
+	else
+		return make_pair(ParentComb::PNA, WrongType::UNSPECIFIED);
 }
 
 const TypeDeterminer *ClassifyRecord::get_TypeDeterminer(size_t n, double a) {
@@ -44,14 +69,19 @@ const TypeDeterminer *ClassifyRecord::get_TypeDeterminer(size_t n, double a) {
 }
 
 // count the numbers of 0, 1, 2
-tuple<size_t, size_t, size_t> ClassifyRecord::count_int_gts(
-											const vector<int>& gts) const {
-	vector<size_t>	ns(3, 0);
-	for(auto p = gts.begin(); p != gts.end(); ++p) {
+array<int, 3> ClassifyRecord::count_int_gts(const vector<int>& gts) const {
+	return count_int_gts(gts.begin(), gts.end());
+}
+
+array<int, 3> ClassifyRecord::count_int_gts(
+									vector<int>::const_iterator first,
+									vector<int>::const_iterator last) const {
+	array<int, 3>	ns = {0, 0, 0};
+	for(auto p = first; p != last; ++p) {
 		if(*p != -1)
 			ns[*p] += 1;
 	}
-	return tuple<size_t, size_t, size_t>(ns[0], ns[1], ns[2]);
+	return ns;
 }
 
 vector<ClassifyRecord::GTComb> ClassifyRecord::filter_pairs(

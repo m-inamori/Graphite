@@ -31,10 +31,10 @@ VCFSmallBase *SelfFamily::impute(const VCFSmall *orig_vcf,
 		// indices of imputed progenies
 		vector<size_t>	prog_indices;
 		const auto&	progs = family->get_progenies();
-		for(size_t i = 0; i < progs.size(); ++i) {
-			const string&	prog = progs[i]->get_name();
+		for(size_t j = 0; j < progs.size(); ++j) {
+			const string&	prog = progs[j]->get_name();
 			if(set_imputed_samples.find(prog) != set_imputed_samples.end())
-				prog_indices.push_back(i);
+				prog_indices.push_back(j);
 		}
 		
 		const string&	parent = family->get_mat();

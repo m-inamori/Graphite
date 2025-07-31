@@ -229,7 +229,10 @@ void TypeDeterminer::make_memo22() {
 void TypeDeterminer::sort() {
 	for(auto p = memo.begin(); p != memo.end(); ++p) {
 		std::sort(p->second.begin(), p->second.end(),
-							std::greater<pair<double, ParentComb>>());
+					[](const std::pair<double, ParentComb>& a,
+						const std::pair<double, ParentComb>& b) {
+								return a.first < b.first;
+					});
 	}
 }
 

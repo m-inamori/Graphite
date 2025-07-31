@@ -10,7 +10,7 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator
 import random
 import time
 
-from VCFFamily import *
+from VCF import VCFRecord, VCFBase, VCFSmallBase
 from VCFImpSelfRecord import SelfFillType, VCFImpSelfRecord
 from TypeDeterminer import ParentComb
 from Map import *
@@ -201,9 +201,16 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 		q, r = divmod(i, 2)
 		hs = ['N'] * len(self)
 		for j, record in enumerate(self.records):
-			if record.v[9][0] == '0':
-				a = record.v[q+10][r*2]
-				if a == record.v[9][0]:
+			a = record.v[q+10][r*2]
+			if record.v[9][0] == '0':	# 0|1
+				if a == '0':
+					hs[j] = '0'
+				elif a != '.':
+					hs[j] = '1'
+				else:
+					hs[j] = 'N'
+			else:						# 1|0
+				if a == '1':
 					hs[j] = '0'
 				elif a != '.':
 					hs[j] = '1'

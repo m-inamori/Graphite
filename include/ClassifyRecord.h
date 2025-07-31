@@ -11,7 +11,9 @@ enum class WrongType {
 	RIGHT, MODIFIABLE, UNMODIFIABLE, MIX, UNSPECIFIED
 };
 
+class VCFRecord;
 class VCFFamilyRecord;
+
 
 
 //////////////////// ClassifyRecord ////////////////////
@@ -38,10 +40,14 @@ public:
 	std::pair<ParentComb, WrongType> classify(const VCFFamilyRecord *record,
 													const TypeDeterminer *td,
 													bool one_parent);
+	std::pair<ParentComb, WrongType> classify_self_record(
+												const VCFRecord *record,
+												const TypeDeterminer *td);
 	
 private:
-	std::tuple<std::size_t, std::size_t, std::size_t> count_int_gts(
-											const std::vector<int>& gts) const;
+	std::array<int, 3> count_int_gts(const std::vector<int>& gts) const;
+	std::array<int, 3> count_int_gts(std::vector<int>::const_iterator first,
+								std::vector<int>::const_iterator last) const;
 	std::vector<GTComb> filter_pairs(const std::vector<GTComb>& combs) const;
 	WrongType select_wrong_type(ParentComb comb, int mat_gt,
 								int pat_gt, bool one_parent) const;

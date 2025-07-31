@@ -496,11 +496,11 @@ VCFSmall *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 		}
 		
 		if(op_small.imputes_isolated_samples) {
-			auto	*new_merged_vcf7 = impute_orphan_samples(orig_vcf,
+			auto	*new_merged_vcf9 = impute_orphan_samples(orig_vcf,
 														merged_vcf, ref_haps,
 														sample_man, op_small);
-			if(new_merged_vcf7 != NULL) {
-				merged_vcf = new_merged_vcf7;
+			if(new_merged_vcf9 != NULL) {
+				merged_vcf = new_merged_vcf9;
 				continue;
 			}
 		}

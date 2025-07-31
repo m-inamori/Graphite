@@ -40,11 +40,6 @@ private:
 		return records[0]->num_samples() - 1;
 	}
 	
-	int progeny_genotype(int h, int parent_gt) const {
-		const int	hc1 = h & 1;
-		const int	hc2 = h >> 1;
-		return ((parent_gt >> hc1) & 1) | ((parent_gt >> hc2) & 1);
-	}
 	int parent_genotype(int hp, int i) const {
 		const int	hp1 = hp % NH();
 		const int	hp2 = hp / NH();

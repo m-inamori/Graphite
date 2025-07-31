@@ -124,7 +124,7 @@ class SelfRecordSet:
 		if self.record is None:
 			return
 		
-		for c in range(11, len(self.record.v)):
+		for c in range(10, len(self.record.v)):
 			gts = [ r.v[c] if r else '' for r in self.records() ]
 			yield (c-9, gts[1], gts[2])
 	
@@ -134,68 +134,6 @@ class SelfRecordSet:
 			return False
 		return (self.record.pos() * 2 <
 					self.prev_record.pos() + self.next_record.pos())
-	
-	def near_mat_from(self, i: int) -> int:
-		return (self.prev_mat_from(i) if self.is_prev_near()
-										else self.next_mat_from(i))
-	
-	def near_pat_from(self, i: int) -> int:
-		return (self.prev_pat_from(i) if self.is_prev_near()
-										else self.next_pat_from(i))
-	
-	# [(mat_from, pat_from)] -> (mat_from, pat_from)
-	def select_nearest_froms(self, pairs: list[tuple[int, int]],
-											i: int) -> tuple[int, int]:
-		if len(pairs) == 4:		# N/Aのときにまれにあり得る
-			return (self.near_mat_from(i), self.near_pat_from(i))
-		elif pairs[0][0] == pairs[1][0]:		# matが同じ
-			if (self.record is None or self.prev_record is None or
-											self.next_record is None):
-				return (0, 0)
-			elif self.is_prev_near():
-				return (pairs[0][0], self.prev_pat_from(i))
-			else:
-				return (pairs[0][0], self.next_pat_from(i))
-		elif pairs[0][1] == pairs[1][1]:	# patが同じ
-			if (self.record is None or self.prev_record is None or
-											self.next_record is None):
-				return (0, 0)
-			elif self.is_prev_near():
-				return (self.prev_mat_from(i), pairs[0][1])
-			else:
-				return (self.next_mat_from(i), pairs[0][1])
-		else:	# 両親とも乗り換えている（滅多にない）
-			return (self.near_mat_from(i), self.near_pat_from(i))
-	
-	def select_pair(self, pairs: list[tuple[int, int]], i: int,
-							selected: bool = False) -> tuple[int, int]:
-		def sum_gt(gt: str) -> int:
-			try:
-				return int(gt[0]) + int(gt[2])
-			except ValueError:
-				return -1
-		
-		record = self.record
-		if record is None:	# for mypy
-			return (0, 0)
-		parent_gt = record.get_int_gt(0)
-		gt = record.get_gt(i)
-		if not pairs:
-			return (0, 0)
-		elif len(pairs) == 1:
-			return pairs[0]
-		elif not Genotype.is_valid(gt, parent_gt, parent_gt):
-			return self.select_nearest_froms(pairs, i)
-		elif selected:
-			return self.select_nearest_froms(pairs, i)
-		else:
-			new_pairs = [ v for v in pairs
-						if sum_gt(gt) == sum_gt(record.gt_from_parent(*v)) ]
-			pair = self.select_pair(new_pairs, i, True)
-			if pair != (0, 0):
-				return pair
-			else:
-				return self.select_pair(pairs, i, True)
 	
 	# mat_gt, pat_gt : 0|0 0|1 1|0 1|1を0～3で表す
 	def compute_phasing_likelihood(self, phasing: int) -> float:

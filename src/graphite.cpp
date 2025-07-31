@@ -4,6 +4,7 @@
 #include "../include/graphite.h"
 #include "../include/SampleManager.h"
 #include "../include/LargeFamily.h"
+#include "../include/LargeSelfFamily.h"
 #include "../include/SmallFamily.h"
 #include "../include/impute_prog_only.h"
 #include "../include/VCFHeteroHomoPP.h"
@@ -36,6 +37,12 @@ VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	const auto	large_families = sample_man->get_large_families();
 	auto	merged_vcf = LargeFamily::correct_large_family_VCFs(
 									orig_vcf, large_families, geno_map, option);
+	sample_man->add_imputed_samples(merged_vcf->get_samples());
+	
+	const auto	self_families =
+						sample_man->extract_self_parent_non_imputed_families();
+	merged_vcf = LargeSelfFamily::impute(orig_vcf, merged_vcf, self_families,
+															geno_map, option);
 	sample_man->add_imputed_samples(merged_vcf->get_samples());
 	
 	merged_vcf = SmallFamily::impute_small_family(orig_vcf, merged_vcf,

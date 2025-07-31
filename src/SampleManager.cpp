@@ -227,6 +227,19 @@ vector<const KnownFamily *> SampleManager::extract_self_families() const {
 	return families;
 }
 
+vector<const KnownFamily *>
+SampleManager::extract_self_parent_non_imputed_families() const {
+	vector<const KnownFamily *>	families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(family->is_self() && !is_imputed(family->get_mat()) &&
+								!is_all_progenies_imputed(family)) {
+			families.push_back(family);
+		}
+	}
+	return families;
+}
+
 bool SampleManager::is_all_progenies_imputed(const KnownFamily *family) const {
 	const auto&	progs = family->get_progenies();
 	for(auto q = progs.begin(); q != progs.end(); ++q) {

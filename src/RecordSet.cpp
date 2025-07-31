@@ -120,14 +120,6 @@ vector<double> RecordSet::likelihoods_from_which_chrom(
 		return likelihoods_from_which_chrom(prev_pat_from(i), next_pat_from(i));
 }
 
-double RecordSet::likelihood_mat(int mat_gt) const {
-	return Log::modified_log(record->get_prob(0, (mat_gt*3+1)>>2));
-}
-
-double RecordSet::likelihood_pat(int pat_gt) const {
-	return Log::modified_log(record->get_prob(1, (pat_gt*3+1)>>2));
-}
-
 double RecordSet::likelihood_each(const vector<double>& probs_mat,
 									const vector<double>& probs_pat,
 									int mat_phasing, int pat_phasing,
@@ -155,7 +147,6 @@ double RecordSet::compute_phasing_likelihood(int mat_phasing,
 	if(this->record == NULL)
 		return log(0.0001);
 	
-	// double	ll = likelihood_mat(mat_phasing) + likelihood_pat(pat_phasing);
 	double	ll = 0.0;
 	for(int i = 2; i < (int)record->num_samples(); ++i) {
 		ll += compute_phasing_likelihood_each(mat_phasing, pat_phasing, i);

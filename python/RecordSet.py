@@ -283,16 +283,6 @@ class RecordSet:
 								   next_chrom: int) -> list[float]:
 			return memo[(prev_chrom, next_chrom)]
 		
-		def likelihood_mat() -> float:
-			if self.record is None:
-				return 0.0		# ここには来ない
-			return modified_log(self.record.probs[0][(mat_gt*3+1)>>2])
-		
-		def likelihood_pat() -> float:
-			if self.record is None:
-				return 0.0		# ここには来ない
-			return modified_log(self.record.probs[1][(pat_gt*3+1)>>2])
-		
 		def likelihood_each(probs_mat: list[float],
 							probs_pat: list[float], i: int) -> float:
 			if self.record is None:
@@ -308,7 +298,6 @@ class RecordSet:
 		if self.record is None:
 			return log(0.0001)
 		
-#		ll = likelihood_mat() + likelihood_pat()	# log of likelihood
 		ll = 0.0
 		for i, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in self.gen_gts():
 			prev_mat_from = self.from_which_chrom_prev_mat(mat_gt1)
