@@ -46,8 +46,12 @@ class SampleManager:
 		return sample != '0'
 	
 	def collect_reference(self) -> list[str]:
-		return sorted(set(p for f in self.large_families
-							for p in f.known_parents()))
+		s = set(p for f in self.large_families
+							for p in f.known_parents())
+		self_families = self.extract_self_parent_imputed_families()
+		for family in self_families:
+			s.add(family.mat)
+		return sorted(s)
 	
 	def extract_unimputed_progenies(self, f: Family) -> list[str]:
 		return [ prog for prog in f.progenies if not self.is_imputed(prog) ]
@@ -126,6 +130,13 @@ class SampleManager:
 						if family.is_self() and
 								any(not self.is_imputed(s)
 									for s in family.samples()) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
+									f.progenies) for f in families ]
+	
+	def extract_self_parent_imputed_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+						if family.is_self() and self.is_imputed(family.mat) ]
 		
 		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
 									f.progenies) for f in families ]

@@ -20,7 +20,7 @@ namespace LargeSelfFamily {
 			  std::vector<VCFImpSelfRecord *>>
 						divide_records(const VCFSmall *vcf, const Option *op);
 	VCFSmall *extract_parents(const std::vector<VCFSelfFillable *>& vcfs);
-	VCFSmall *impute(const VCFSmall *orig_vcf, const VCFSmall *merged_vcf,
+	VCFSmall *impute(const VCFSmall *orig_vcf, VCFSmall *merged_vcf,
 							const std::vector<const KnownFamily *>& families,
 							const Map& geno_map, const Option *op);
 }

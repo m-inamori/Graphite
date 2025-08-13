@@ -73,11 +73,11 @@ VCFSmall *LargeSelfFamily::extract_parents(
 }
 
 VCFSmall *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
-									const VCFSmall *merged_vcf,
+									VCFSmall *merged_vcf,
 									const vector<const KnownFamily *>& families,
 									const Map& geno_map, const Option *op) {
 	if(families.empty())
-		return NULL;
+		return merged_vcf;
 	
 	vector<VCFSelfFillable *>	vcfs;
 	for(auto p = families.begin(); p != families.end(); ++p) {
