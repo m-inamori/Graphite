@@ -10,8 +10,11 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator
 import random
 import time
 
-from VCF import VCFRecord, VCFBase, VCFSmallBase
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
+from GenoRecord import GenoRecord
 from VCFImpSelfRecord import SelfFillType, VCFImpSelfRecord
+from VCFSelfHeteroRecord import VCFSelfHeteroRecord
 from TypeDeterminer import ParentComb
 from Map import *
 import Imputer
@@ -22,53 +25,22 @@ from graph import Node
 from invgraph import InvGraph
 
 
-#################### VCFSelfHeteroRecord ####################
-
-class VCFSelfHeteroRecord(VCFImpSelfRecord):
-	def __init__(self, v: list[str], samples: list[str],
-							i: int, parents_wrong_type: str,
-							pair: ParentComb) -> None:
-		super().__init__(v, samples, i, parents_wrong_type, pair)
-	
-	def num_progenies(self) -> int:
-		return len(self.samples) - 1
-	
-	def is_imputable(self) -> bool:
-		return self.parents_wrong_type == 'Right'
-	
-	def get_fill_type(self) -> SelfFillType:
-		if self.is_imputable():
-			return SelfFillType.P01
-		else:
-			return SelfFillType.IMPUTABLE
-	
-	def set_haplo(self, h: int) -> None:
-		self.set_GT(0, '0|1' if h == 0 else '1|0')
-	
-	def set_int_gt_by_which_comes_from(self, ws: list[int]) -> None:
-		parent_gt: str = self.v[9]
-		for i in range(self.num_progenies()):
-			self.set_GT(i+1, '%s|%s' % (parent_gt[ws[i*2]*2],
-										parent_gt[ws[i*2+1]*2]))
-
-
 #################### VCFSelfHetero ####################
 
-class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
-	def __init__(self, header: list[list[str]],
-					records: list[VCFSelfHeteroRecord], map_: Map) -> None:
-		self.records = records
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
+class VCFSelfHetero(VCFGenoBase, VCFMeasurable):
+	def __init__(self, samples: list[str], records: list[VCFSelfHeteroRecord],
+											map_: Map, vcf: VCFSmall) -> None:
+		VCFGenoBase.__init__(self, samples, vcf)
 		VCFMeasurable.__init__(self, map_)
+		self.records = records
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def num_progenies(self) -> int:
-		return len(self.samples) - 1
+		return self.num_samples() - 1
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def make_graph(self, max_dist: float) -> InvGraph:
@@ -85,14 +57,14 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 			counter_inverse = 0
 			counter_diff = 0
 			counter_NA = 0
-			for int_gt1, int_gt2 in zip(gts1, gts2):
-				if int_gt1 == -1 or int_gt2 == -1:
+			for gt1, gt2 in zip(gts1, gts2):
+				if gt1 == Genotype.NA or gt2 == Genotype.NA:
 					counter_NA += 1
-				elif (int_gt1, int_gt2) == (1, 1):
+				elif (gt1, gt2) == (Genotype.UN_01, Genotype.UN_01):
 					counter_hetero_right += 1
-				elif int_gt1 == int_gt2:
+				elif gt1 == gt2:
 					counter_homo_right += 1
-				elif (int_gt1, int_gt2) in ((0, 2), (2, 0)):
+				elif (gt1, gt2) in ((0, 2), (2, 0)):
 					counter_inverse += 1
 				else:
 					counter_diff += 1
@@ -117,9 +89,10 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 		graph: InvGraph = InvGraph()
 		for k in range(L):
 			graph[Node(k)] = []
-		gtss = [ [ r.get_int_gt(i) for i in range(1, self.num_samples()) ]
-														 for r in self.records ]
-		cMs = [ self.cM(record.pos()) for record in self.records ]
+		gtss = [ [ Genotype.all_int_gt_to_int_gt(r.geno[i])
+							 for i in range(1, self.num_samples()) ]
+													 for r in self.records ]
+		cMs = [ self.cM(record.pos) for record in self.records ]
 		# C++版ではkで並列化したい
 		for k in range(L):
 			for l in range(k+1, L):
@@ -169,7 +142,7 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 		for record, h in zip(records, haplo):
 			record.set_haplo(h)
 		
-		return VCFSelfHetero(self.header, records, self.map)
+		return VCFSelfHetero(self.samples, records, self.map, self.vcf)
 	
 	def determine_haplotype(self, option: OptionImpute
 										) -> tuple[list[VCFSelfHetero],
@@ -201,21 +174,28 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 		q, r = divmod(i, 2)
 		hs = ['N'] * len(self)
 		for j, record in enumerate(self.records):
-			a = record.v[q+10][r*2]
-			if record.v[9][0] == '0':	# 0|1
-				if a == '0':
+			prog_gt = record.geno[q+1]
+			# DPで計算すべきなのでは？
+			if r == 0:
+				a = (1 if prog_gt == Genotype.UN_11 else
+					 -1 if prog_gt == Genotype.NA else 0)
+			else:
+				a = (0 if prog_gt == Genotype.UN_00 else
+					 -1 if prog_gt == Genotype.NA else 1)
+			if record.geno[0] == Genotype.PH_01:
+				if a == 0:
 					hs[j] = '0'
-				elif a != '.':
-					hs[j] = '1'
-				else:
+				elif Genotype.is_NA(prog_gt):
 					hs[j] = 'N'
-			else:						# 1|0
-				if a == '1':
+				else:
+					hs[j] = '1'
+			else:					# 1|0
+				if a == 1:
 					hs[j] = '0'
-				elif a != '.':
-					hs[j] = '1'
-				else:
+				elif Genotype.is_NA(prog_gt):
 					hs[j] = 'N'
+				else:
+					hs[j] = '1'
 		
 		return ''.join(hs)
 	
@@ -232,7 +212,7 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 		return painted_seq
 	
 	def impute_each(self, option: OptionImpute) -> None:
-		cMs = [ self.cM(record.pos()) for record in self.records ]
+		cMs = [ self.cM(record.pos) for record in self.records ]
 		imputed_seqs = [
 				self.impute_each_sample_seq(i, cMs, option.min_crossover)
 									for i in range(self.num_progenies() * 2) ]
@@ -242,7 +222,7 @@ class VCFSelfHetero(VCFBase, VCFSmallBase, VCFMeasurable):
 	
 	def create_option(self) -> OptionImpute:
 		num = max(2, len(self))
-		total_cM = self.cM(self.records[-1].pos())
+		total_cM = self.cM(self.records[-1].pos)
 		max_dist = max(4, int(total_cM * self.num_progenies()
 											/ num * log10(num) * 2.5 * 0.01))
 		return OptionImpute(max_dist, 20, 5, 1.0)

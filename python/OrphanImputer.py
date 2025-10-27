@@ -7,6 +7,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from GenoRecord import GenoRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -15,13 +16,13 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class OrphanImputer(VCFHMM[VCFRecord]):
+class OrphanImputer(VCFHMM[GenoRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFRecord],
+	def __init__(self, records: list[GenoRecord],
 						ref_haps: list[list[int]], map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[VCFRecord] = records
+		self.records: list[GenoRecord] = records
 		self.ref_haps	= ref_haps
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
 		# crossover values
@@ -56,7 +57,7 @@ class OrphanImputer(VCFHMM[VCFRecord]):
 	def initialize_dp(self, io: int, L: int, M: int) -> list[DP]:
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
 		record = self.records[0]
-		orphan_gt = Genotype.gt_to_int(record.v[io+9])
+		orphan_gt = record.unphased(io)
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(0, h, orphan_gt)
 			dp[0][h] = (E_all, h)
@@ -84,7 +85,7 @@ class OrphanImputer(VCFHMM[VCFRecord]):
 	def update_dp(self, i: int, io: int, dp: list[DP]) -> None:
 		record = self.records[i]
 		# observed parent
-		orphan_gt = Genotype.gt_to_int(record.v[io+9])
+		orphan_gt = record.unphased(io)
 		
 		for h in range(self.NH()**2):		# hidden state
 			E_all = self.emission_probability(i, h, orphan_gt)
@@ -97,7 +98,7 @@ class OrphanImputer(VCFHMM[VCFRecord]):
 	def update_genotypes(self, hs: list[int], io: int) -> None:
 		for i in range(self.M()):
 			phased_gt = self.compute_phased_gt_by_refhaps(hs[i], i)
-			self.records[i].set_GT(io, Genotype.int_to_phased_gt(phased_gt))
+			self.records[i].geno[io] = phased_gt | 4
 	
 	def impute(self, io: int) -> None:
 		L = self.NH()**2			# ハプロタイプの状態数

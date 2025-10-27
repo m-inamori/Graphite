@@ -278,7 +278,8 @@ string BaumWelch::Viterbi(const EmissionMatrix& A) const {
 		const TransitionMatrix&	T = Ts[t-1];
 		const double	v1 = table[t-1][0] + T[0*2+h] + A[s*2+h];
 		const double	v2 = table[t-1][1] + T[1*2+h] + A[s*2+h];
-		h = v1 >= v2 ? 0 : 1;
+		// If v1 is the same as v2, take v2
+		h = v1 > v2 ? 0 : 1;
 		new_hidden_seq += to_char(h);
 	}
 	

@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "VCF.h"
+#include "GenoRecord.h"
 #include "ClassifyRecord.h"
 
 
@@ -16,7 +16,7 @@ enum class SelfFillType {
 
 //////////////////// VCFImpSelfRecord ////////////////////
 
-class VCFImpSelfRecord : public VCFRecord {
+class VCFImpSelfRecord : public GenoRecord {
 public:
 	typedef std::pair<VCFImpSelfRecord *, int>	RecordWithPos;
 	
@@ -26,9 +26,9 @@ protected:
 	const ParentComb	comb;
 	
 public:
-	VCFImpSelfRecord(const STRVEC& v, const STRVEC& samples,
+	VCFImpSelfRecord(ll pos, const std::vector<int>& geno,
 							int i, WrongType type, ParentComb c) :
-									VCFRecord(v, samples), index(i),
+									GenoRecord(pos, geno), index(i),
 									wrong_type(type), comb(c) { }
 	virtual ~VCFImpSelfRecord() { }
 	

@@ -1,7 +1,8 @@
 #ifndef __VCFSELFHETERO
 #define __VCFSELFHETERO
 
-#include "VCFImpSelfRecord.h"
+#include "VCFGeno.h"
+#include "VCFSelfHeteroRecord.h"
 #include "Map.h"
 #include "invgraph.h"
 
@@ -19,56 +20,26 @@ typedef std::pair<std::vector<VCFSelfHetero *>,
 						std::vector<VCFSelfHeteroRecord *>>	ImpResult;
 
 
-//////////////////// VCFSelfHeteroRecord ////////////////////
-
-class VCFSelfHeteroRecord : public VCFImpSelfRecord {
-public:
-	VCFSelfHeteroRecord(const STRVEC& v, const STRVEC& s,
-							int i, WrongType type, ParentComb c) :
-							VCFImpSelfRecord(v, s, i, type, c) { }
-	
-	std::size_t num_progenies() const { return samples.size() - 1; }
-	
-	bool is_imputable() const override {
-		return this->wrong_type == WrongType::RIGHT;
-	}
-	SelfFillType get_fill_type() const override {
-		return is_imputable() ? SelfFillType::P01 : SelfFillType::IMPUTABLE;
-	}
-	
-	std::vector<int> progeny_gts() const;
-	
-	void set_haplo(int h);
-	void set_int_gt_by_which_comes_from(int w1, int w2, std::size_t i);
-};
-
-
 //////////////////// VCFSelfHetero ////////////////////
 
-class VCFSelfHetero : public VCFBase, public VCFSmallBase, 
-										public VCFMeasurable {
+class VCFSelfHetero : public VCFGenoBase, public VCFMeasurable {
 protected:
 	std::vector<VCFSelfHeteroRecord *>	records;
 	
 public:
-	VCFSelfHetero(const std::vector<STRVEC>& h, const STRVEC& s,
-					const std::vector<VCFSelfHeteroRecord *>& rs, const Map& m);
+	VCFSelfHetero(const STRVEC& s,
+					const std::vector<VCFSelfHeteroRecord *>& rs,
+					const Map& m, const VCFSmall *vcf);
 	~VCFSelfHetero();
 	
-	///// virtual methods /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// non-virtual methods /////
-	std::size_t num_progenies() const { return samples.size() - 1; }
+	std::size_t num_progenies() const { return num_samples() - 1; }
 	const std::vector<VCFSelfHeteroRecord *>& get_records() const {
 		return records;
 	}
@@ -91,7 +62,7 @@ public:
 														impute(int num_threads);
 	
 private:
-	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
+	double record_cM(std::size_t i) const { return cM(records[i]->get_pos()); }
 	InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
 	std::string impute_each_sample_seq(std::size_t i,

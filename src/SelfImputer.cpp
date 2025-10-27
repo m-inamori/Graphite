@@ -4,7 +4,7 @@
 
 using namespace std;
 
-SelfImputer::SelfImputer(const vector<VCFRecord *>& rs,
+SelfImputer::SelfImputer(const vector<GenoRecord *>& rs,
 							const vector<vector<int>>& ref_hs,
 							const Map& map_, double w) :
 					VCFHMM(rs, map_, w), records(rs),
@@ -12,7 +12,7 @@ SelfImputer::SelfImputer(const vector<VCFRecord *>& rs,
 					{ }
 
 vector<double> SelfImputer::calc_Cc(
-							const vector<VCFRecord *>& rs) const {
+							const vector<GenoRecord *>& rs) const {
 	const size_t	M = rs.size();
 	vector<double>	Cc(M-1);
 	for(size_t i = 0; i < M - 1; ++i) {
@@ -146,12 +146,12 @@ double SelfImputer::transition_probability(size_t i, int prev_h, int h) const {
 vector<SelfImputer::DP> SelfImputer::initialize_dp() const {
 	const size_t	L = num_states();
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
-	const VCFRecord	*record = records[0];
-	const int	op = Genotype::gt_to_int(record->get_gt(0));
+	const GenoRecord	*record = records[0];
+	const int	op = record->unphased(0);
 	// observed progs
 	vector<int>	ocs;
 	for(size_t i = 0; i != num_progenies(); ++i) {
-		ocs.push_back(Genotype::gt_to_int(record->get_gt(i+1)));
+		ocs.push_back(record->unphased(i+1));
 	}
 	
 	for(int h = 0; h < (int)L; ++h) {
@@ -163,12 +163,12 @@ vector<SelfImputer::DP> SelfImputer::initialize_dp() const {
 
 void SelfImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const size_t	L = num_states();
-	const VCFRecord	*record = records[i];
-	const int	op = Genotype::gt_to_int(record->get_gt(0));
+	const GenoRecord	*record = records[i];
+	const int	op = record->unphased(0);
 	// observed progs
 	vector<int>	ocs;
 	for(size_t j = 0; j != num_progenies(); ++j) {
-		ocs.push_back(Genotype::gt_to_int(record->get_gt(i+1)));
+		ocs.push_back(record->unphased(i+1));
 	}
 	for(int h = 0; h < (int)L; ++h) {
 		const double	E_all = emission_probability(i, h, op, ocs);
@@ -183,17 +183,16 @@ void SelfImputer::update_dp(size_t i, vector<DP>& dp) const {
 
 void SelfImputer::update_genotypes(const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
-		VCFRecord	*record = records[i];
+		GenoRecord	*record = records[i];
 		const auto	t = decode_state(hs[i]);
 		const int	hp1 = get<0>(t);
 		const int	hp2 = get<1>(t);
 		const int	hc  = get<2>(t);
 		const int	parent_gt = parent_genotype(hp1, hp2, i);
-		record->set_GT(0, Genotype::int_to_phased_gt(parent_gt));
-		const auto	prog_gts = compute_progeny_phased_gts(hc, parent_gt);
+		record->set_geno(0, parent_gt | 4);
+		const auto	prog_phased_gts = compute_progeny_phased_gts(hc, parent_gt);
 		for(size_t j = 0; j < num_progenies(); ++j) {
-			const string	GT = Genotype::int_to_phased_gt(prog_gts[j]);
-			record->set_GT(j + 1, GT);
+			record->set_geno(j + 1, prog_phased_gts[j] | 4);
 		}
 	}
 }

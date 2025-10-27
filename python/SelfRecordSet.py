@@ -48,13 +48,13 @@ class SelfRecordSet:
 			return 0
 		return self.next_record.from_which_chrom(i, False)
 	
-	def gt_each(self, i: int, record: Optional[VCFSelfFillableRecord]) -> str:
-		return './.' if record is None else record.v[i+9]
+	def gt_each(self, i: int, record: Optional[VCFSelfFillableRecord]) -> int:
+		return Genotype.NA if record is None else record.geno[i]
 	
-	def gt(self, i: int) -> str:
+	def gt(self, i: int) -> int:
 		return self.gt_each(i, self.record)
 	
-	def gts(self, i: int) -> tuple[str, str, str]:
+	def gts(self, i: int) -> tuple[int, int, int]:
 		v = [ self.gt_each(i, r) for r in self.records() ]
 		return (v[0], v[1], v[2])
 	
@@ -62,7 +62,7 @@ class SelfRecordSet:
 		if len(candidates) == 1 or self.record is None:
 			return candidates[0]
 		
-		parent_gt = self.record.get_int_gt(0)
+		parent_gt = self.record.unphased(0)
 		
 		v: list[tuple[float, int]] = []
 		for phasing in candidates:
@@ -99,41 +99,41 @@ class SelfRecordSet:
 			return [0, 1, 2, 3]
 	
 	# phasingされている前提
-	def from_which_chrom(self, gt: str, record: Optional[VCFRecord],
-														mat: bool) -> int:
+	def from_which_chrom(self, gt: int, record: Optional[VCFSelfFillableRecord],
+															mat: bool) -> int:
 		if record is None:
 			return 0
 		
 		i = 0 if mat else 1
-		parent_gt = record.v[9]
-		return 1 if parent_gt[0] == gt[i*2] else 2
+		parent_gt = record.geno[0]
+		return 1 if (parent_gt & 1) == ((gt >> i) & 1) else 2
 	
-	def from_which_chrom_prev_mat(self, gt: str) -> int:
+	def from_which_chrom_prev_mat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.prev_record, True)
 	
-	def from_which_chrom_next_mat(self, gt: str) -> int:
+	def from_which_chrom_next_mat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.next_record, True)
 	
-	def from_which_chrom_prev_pat(self, gt: str) -> int:
+	def from_which_chrom_prev_pat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.prev_record, False)
 	
-	def from_which_chrom_next_pat(self, gt: str) -> int:
+	def from_which_chrom_next_pat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.next_record, False)
 	
-	def gen_gts(self) -> Iterator[tuple[int, str, str]]:
+	def gen_gts(self) -> Iterator[tuple[int, int, int]]:
 		if self.record is None:
 			return
 		
-		for c in range(10, len(self.record.v)):
-			gts = [ r.v[c] if r else '' for r in self.records() ]
-			yield (c-9, gts[1], gts[2])
+		for i in range(1, len(self.record.geno)):
+			gts = [ r.geno[i] if r else Genotype.NA for r in self.records() ]
+			yield (i, gts[1], gts[2])
 	
 	def is_prev_near(self) -> bool:
 		if (self.record is None or self.prev_record is None or
 										self.next_record is None):
 			return False
-		return (self.record.pos() * 2 <
-					self.prev_record.pos() + self.next_record.pos())
+		return (self.record.pos * 2 <
+					self.prev_record.pos + self.next_record.pos)
 	
 	# mat_gt, pat_gt : 0|0 0|1 1|0 1|1を0～3で表す
 	def compute_phasing_likelihood(self, phasing: int) -> float:
@@ -184,5 +184,4 @@ class SelfRecordSet:
 		phasing = self.determine_phasing_core(lls)
 		if record is None:
 			return
-		gt = ['0|0', '1|0', '0|1', '1|1']
-		record.set_GT(0, gt[phasing])
+		record.geno[0] = phasing | 4

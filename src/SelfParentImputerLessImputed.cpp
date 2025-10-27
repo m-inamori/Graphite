@@ -5,7 +5,7 @@
 using namespace std;
 
 SelfParentImputerLessImputed::SelfParentImputerLessImputed(
-										const vector<VCFRecord *>& rs,
+										const vector<GenoRecord *>& rs,
 									 	const vector<vector<int>>& ref_hs,
 										const Map& map_, double w) :
 					VCFHMM(rs, map_, w), records(rs), ref_haps(ref_hs),
@@ -18,7 +18,7 @@ SelfParentImputerLessImputed::SelfParentImputerLessImputed(
 					{ }
 
 vector<double> SelfParentImputerLessImputed::calc_Cp(
-							const vector<VCFRecord *>& rs) const {
+							const vector<GenoRecord *>& rs) const {
 	const double	K = 5.0;
 	const size_t	M = rs.size();
 	vector<double>	Cp(M-1);
@@ -87,11 +87,11 @@ vector<SelfParentImputerLessImputed::DP>
 						SelfParentImputerLessImputed::initialize_dp() const {
 	const size_t	L = num_states();
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
-	const VCFRecord	*record = records[0];
-	const int	op = Genotype::gt_to_int(record->get_gt(0));
+	const GenoRecord	*record = records[0];
+	const int	op = record->unphased(0);
 	vector<int>	ocs;	// observed progenies' genotypes
 	for(size_t ic = 0; ic != num_progenies(); ++ic) {
-		ocs.push_back(record->get_int_gt(ic+1));
+		ocs.push_back(record->unphased(ic+1));
 	}
 	for(int h = 0; h < (int)L; ++h) {
 		const double	E_all = emission_probability(0, h, op, ocs);
@@ -102,11 +102,11 @@ vector<SelfParentImputerLessImputed::DP>
 
 void SelfParentImputerLessImputed::update_dp(size_t i, vector<DP>& dp) const {
 	const size_t	L = num_states();
-	const VCFRecord	*record = records[i];
-	const int	op = Genotype::gt_to_int(record->get_gt(0));
+	const GenoRecord	*record = records[i];
+	const int	op = record->unphased(0);
 	vector<int>	ocs;	// observed progenies' genotypes
-	for(size_t ic = 0; ic != num_progenies(); ++ic) {
-		ocs.push_back(Genotype::get_int_gt(record->get_gt(ic+1)));
+	for(size_t i = 0; i != num_progenies(); ++i) {
+		ocs.push_back(record->unphased(i+1));
 	}
 	for(int h = 0; h < (int)L; ++h) {
 		const double	E_all = emission_probability(i, h, op, ocs);
@@ -123,7 +123,7 @@ void SelfParentImputerLessImputed::update_dp(size_t i, vector<DP>& dp) const {
 void SelfParentImputerLessImputed::update_genotypes(const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
 		const int	parent_gt = parent_genotype(hs[i], i);
-		records[i]->set_GT(0, Genotype::int_to_phased_gt(parent_gt));
+		records[i]->set_geno(0, parent_gt | 4);
 	}
 }
 

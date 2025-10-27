@@ -1,25 +1,22 @@
 #include <cmath>
 #include "../include/VCFProgenyImputed.h"
-#include "../include/ParentImputerByProgeny.h"
 #include "../include/common.h"
 
 using namespace std;
 
-VCFProgenyImputed::VCFProgenyImputed(const std::vector<STRVEC>& header,
-							const STRVEC& s,
-							const std::vector<VCFRecord *>& rs,
+VCFProgenyImputed::VCFProgenyImputed(const STRVEC& s,
+							const std::vector<VCFFamilyRecord *>& rs,
 							const std::vector<std::vector<int>>& ref_haps,
-							bool is_mat_known, const Map& map_, double w) :
-				VCFBase(header, s), VCFSmallBase(),
+							bool is_mat_known, const Map& map_,
+							double w, const VCFSmall *vcf) :
+				VCFFamilyBase(s, vcf),
 				records(rs),
-				imputer(new ParentImputerByProgeny(records, ref_haps,
-													is_mat_known, map_, w)) { }
+				imputer(records, ref_haps, is_mat_known, map_, w) { }
 
 VCFProgenyImputed::~VCFProgenyImputed() {
-	delete imputer;
 	Common::delete_all(records);
 }
 
 void VCFProgenyImputed::impute() {
-	imputer->impute();
+	imputer.impute();
 }

@@ -1,6 +1,7 @@
 #ifndef __VCFFILLABLE
 #define __VCFFILLABLE
 
+#include "VCFFamily.h"
 #include "RecordSet.h"
 
 class VCFHeteroHomo;
@@ -9,10 +10,7 @@ class Option;
 
 //////////////////// VCFFillable ////////////////////
 
-class VCFFillable : public VCFBase, public VCFSmallBase, public VCFFamilyBase {
-	using PosWithChr = std::tuple<int,ll,std::string>;
-	
-	
+class VCFFillable : public VCFFamilyBase {
 public:
 	using Position = std::tuple<int, ll, std::string>;
 	using Item = std::pair<std::vector<VCFHeteroHomo *>,
@@ -35,23 +33,17 @@ public:
 	std::vector<VCFFillableRecord *>	records;
 	
 public:
-	VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-							const std::vector<VCFFillableRecord *>& rs);
+	VCFFillable(const STRVEC& s, const std::vector<VCFFillableRecord *>& rs,
+														const VCFSmall *vcf);
 	virtual ~VCFFillable();
 	
-	///// virtual methods for VCFSmallBase /////
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
 	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
@@ -65,6 +57,7 @@ public:
 	}
 	
 	void modify(int num_threads);
+	void phase_hetero_hetero();
 	void set_records(const std::vector<VCFFillableRecord *>& rs) {
 		records = rs;
 	}
@@ -98,7 +91,7 @@ protected:
 	void impute_others(int i);
 	
 public:
-	static VCFSmall *merge(const std::vector<VCFFillable *>& vcfs,
+	static VCFGeno *merge(const std::vector<VCFFillable *>& vcfs,
 											const STRVEC& orig_samples);
 	static VCFFillable *fill(const std::vector<VCFHeteroHomo *>& vcfs,
 							 const std::vector<VCFImpFamilyRecord *>& records,
@@ -111,12 +104,13 @@ public:
 protected:
 	static std::vector<std::vector<VCFFillableRecord *>>
 		collect_records(const std::vector<VCFFillable *>& vcfs);
-	static std::pair<STRVEC, std::vector<std::vector<std::pair<int, int>>>>
+	static std::pair<STRVEC, std::vector<std::vector<std::pair<std::size_t, std::size_t>>>>
 			integrate_samples(const std::vector<STRVEC>& sss,
 											const STRVEC& orig_samples);
 	// Integrate the VCF so that duplicate samples are one
-	static VCFSmall *integrate(const VCFFillable *vcf,
+	static VCFGeno *integrate(const VCFSmall *ref_vcf,
 					const std::vector<std::vector<VCFFillableRecord *>>& rss,
+					const std::vector<STRVEC>& sss,
 					const STRVEC& orig_samples);
 	static void phase_in_thread(void *config);
 	static void fill_in_thread(void *config);

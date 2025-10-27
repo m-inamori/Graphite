@@ -7,15 +7,18 @@ from __future__ import annotations
 from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
+from VCF import VCFSmall
+from GenoRecord import GenoRecord
 from VCFFamily import *
 from VCFFillable import *
-from group import Groups
-from RecordSet import RecordSet
-from VCFImpFamily import FillType
+from VCFImpFamilyRecord import FillType
 from VCFHeteroHomoOnePhased import *
 from Map import *
+from Genotype import Genotype
 import ClassifyRecord
 import Imputer
+from group import Groups
+from RecordSet import RecordSet
 from option import *
 
 
@@ -23,7 +26,7 @@ from option import *
 
 class State:
 	def __init__(self, s: int, n: int):
-		self.s = s	# haplotypes & num_crossovers
+		self.s = s		# haplotypes & num_crossovers
 		self.n = n		# num of pogenies
 	
 	def haplotype(self, i: int) -> int:
@@ -81,16 +84,16 @@ class Value:
 #################### VCFHeteroImpHomo ####################
 
 class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
-	def __init__(self, header: list[list[str]],
+	def __init__(self, samples: list[str],
 						records: list[VCFFillableRecord],
-						is_mat_hetero: bool, map_: Map):
-		VCFHeteroHomoOnePhased.__init__(self, header, records,
-												is_mat_hetero, map_)
+						is_mat_hetero: bool, map_: Map, vcf: VCFSmall):
+		VCFHeteroHomoOnePhased.__init__(self, samples, records,
+												is_mat_hetero, map_, vcf)
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
@@ -118,11 +121,11 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 		
 		# ヘテロ親が決まっている時、各後代が乗り換えしないでも正しいか
 		def is_right_gt(order: int, gt_imputed: int, state: State,
-											record: VCFRecord) -> list[bool]:
+											record: GenoRecord) -> list[bool]:
 			bs: list[bool] = []
 			for i in range(n):
-				gt = record.get_int_gt(i+2)
-				if gt == -1:
+				gt = record.unphased(i+2)
+				if gt == Genotype.NA:
 					# N/Aならミス無しとみなして乗り換えしない
 					bs.append(True)
 				else:
@@ -132,9 +135,9 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 			return bs
 		
 		def next_states(state: State,
-						record: VCFRecord) -> Iterator[tuple[State, Value]]:
+						record: GenoRecord) -> Iterator[tuple[State, Value]]:
 			n = self.num_progenies()
-			gt_imputed = record.get_int_gt(self.imputed_index())
+			gt_imputed = record.unphased(self.imputed_index())
 			# order 0 -> '0|1', 1 -> '1|0'
 			for order in (0, 1):
 				bs = is_right_gt(order, gt_imputed, state, record)
@@ -163,8 +166,8 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 					else:
 						yield (s, Value(mis, state, order))
 		
-		def update_dp(dp: list[Value], record: VCFRecord) -> list[Value]:
-			n = len(record.samples) - 2
+		def update_dp(dp: list[Value], record: GenoRecord) -> list[Value]:
+			n = len(record.geno) - 2
 			new_dp = [ Value.create_default(n) for _ in range(len(dp)) ]
 			for s, value0 in enumerate(dp):
 				if not value0.is_valid():
@@ -180,16 +183,15 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 			for i in range(len(self)-1, -1, -1):
 				order = dps[i+1][state.s].order
 				record = self.records[i]
-				hetero_GT = '0|1' if order == 0 else '1|0'
-				record.set_GT(self.unimputed_index(), hetero_GT)
-				gt_imp = record.get_gt(self.imputed_index())[0]
+				hetero_GT = Genotype.PH_01 if order == 0 else Genotype.PH_10
+				record.geno[self.unimputed_index()] = hetero_GT
+				gt_imp = record.get_allele(self.imputed_index(), 0)
 				for j in range(2, len(self.samples)):
 					h = state.haplotype(j-2)
 					if self.is_mat_hetero:
-						GT = "%d|%s" % (order ^ h, gt_imp)
+						record.geno[j] = Genotype.from_alleles(order^h, gt_imp)
 					else:
-						GT = "%s|%d" % (gt_imp, order ^ h)
-					record.set_GT(j, GT)
+						record.geno[j] = Genotype.from_alleles(gt_imp, order^h)
 				state = dps[i+1][state.s].state
 		
 		n = self.num_progenies()

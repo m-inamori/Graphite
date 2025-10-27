@@ -8,6 +8,7 @@ from collections import defaultdict, Counter
 from math import log
 from typing import List, Tuple, TypeVar, Generic, Sequence
 
+from GenoRecord import GenoRecord
 from VCFFamily import *
 from Map import *
 from Genotype import Genotype
@@ -15,12 +16,12 @@ from Genotype import Genotype
 
 #################### VCFHMM ####################
 
-R = TypeVar('R', bound=VCFRecord)
+R = TypeVar('R', bound=GenoRecord)
 
 class VCFHMM(Generic[R], VCFMeasurable):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: Sequence[VCFRecord], map_: Map):
+	def __init__(self, records: Sequence[GenoRecord], map_: Map):
 		VCFMeasurable.__init__(self, map_)
 		self.map		= map_
 		self.E = self.calc_E()
@@ -38,12 +39,12 @@ class VCFHMM(Generic[R], VCFMeasurable):
 		E = [ [ log(p) for p in v ] for v in E1 ]
 		return E
 	
-	def dist(self, r1: VCFRecord, r2: VCFRecord) -> float:
-		dist = (self.cM(r2.pos()) - self.cM(r1.pos())) / 100
+	def dist(self, r1: GenoRecord, r2: GenoRecord) -> float:
+		dist = (self.cM(r2.pos) - self.cM(r1.pos)) / 100
 		if dist > 0.0:
 			return dist
 		else:
-			return (r2.pos() - r1.pos()) * 1e-6
+			return (r2.pos - r1.pos) * 1e-6
 	
 	def trace_back(self, dp: list[DP]) -> list[int]:
 		M = len(dp)

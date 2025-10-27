@@ -4,11 +4,11 @@
 
 using namespace std;
 
-VCFSelfParentImputed::VCFSelfParentImputed(const std::vector<STRVEC>& header,
-									const STRVEC& s,
-									const vector<VCFRecord *>& rs,
-									const Map& map_, double w) :
-				VCFBase(header, s), VCFSmallBase(), records(rs),
+VCFSelfParentImputed::VCFSelfParentImputed(const STRVEC& s,
+											const vector<GenoRecord *>& rs,
+											const Map& map_, double w,
+											const VCFSmall *vcf) :
+				VCFGenoBase(s, vcf), records(rs),
 				imputers(create_imputers(map_, w))
 				{ }
 

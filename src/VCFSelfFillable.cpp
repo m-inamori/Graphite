@@ -12,9 +12,10 @@ using namespace std;
 
 //////////////////// VCFSelfFillable ////////////////////
 
-VCFSelfFillable::VCFSelfFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-							const std::vector<VCFSelfFillableRecord *>& rs) :
-								VCFBase(h, s), VCFSmallBase(), records(rs) { }
+VCFSelfFillable::VCFSelfFillable(const STRVEC& s,
+							const std::vector<VCFSelfFillableRecord *>& rs,
+							const VCFSmall *vcf) :
+										VCFGenoBase(s, vcf), records(rs) { }
 
 VCFSelfFillable::~VCFSelfFillable() {
 	for(auto p = records.begin(); p != records.end(); ++p)
@@ -32,46 +33,13 @@ void VCFSelfFillable::modify() {
 	Common::delete_all(record_sets);
 }
 
-template<typename Iter>
-VCFSelfFillableRecord *VCFSelfFillable::find_neighbor_same_type_record(
-							size_t i, size_t c, Iter first, Iter last) const {
-	const SelfFillType	type = records[i]->get_type();
-	const string&	chromosome = records[i]->chrom();
-	for(auto p = first; p != last; ++p) {
-		auto	*record = *p;
-		if(record->chrom() != chromosome)
-			return NULL;
-		else if(record->get_type() == type && record->get_GT(c-9) != "./.")
-			return record;
-	}
-	return NULL;
-}
-
-VCFSelfFillableRecord *VCFSelfFillable::find_prev_same_type_record(
-													size_t i, size_t c) const {
-	if(i == 0U)
-		return NULL;
-	
-	return find_neighbor_same_type_record(i, c, records.rend() - i + 1,
-																records.rend());
-}
-
-VCFSelfFillableRecord *VCFSelfFillable::find_next_same_type_record(
-													size_t i, size_t c) const {
-	if(i == records.size() - 1)
-		return NULL;
-	
-	const auto	first = records.begin() + i + 1;
-	const auto	last = records.end();
-	return find_neighbor_same_type_record(i, c, first, last);
-}
-
 VCFSelfFillable *VCFSelfFillable::fill(const vector<VCFSelfHetero *>& vcfs,
 									const vector<VCFImpSelfRecord *>& records) {
 	vector<VCFSelfFillableRecord *>	merged_records
 							 = VCFSelfFillable::merge_records(vcfs, records);
-	VCFSelfFillable	*vcf = new VCFSelfFillable(vcfs.front()->get_header(),
-								vcfs.front()->get_samples(), merged_records);
+	VCFSelfFillable	*vcf = new VCFSelfFillable(vcfs.front()->get_samples(),
+												merged_records,
+												vcfs.front()->get_ref_vcf());
 	vcf->modify();
 	return vcf;
 }
@@ -79,31 +47,35 @@ VCFSelfFillable *VCFSelfFillable::fill(const vector<VCFSelfHetero *>& vcfs,
 vector<VCFSelfFillableRecord *> VCFSelfFillable::merge_records(
 									const vector<VCFSelfHetero *>& vcfs,
 									const vector<VCFImpSelfRecord *>& records) {
-	vector<VCFSelfFillableRecord *>	all_records;
+	vector<VCFImpSelfRecord *>	all_records;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		auto	*vcf = *p;
-		auto&	he_records = vcf->get_records();
-		for(auto q = he_records.begin(); q != he_records.end(); ++q)
-			all_records.push_back(VCFSelfFillableRecord::convert(*q));
+		auto&	rs = vcf->get_records();
+		all_records.insert(all_records.end(), rs.begin(), rs.end());
 	}
-	
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		all_records.push_back(VCFSelfFillableRecord::convert(*p));
-	}
+	all_records.insert(all_records.end(), records.begin(), records.end());
 	std::sort(all_records.begin(), all_records.end(),
-				[](const VCFSelfFillableRecord *r1, const VCFSelfFillableRecord *r2) {
+				[](const VCFImpSelfRecord *r1, const VCFImpSelfRecord *r2) {
 					return r1->get_index() < r2->get_index(); });
-	return all_records;
+	const auto&	probs = VCFSelfFillable::calc_probs(all_records, vcfs[0]);
+	vector<VCFSelfFillableRecord *>	new_records;
+	for(size_t i = 0; i < all_records.size(); ++i) {
+		auto	*r = VCFSelfFillableRecord::convert(all_records[i], probs[i]);
+		new_records.push_back(r);
+	}
+	return new_records;
 }
 
-vector<vector<VCFSelfFillableRecord *>> VCFSelfFillable::collect_records(
-										const vector<VCFSelfFillable *>& vcfs) {
-	vector<vector<VCFSelfFillableRecord *>>	rss;
-	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
-		vector<VCFSelfFillableRecord *>	rs;
-		for(auto p = vcfs.begin(); p != vcfs.end(); ++p)
-			rs.push_back((*p)->get_fillable_record(i));
-		rss.push_back(rs);
+vector<vector<VCFRecord::Probs>> VCFSelfFillable::calc_probs(
+									const vector<VCFImpSelfRecord *>& records,
+									const VCFGenoBase *vcf) {
+	const VCFSmall	*orig_vcf = vcf->get_ref_vcf();
+	const auto	cols = orig_vcf->extract_columns(vcf->get_samples());
+	vector<vector<VCFRecord::Probs>>	prob_table;
+	for(size_t i = 0; i < records.size(); ++i) {
+		const auto&	geno = records[i]->get_geno();
+		const auto	probs = orig_vcf->get_record(i)->parse_PL(geno, cols);
+		prob_table.push_back(probs);
 	}
-	return rss;
+	return prob_table;
 }

@@ -3,9 +3,6 @@
 
 #include "Map.h"
 
-class VCFRecord;
-class VCFFamilyRecord;
-
 
 //////////////////// VCFHMM ////////////////////
 
@@ -29,11 +26,11 @@ protected:
 	
 	// genetic distance between two records
 	double dist(const R *r1, const R *r2) const {
-		const double	d = (cM(r2->pos()) - cM(r1->pos())) / 100;
+		const double	d = (cM(r2->get_pos()) - cM(r1->get_pos())) / 100;
 		if(d != 0.0)
 			return d;
 		else	// probably outside map
-			return (r2->pos() - r1->pos()) * 1e-6;
+			return (r2->get_pos() - r1->get_pos()) * 1e-6;
 	}
 };
 #endif

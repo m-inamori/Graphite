@@ -2,7 +2,7 @@
 #define __ONEPHASEDFAMILY
 
 #include <array>
-#include "VCFImpFamily.h"
+#include "VCFImpFamilyRecord.h"
 #include "VCFFillableRecord.h"
 #include "TypeDeterminer.h"
 
@@ -28,21 +28,23 @@ namespace ImputedAndKnownFamily {
 									first(i), num_threads(n), vcfs(vcfs_) { }
 	};
 	
-	int get_gt_type(const VCFRecord *record, int i);
-	std::pair<ParentComb, FillType> classify_record(const VCFRecord *record);
+	std::pair<ParentComb, FillType> classify_record(
+											const VCFFamilyRecord *record);
 	std::array<std::vector<VCFFillableRecord *>, 4> classify_records(
-								const std::vector<VCFFamilyRecord *>& records);
-	VCFHeteroHomoOnePhased *create(const std::vector<STRVEC>& header,
-									const STRVEC& samples,
+								const STRVEC& samples,
+								const std::vector<VCFFamilyRecord *>& records,
+								const VCFSmall *ref_vcf);
+	VCFHeteroHomoOnePhased *create(const STRVEC& samples,
 									const std::vector<VCFFillableRecord *>& rs,
 									bool is_mat_hetero, bool is_mat_imputed,
-									const Map& gmap);
-	bool compare_record(const VCFRecord *a, const VCFRecord *b);
-	VCFSmallFillable *merge_vcf(
-					const std::vector<STRVEC>& header, const STRVEC& samples,
-					const std::array<std::vector<VCFFillableRecord *>, 4>& rss);
-	VCFSmallBase *impute(const Family& family, VCFFamily *vcf,
-							const STRVEC& non_imputed_parents, const Map& gmap);
+									const Map& gmap, const VCFSmall *vcf);
+	bool compare_record(const GenoRecord *a, const GenoRecord *b);
+	VCFSmallFillable *merge_vcf(const STRVEC& samples,
+					const std::array<std::vector<VCFFillableRecord *>, 4>& rss,
+					const VCFSmall *vcf);
+	VCFSmallFillable *impute(const Family& family, VCFFamily *vcf,
+							const STRVEC& non_imputed_parents,
+							const Map& gmap, const VCFSmall *orig_vcf);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const Family *family,
 							const std::vector<std::vector<int>>& ref_haps,
@@ -51,9 +53,9 @@ namespace ImputedAndKnownFamily {
 							int L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFOneParentImputed *>& vcfs, int T);
-	VCFSmallBase *impute_by_parent(
+	VCFGenoBase *impute_by_parent(
 							const VCFSmall *orig_vcf,
-							const VCFSmall *imputed_vcf,
+							const VCFGeno *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
 							const STRVEC& non_imputed_parents,

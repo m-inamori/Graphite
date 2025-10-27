@@ -69,11 +69,7 @@ class VCFRecord(object):
 		return self.v[i+9][:3]
 	
 	def get_int_gt(self, i: int) -> int:
-		s = self.v[i+9]
-		try:
-			return int(s[0]) + int(s[2])
-		except ValueError:
-			return -1
+		return Genotype.gt_to_int(self.v[i+9])
 	
 	def get_int_gts(self) -> list[int]:
 		return [ self.get_int_gt(i) for i in range(len(self.samples)) ]
@@ -118,27 +114,33 @@ class VCFRecord(object):
 	def find_key_position(self, key: str) -> int:
 		return Genotype.find_key_position(self.v[8], key)
 	
-	def parse_PL(self) -> list[Probs]:
+	@staticmethod
+	def decide_PL_by_genotype(gt: int) -> Probs:
+		if Genotype.is_00(gt):
+			return (0.98, 0.01, 0.01)
+		elif Genotype.is_01(gt):
+			return (0.01, 0.98, 0.01)
+		elif Genotype.is_11(gt):
+			return (0.01, 0.01, 0.98)
+		else:
+			return (1/3, 1/3, 1/3)
+	
+	def parse_PL_each(self, c: int, PL_pos: int, gt: int) -> Probs:
+		try:
+			w = self.v[c].split(':')
+			pls = w[PL_pos].split(',')
+			ps = [ 10**(-int(pl)) for pl in pls ]
+			sum_ps = sum(ps)
+			return (ps[0]/sum_ps, ps[1]/sum_ps, ps[2]/sum_ps)
+		except:
+			# PLが無いときもここに来る
+			return VCFRecord.decide_PL_by_genotype(gt)
+	
+	def parse_PL(self, geno: list[int], cols: list[int]) -> list[Probs]:
 		probs: list[Probs] = []
 		PL_pos = self.find_key_position('PL')
-		for i, s in enumerate(self.v[9:]):
-			v = s.split(':')
-			try:
-				pls = v[PL_pos].split(',')
-				ps = [ 10**(-int(pl)) for pl in pls ]
-				sum_ps = sum(ps)
-				probs.append((ps[0]/sum_ps, ps[1]/sum_ps, ps[2]/sum_ps))
-			except:
-				# PLが無いときもここに来る
-				int_gt = self.get_int_gt(i)
-				if int_gt == 0:
-					probs.append((0.98, 0.01, 0.01))
-				elif int_gt == 1:
-					probs.append((0.01, 0.98, 0.01))
-				elif int_gt == 2:
-					probs.append((0.01, 0.01, 0.98))
-				else:
-					probs.append((1/3, 1/3, 1/3))
+		for i, c in enumerate(cols):
+			probs.append(self.parse_PL_each(c, PL_pos, geno[i]))
 		return probs
 
 
@@ -272,27 +274,6 @@ class VCFSmallBase(ABC):
 		dic = dict(zip(self.get_samples(), count(9)))
 		return [ dic.get(sample, -1) for sample in samples ]
 	
-	def extract_samples(self, samples: list[str]) -> VCFSmall:
-		header = self.trim_header(samples)
-		cs = self.extract_columns(samples)
-		new_records: list[VCFRecord] = []
-		for i in range(len(self)):
-			record = self.get_record(i)
-			v = record.v
-			new_v = v[:9] + [ v[c] for c in cs ]
-			new_record = VCFRecord(new_v, samples)
-			new_records.append(new_record)
-		return VCFSmall(header, new_records)
-	
-	def clip_raw_haplotype(self, sample_index: int, side: int) -> list[int]:
-		hap: list[int] = []
-		for j in range(len(self)):
-			record = self.get_record(j)
-			gt = record.get_GT(sample_index)
-			c = gt[side*2]
-			hap.append(-1 if c == '.' else int(c))
-		return hap
-	
 	def write_header(self, out: TextIO) -> None:
 		for v in self.get_header():
 			write_tsv(v, out)
@@ -360,29 +341,6 @@ class VCFSmall(VCFBase, VCFSmallBase):
 		samples = header[-1][9:]
 		records = [ VCFRecord(v, samples) for v in g_vecs ]
 		return VCFSmall(header, records)
-	
-	# samplesの順番で結合
-	@staticmethod
-	def join(vcfs: list[VCFSmallBase], samples: list[str]) -> VCFSmall:
-		dic = { }
-		for vcf in vcfs:
-			# sに'0'があっても問題ない
-			for c, s in enumerate(vcf.get_samples(), 9):
-				dic[s] = (vcf, c)
-		cols = []
-		for s in samples:
-			if s in dic:
-				cols.append((s,) + dic[s])
-		
-		new_samples = [ s for s, vcf, c in cols ]
-		new_records = []
-		for i in range(len(vcfs[0])):
-			v = vcfs[0].get_record(i).v[:9]
-			for s, vcf, c in cols:
-				v.append(vcf.get_record(i).v[c])
-			new_records.append(VCFRecord(v, new_samples))
-		new_header = vcfs[0].trim_header(new_samples)
-		return VCFSmall(new_header, new_records)
 	
 	@staticmethod
 	def convert(vcf: VCFSmallBase) -> VCFSmall:

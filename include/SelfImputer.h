@@ -1,28 +1,28 @@
 #ifndef __SELFIMPUTER
 #define __SELFIMPUTER
 
-#include "VCF.h"
 #include "VCFHMM.h"
+#include "GenoRecord.h"
 #include "Map.h"
 
 
 //////////////////// SelfImputer ////////////////////
 
-class SelfImputer : public VCFHMM<VCFRecord> {
+class SelfImputer : public VCFHMM<GenoRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFRecord *>&	records;
+	const std::vector<GenoRecord *>&	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const std::vector<double>	Cc;
 	const std::vector<double>	Cp;
 	
 public:
-	SelfImputer(const std::vector<VCFRecord *>& rs,
+	SelfImputer(const std::vector<GenoRecord *>& rs,
 						const std::vector<std::vector<int>>& ref_hs,
 						const Map& map_, double w);
 	~SelfImputer() { }
@@ -30,8 +30,8 @@ public:
 	void impute();
 	
 private:
-	std::vector<double> calc_Cc(const std::vector<VCFRecord *>& rs) const;
-	std::vector<double> calc_Cp(const std::vector<VCFRecord *>& rs) const;
+	std::vector<double> calc_Cc(const std::vector<GenoRecord *>& rs) const;
+	std::vector<double> calc_Cp(const std::vector<GenoRecord *>& rs) const;
 	std::size_t NH() const { return ref_haps.size(); }
 	std::size_t M() const { return records.size(); }
 	std::size_t num_states() const { return NH()*NH() << (num_progenies()*2); }

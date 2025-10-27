@@ -4,7 +4,7 @@
 
 using namespace std;
 
-SelfParentImputer::SelfParentImputer(const vector<VCFRecord *>& rs,
+SelfParentImputer::SelfParentImputer(const vector<GenoRecord *>& rs,
 									 const vector<vector<int>>& ref_hs,
 									 size_t iprog, const Map& map_, double w) :
 			VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
@@ -17,7 +17,7 @@ SelfParentImputer::SelfParentImputer(const vector<VCFRecord *>& rs,
 			{ }
 
 vector<double> SelfParentImputer::calc_Cc(
-							const vector<VCFRecord *>& rs) const {
+							const vector<GenoRecord *>& rs) const {
 	const size_t	M = rs.size();
 	vector<double>	Cc(M-1);
 	for(size_t i = 0; i < M - 1; ++i) {
@@ -27,7 +27,7 @@ vector<double> SelfParentImputer::calc_Cc(
 }
 
 vector<double> SelfParentImputer::calc_Cp(
-							const vector<VCFRecord *>& rs) const {
+							const vector<GenoRecord *>& rs) const {
 	const double	K = 5.0;
 	const size_t	M = rs.size();
 	vector<double>	Cp(M-1);
@@ -98,13 +98,13 @@ double SelfParentImputer::transition_probability(size_t i,
 vector<SelfParentImputer::DP> SelfParentImputer::initialize_dp() const {
 	const size_t	L = num_states();
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
-	const VCFRecord	*record = records[0];
-	const int	op = Genotype::gt_to_int(record->get_gt(0));
-	const int	prog_gt = Genotype::phased_gt_to_int(record->get_gt(ic+1));
+	const GenoRecord	*record = records[0];
+	const int	op = record->unphased(0);
+	const int	prog_gt = record->get_geno()[ic+1] & 3;
 	vector<int>	ocs;
 	for(size_t j = 0; j < num_progenies(); ++j) {
 		if(j != ic) {
-			ocs.push_back(Genotype::gt_to_int(record->get_gt(j+1)));
+			ocs.push_back(record->unphased(j+1));
 		}
 	}
 	for(int h = 0; h < (int)L; ++h) {
@@ -138,13 +138,13 @@ SelfParentImputer::collect_possible_previous_hidden_states() const {
 
 void SelfParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const size_t	L = num_states();
-	const VCFRecord	*record = records[i];
-	const int	op = Genotype::gt_to_int(record->get_gt(0));
-	const int	prog_gt = Genotype::phased_gt_to_int(record->get_gt(ic+1));
+	const GenoRecord	*record = records[i];
+	const int	op = record->unphased(0);
+	const int	prog_gt = record->get_geno()[ic+1] & 3;
 	vector<int>	ocs;
 	for(size_t j = 0; j < num_progenies(); ++j) {
 		if(j != ic) {
-			ocs.push_back(Genotype::gt_to_int(record->get_gt(j+1)));
+			ocs.push_back(record->unphased(j+1));
 		}
 	}
 	for(int h = 0; h < (int)L; ++h) {
@@ -162,10 +162,10 @@ void SelfParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 
 void SelfParentImputer::update_genotypes(const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
-		VCFRecord	*record = records[i];
-		const int	prog_gt = Genotype::phased_gt_to_int(record->get_gt(ic+1));
+		GenoRecord	*record = records[i];
+		const int	prog_gt = record->get_geno()[ic+1];
 		const int	phased_gt = parent_genotype(hs[i], i, prog_gt);
-		record->set_GT(0, Genotype::int_to_phased_gt(phased_gt));
+		record->set_geno(0, phased_gt | 4);
 	}
 }
 

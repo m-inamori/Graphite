@@ -57,9 +57,6 @@ void VCFSmallFillable::modify(int T) {
 		else if(record->is_fillable_type())
 			this->impute_others(i);
 	}
-	
-	for(auto p = records.begin(); p != records.end(); ++p)
-		(*p)->fill_PGT();
 }
 
 const RecordSet *VCFSmallFillable::create_recordset(

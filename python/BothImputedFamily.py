@@ -6,26 +6,29 @@ from __future__ import annotations
 
 from typing import Optional
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
 from VCFBothParentImputed import *
 from Map import *
 from KnownFamily import KnownFamily
 from OptionSmall import OptionSmall
 
-def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
-			families: list[KnownFamily], op: OptionSmall) -> Optional[VCFSmall]:
-	vcfs: list[VCFSmallBase] = []
+def impute(orig_vcf: VCFSmall, merged_vcf: VCFGenoBase,
+			families: list[KnownFamily], op: OptionSmall) -> Optional[VCFGeno]:
+	vcfs: list[VCFGenoBase] = []
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(merged_vcf, orig_vcf,
 														family.samples())
-		family_vcf = VCFBothParentImputed(vcf.header, vcf.records, op.map)
+		family_vcf = VCFBothParentImputed(vcf.samples, vcf.records,
+														op.map, vcf.vcf)
 		family_vcf.impute(op.precision_ratio, op.num_threads)
 		vcfs.append(family_vcf)
 	
 	if not vcfs:
 		return None
 	
-	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
+	new_vcf = VCFGeno.join(vcfs, orig_vcf.samples)
 	print("%d both parent imputed families have been imputed." % len(vcfs))
 	return new_vcf
 

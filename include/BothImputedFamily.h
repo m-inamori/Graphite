@@ -27,10 +27,10 @@ namespace BothImputedFamily {
 	
 	void impute_small_in_thread(void *config);
 	
-	VCFSmallBase *impute(const VCFSmall *orig_vcf,
-							const VCFSmall *imputed_vcf,
-							const std::vector<const KnownFamily *>& families,
-							const OptionSmall& op);
+	VCFGeno *impute(const VCFSmall *orig_vcf,
+					const VCFGenoBase *imputed_vcf,
+					const std::vector<const KnownFamily *>& families,
+					const OptionSmall& op);
 	void impute_VCFs(std::vector<VCFBothParentImputed *>& vcfs, int T);
 };
 #endif

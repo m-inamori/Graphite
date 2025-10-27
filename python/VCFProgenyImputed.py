@@ -5,32 +5,32 @@ from __future__ import annotations
 # 片親がknownで後代がimputeされている家系を補完する
 # 2サンプルのみ
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
+from GenoRecord import GenoRecord
 from VCFFamily import *
 from ParentImputerByProgeny import *
 
 
 #################### VCFProgenyImputed ####################
 
-class VCFProgenyImputed(VCFBase, VCFSmallBase):
-	def __init__(self, header: list[list[str]], records: list[VCFRecord],
-					ref_haps: list[list[int]], is_mat_known: bool, map_: Map):
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
+class VCFProgenyImputed(VCFFamilyBase):
+	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
+					ref_haps: list[list[int]],
+					is_mat_known: bool, map_: Map, vcf: VCFSmall):
+		VCFFamilyBase.__init__(self, samples, vcf)
 		self.imputer = ParentImputerByProgeny(records, ref_haps,
 												is_mat_known, map_, 0.01)
-		self.records: list[VCFRecord] = records
+		self.records: list[VCFFamilyRecord] = records
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
-	def get_samples(self) -> list[str]:
-		return self.samples
-	
-	def num_progenies(self) -> int:
-		return len(self.get_samples()) - 2
+	def get_family_record(self, i: int) -> VCFFamilyRecord:
+		return self.records[i]
 	
 	def impute(self) -> None:
 		self.imputer.impute()

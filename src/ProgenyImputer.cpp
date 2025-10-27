@@ -21,7 +21,7 @@ vector<double> ProgenyImputer::calc_Cc(
 double ProgenyImputer::emission_probability(size_t i, size_t j, int h,
 												int mat_gt, int pat_gt) const {
 	const auto	*record = ref_records[i];
-	const int	oc = Genotype::gt_to_int(record->get_gt(j+2));
+	const int	oc = record->unphased(j+2);
 	const int	phased_gt = gt_by_haplotypes(h, mat_gt, pat_gt);
 	return E[phased_gt][oc];
 }
@@ -29,8 +29,8 @@ double ProgenyImputer::emission_probability(size_t i, size_t j, int h,
 vector<ProgenyImputer::DP> ProgenyImputer::initialize_dp(size_t j) const {
 	vector<DP>	dp(M(), DP(4, pair<double, int>(MIN_PROB, 0)));
 	const VCFFamilyRecord	*record = ref_records[0];
-	const int	mat_gt = Genotype::phased_gt_to_int(record->get_gt(0));
-	const int	pat_gt = Genotype::phased_gt_to_int(record->get_gt(1));
+	const int	mat_gt = record->mat_gt();
+	const int	pat_gt = record->pat_gt();
 	for(int h = 0; h < 4; ++h) {	// hidden state
 		const double	E_all = emission_probability(0, j, h, mat_gt, pat_gt);
 		dp[0][h] = make_pair(E_all, h);
@@ -41,9 +41,9 @@ vector<ProgenyImputer::DP> ProgenyImputer::initialize_dp(size_t j) const {
 void ProgenyImputer::update_dp(size_t i, size_t j, vector<DP>& dp) const {
 	const VCFFamilyRecord	*record = ref_records[i];
 	
-	// observed parent
-	const int	mat_gt = Genotype::phased_gt_to_int(record->get_gt(0));
-	const int	pat_gt = Genotype::phased_gt_to_int(record->get_gt(1));
+	// phased parent
+	const int	mat_gt = record->mat_gt();
+	const int	pat_gt = record->pat_gt();
 	
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(i, j, h, mat_gt, pat_gt);
@@ -58,10 +58,10 @@ void ProgenyImputer::update_dp(size_t i, size_t j, vector<DP>& dp) const {
 void ProgenyImputer::update_genotypes(size_t j, const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
 		const VCFFamilyRecord	*record = ref_records[i];
-		const int	mat_gt = Genotype::phased_gt_to_int(record->get_gt(0));
-		const int	pat_gt = Genotype::phased_gt_to_int(record->get_gt(1));
+		const int	mat_gt = record->mat_gt();
+		const int	pat_gt = record->pat_gt();
 		const int	phased_gt = gt_by_haplotypes(hs[i], mat_gt, pat_gt);
-		ref_records[i]->set_GT(j+2, Genotype::int_to_phased_gt(phased_gt));
+		ref_records[i]->set_geno(j+2, phased_gt | 4);
 	}
 }
 

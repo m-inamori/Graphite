@@ -7,6 +7,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from VCFFamily import VCFFamilyRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -28,7 +29,7 @@ class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 							for r1, r2 in zip(records, records[1:]) ]
 	
 	def num_progenies(self) -> int:
-		return len(self.records[0].v) - 11
+		return len(self.records[0].geno) - 2
 	
 	# ハプロタイプを決めたときのGenotype
 	def gt_by_haplotypes(self, hc: int, mat_gt: int, pat_gt: int) -> int:
@@ -40,7 +41,7 @@ class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	def emission_probability(self, i: int, j: int, h: int,
 									mat_gt: int, pat_gt: int) -> float:
 		record = self.records[i]
-		oc = Genotype.gt_to_int(record.v[j+11])
+		oc = record.unphased(j+2)
 		phased_gt = self.gt_by_haplotypes(h, mat_gt, pat_gt)
 		return self.E[phased_gt][oc]
 	
@@ -58,8 +59,8 @@ class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	def initialize_dp(self, j: int, M: int) -> list[DP]:
 		dp = [ [ (MIN_PROB, 0) ] * 4 for _ in range(M) ]
 		record = self.records[0]
-		mat_gt = Genotype.phased_gt_to_int(record.v[9])
-		pat_gt = Genotype.phased_gt_to_int(record.v[10])
+		mat_gt = record.mat_gt()
+		pat_gt = record.pat_gt()
 		for h in range(4):		# hidden state
 			E = self.emission_probability(0, j, h, mat_gt, pat_gt)
 			dp[0][h] = (E, h)
@@ -67,8 +68,8 @@ class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	
 	def update_dp(self, i: int, j: int, dp: list[DP]) -> None:
 		record = self.records[i]
-		mat_gt = Genotype.phased_gt_to_int(record.v[9])
-		pat_gt = Genotype.phased_gt_to_int(record.v[10])
+		mat_gt = record.mat_gt() & 3
+		pat_gt = record.pat_gt() & 3
 		
 		for hc in range(4):		# hidden state
 			E_all = self.emission_probability(i, j, hc, mat_gt, pat_gt)
@@ -91,10 +92,10 @@ class ProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		M = len(self.records)
 		for i in range(M):
 			record = self.records[i]
-			mat_gt = Genotype.phased_gt_to_int(record.v[9])
-			pat_gt = Genotype.phased_gt_to_int(record.v[10])
+			mat_gt = record.mat_gt()
+			pat_gt = record.pat_gt()
 			gtc_int = self.gt_by_haplotypes(hs[i], mat_gt, pat_gt)
-			record.set_GT(j+2, Genotype.int_to_phased_gt(gtc_int))
+			record.geno[j+2] = gtc_int | 4
 	
 	# j: index of progeny
 	def impute(self, j: int) -> None:

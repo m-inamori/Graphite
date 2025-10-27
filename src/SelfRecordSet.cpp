@@ -89,7 +89,7 @@ int SelfRecordSet::select_phasing(const vector<int>& candidates) const {
 		return candidates[0];
 	
 	// Select the genotype closest to the original
-	const int	parent_gt = this->record->get_int_gt(0);
+	const int	parent_gt = this->record->unphased(0);
 	vector<pair<int, int>>	v;
 	for(auto p = candidates.begin(); p != candidates.end(); ++p) {
 		const int	phasing = *p;
@@ -142,8 +142,5 @@ void SelfRecordSet::determine_parent_phasing() const {
 	// Measures for when there is almost the same ll as the largest ll
 	std::sort(lls.begin(), lls.end());
 	const int	phasing = this->determine_phasing_core(lls);
-	
-	// is it OK?
-	static const string	gts[] = { "0|0", "1|0", "0|1", "1|1" };
-	record->set_GT(0, gts[phasing]);
+	this->record->set_geno(0, phasing | 4);
 }

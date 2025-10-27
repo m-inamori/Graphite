@@ -62,7 +62,7 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 		return len(self.ref_haps[0])
 	
 	def num_progenies(self) -> int:
-		return len(self.records[0].v) - 11
+		return len(self.records[0].geno) - 2
 	
 	def compute_phased_gt_by_refhaps(self, hp: int, i: int) -> int:
 		hp2, hp1 = divmod(hp, self.NH())
@@ -73,7 +73,7 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 		record = self.records[i]
 		Ec = 0.0
 		for j in range(self.num_progenies()):
-			oc = Genotype.gt_to_int(record.v[j+11])
+			oc = record.unphased(j+2)
 			Ec += self.Epc[mat_gt][pat_gt][oc]
 		return Ec
 	
@@ -117,8 +117,8 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 	def initialize_dp(self, L: int, M: int) -> list[DP]:
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
 		record = self.records[0]
-		mat_gt = Genotype.gt_to_int(record.v[9])
-		pat_gt = Genotype.gt_to_int(record.v[10])
+		mat_gt = record.unphased_mat()
+		pat_gt = record.unphased_pat()
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(0, h, mat_gt, pat_gt)
 			dp[0][h] = (E_all, h)
@@ -146,8 +146,8 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 	def update_dp(self, i: int, dp: list[DP]) -> None:
 		record = self.records[i]
 		# observed parent
-		mat_gt = Genotype.gt_to_int(record.v[9])
-		pat_gt = Genotype.gt_to_int(record.v[10])
+		mat_gt = record.unphased_mat()
+		pat_gt = record.unphased_pat()
 		
 		for h in range(self.NH()**2):		# hidden state
 			E_all = self.emission_probability(i, h, mat_gt, pat_gt)
@@ -163,7 +163,7 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 		j = 0 if self.is_mat_imputed else 1
 		for i in range(len(self.ref_haps[0])):
 			phased_gt = self.compute_phased_gt_by_refhaps(hs[i], i)
-			self.records[i].set_GT(j, Genotype.int_to_phased_gt(phased_gt))
+			self.records[i].geno[j] = phased_gt | 4
 	
 	def impute(self) -> None:
 		L = self.NH()**2			# 親のハプロタイプの状態数

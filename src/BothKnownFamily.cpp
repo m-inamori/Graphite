@@ -61,8 +61,8 @@ void BothKnownFamily::impute_small_VCFs(vector<VCFBothKnown *>& v, int T) {
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
+VCFGenoBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
+									const VCFGeno *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
@@ -73,10 +73,9 @@ VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
 		if(is_small(ref_haps, (int)N, op)) {
-			auto	*vcf1 = new VCFBothKnown(vcf->get_header(),
-												   family->get_samples(),
-												   vcf->get_family_records(),
-												   ref_haps, op.map, 0.01);
+			auto	*vcf1 = new VCFBothKnown(family->get_samples(),
+											 vcf->get_family_records(),
+											 ref_haps, op.map, 0.01, orig_vcf);
 			small_vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
@@ -90,8 +89,8 @@ VCFSmallBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 	impute_small_VCFs(small_vcfs, op.num_threads);
 	cout << small_vcfs.size()
 			<< " families whose parents are known have been imputed." << endl;
-	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
-	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+	vector<const VCFGenoBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
+	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(small_vcfs);
 	return new_vcf;
 }

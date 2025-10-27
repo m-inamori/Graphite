@@ -8,6 +8,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from VCFFamily import VCFFamilyRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -16,13 +17,14 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class ParentImputerByProgeny(VCFHMM[VCFRecord]):
+class ParentImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFRecord], ref_haps: list[list[int]],
-							is_mat_known: bool, map_: Map, w: float) -> None:
+	def __init__(self, records: list[VCFFamilyRecord],
+								ref_haps: list[list[int]],
+								is_mat_known: bool, map_: Map, w: float):
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[VCFRecord] = records
+		self.records: list[VCFFamilyRecord] = records
 		self.ref_haps = ref_haps
 		self.is_mat_known = is_mat_known
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
@@ -47,7 +49,7 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 		hw = h & 1			# 後代のどちらに親から渡ったか
 		hc = (h >> 1) & 1	# 親のどちらから後代に渡ったか
 		hp = h >> 2			# 後代に渡っていない方
-		prog_allele = int(self.records[i].v[10][hw*2])	# 親から渡ったアレル
+		prog_allele = self.records[i].get_allele(1, hw)		# 親から渡ったアレル
 		if hc == 0:
 			return prog_allele | (self.ref_haps[hp][i] << 1)
 		else:
@@ -56,7 +58,7 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 	# i: record index
 	def emission_probability(self, i: int, h: int) -> float:
 		parent_phased_gt = self.compute_parent_gt(i, h)
-		parent_gt = Genotype.gt_to_int(self.records[i].v[9])
+		parent_gt = self.records[i].unphased_mat()
 		return self.E[parent_phased_gt][parent_gt]	# parent emission
 	
 	def transition_probability(self, i: int, prev_h: int, h: int) -> float:
@@ -115,10 +117,10 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 		for i in range(M):
 			record = self.records[i]
 			parent_gt = self.compute_parent_gt(i, hs[i])
-			record.set_GT(0, Genotype.int_to_phased_gt(parent_gt))
+			record.geno[0] = parent_gt | 4
 			if is_swapped:
-				gt = record.v[9]
-				record.set_GT(0, gt[2] + '|' + gt[0])
+				gt = record.geno[0]
+				record.geno[0] = Genotype.inverse(gt)
 	
 	def impute(self) -> None:
 		# DP

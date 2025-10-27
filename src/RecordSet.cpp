@@ -34,11 +34,13 @@ int RecordSet::next_pat_from(std::size_t i) const {
 }
 
 bool RecordSet::is_mat_prev_near() const {
-	return record->pos() * 2 < prev_mat_record->pos() + next_mat_record->pos();
+	return record->get_pos() * 2 < prev_mat_record->get_pos() +
+									next_mat_record->get_pos();
 }
 
 bool RecordSet::is_pat_prev_near() const {
-	return record->pos() * 2 < prev_pat_record->pos() + next_pat_record->pos();
+	return record->get_pos() * 2 < prev_pat_record->get_pos() +
+									next_pat_record->get_pos();
 }
 
 int RecordSet::near_mat_from(size_t i) const {
@@ -76,12 +78,12 @@ RecordSet::Pair RecordSet::select_nearest_froms(
 // Prefer pairs that do not change the genotype
 RecordSet::Pair RecordSet::select_pair(const vector<Pair>& pairs,
 												size_t i, bool selected) const {
+	const int	gt = record->get_geno()[i];
 	if(pairs.empty())
 		return Pair(0, 0);
 	else if(pairs.size() == 1U)
 		return pairs.front();
-	else if(!Genotype::is_valid(record->get_gt(i), record->mat_int_gt(),
-													record->pat_int_gt()))
+	else if(!Genotype::is_valid(gt, record->mat_gt(), record->pat_gt()))
 		return select_nearest_froms(pairs, i);
 	else if(selected)
 		return select_nearest_froms(pairs, i);
@@ -89,8 +91,8 @@ RecordSet::Pair RecordSet::select_pair(const vector<Pair>& pairs,
 	// Collect pairs that are identical to the original Genotype
 	vector<Pair>	new_pairs;
 	for(auto p = pairs.begin(); p != pairs.end(); ++p) {
-		string	parent_gt = record->gt_from_parent(p->first, p->second);
-		if(Genotype::sum_gt(record->get_gt(i)) == Genotype::sum_gt(parent_gt))
+		const int	parent_gt = record->gt_from_parent(p->first, p->second);
+		if(Genotype::unphased(gt) == Genotype::unphased(parent_gt))
 			new_pairs.push_back(*p);
 	}
 	const Pair	selected_pair = select_pair(new_pairs, i, true);
@@ -177,15 +179,18 @@ pair<int, int> RecordSet::select_phasing(
 	if(candidates.size() == 1)
 		return candidates.front();
 	
-	const int	mat_int_gt = record->mat_int_gt();
-	const int	pat_int_gt = record->pat_int_gt();
+	const int	mat_gt = record->unphased_mat();
+	const int	pat_gt = record->unphased_pat();
 	
 	vector<tuple<int, int, int>>	v;	// [(score, mat_phasing, pat_phasing)]
 	for(auto p = candidates.begin(); p != candidates.end(); ++p) {
-		const int	mat_int_gt1 = (p->first >> 1) + (p->first & 1);
-		const int	pat_int_gt1 = (p->second >> 1) + (p->second & 1);
-		const int	score = abs(mat_int_gt1 - mat_int_gt) +
-							abs(pat_int_gt1 - pat_int_gt);
+		const int	mat_gt1 = (p->first >> 1) + (p->first & 1);
+		const int	pat_gt1 = (p->second >> 1) + (p->second & 1);
+		int	score = 0;
+		if(!Genotype::is_NA(mat_gt))
+			score += abs(mat_gt1 - mat_gt);
+		if(!Genotype::is_NA(pat_gt))
+			score += abs(pat_gt1 - pat_gt);
 		v.push_back(make_tuple(score, p->first, p->second));
 	}
 	// If the score is the same, phasing is chosen from the smaller.
@@ -256,14 +261,13 @@ void RecordSet::determine_phasing() const {
 	const int	pat_phasing = p.second;
 	
 	// is it OK?
-	static const string	gts[] = { "0|0", "1|0", "0|1", "1|1" };
-	record->set_mat_GT(gts[mat_phasing]);
-	record->set_pat_GT(gts[pat_phasing]);
+	record->set_geno(0, mat_phasing | 4);
+	record->set_geno(1, pat_phasing | 4);
 }
 
 int RecordSet::select_from(int from1, int from2,
-										const VCFRecord *record1,
-										const VCFRecord *record2) const {
+										const GenoRecord *record1,
+										const GenoRecord *record2) const {
 	// assume either is not zero
 	// That is, there is a record on either side.
 	if(from1 == 0)
@@ -272,21 +276,21 @@ int RecordSet::select_from(int from1, int from2,
 		return from1;
 	else {	// there are records on both sides
 		// select a close record
-		if(record->pos() * 2 < record1->pos() + record2->pos())
+		if(record->get_pos() * 2 < record1->get_pos() + record2->get_pos())
 			return from1;
 		else
 			return from2;
 	}
 }
 
-string RecordSet::modify_gt(size_t i) const {
+int RecordSet::modify_gt(size_t i) const {
 	const int	prev_mat_from = this->prev_mat_from(i);
 	const int	next_mat_from = this->next_mat_from(i);
 	const int	prev_pat_from = this->prev_pat_from(i);
 	const int	next_pat_from = this->next_pat_from(i);
 	if((prev_mat_from == 0 && next_mat_from == 0) ||
 							(prev_pat_from == 0 && next_pat_from == 0)) {
-		return record->get_gt(i);
+		return record->get_geno()[i];
 	}
 	
 	vector<pair<int,int>>	pairs_ = {
@@ -309,17 +313,17 @@ string RecordSet::modify_gt(size_t i) const {
 			const int	mat_from_selected = select_from(
 											prev_mat_from, next_mat_from,
 											prev_mat_record, next_mat_record);
-			return record->gt_from_mat(mat_from_selected, i + 9);
+			return record->gt_from_mat(mat_from_selected, i);
 		}
 		else if(prev_pat_from != 0 || next_pat_from != 0) {
 			const int	pat_from_selected = select_from(
 											prev_pat_from, next_pat_from,
 											prev_pat_record, next_pat_record);
-			return record->gt_from_pat(pat_from_selected, i + 9);
+			return record->gt_from_pat(pat_from_selected, i);
 		}
 		else {
 			// if both are 0, do nothing
-			return record->get_GT(i);
+			return record->get_geno()[i];
 		}
 	}
 	else {
@@ -334,7 +338,7 @@ void RecordSet::impute(bool necessary_parents_phasing) const {
 }
 
 void RecordSet::impute_core() const {
-	STRVEC	new_gts;
+	vector<int>	new_gts;
 	for(size_t i = 2; i < record->num_samples(); ++i) {
 		new_gts.push_back(modify_gt(i));
 	}
@@ -369,7 +373,7 @@ void RecordSet::impute_NA_mat_each(size_t i) const {
 		return;
 	
 	const int	mat_from = this->select_mat(pairs);
-	this->record->set_GT(i, this->record->gt_from_parent(mat_from, 1));
+	this->record->set_geno(i, this->record->gt_from_parent(mat_from, 1));
 }
 
 int RecordSet::select_pat(const vector<Pair>& pairs) const {
@@ -398,12 +402,12 @@ void RecordSet::impute_NA_pat_each(size_t i) const {
 		return;
 	
 	const int	pat_from = this->select_pat(pairs);
-	this->record->set_GT(i, this->record->gt_from_parent(1, pat_from));
+	this->record->set_geno(i, this->record->gt_from_parent(1, pat_from));
 }
 
 int RecordSet::determine_mat_from(size_t i) const {
-	const string	mat_gt1 = gt_each(i, prev_mat_record);
-	const string	mat_gt2 = gt_each(i, next_mat_record);
+	const int	mat_gt1 = gt_each(i, prev_mat_record);
+	const int	mat_gt2 = gt_each(i, next_mat_record);
 	const int	prev_mat_from = from_which_chrom_prev_mat(mat_gt1);
 	const int	next_mat_from = from_which_chrom_next_mat(mat_gt2);
 	// とりあえず、両側Noneはないと仮定する
@@ -420,8 +424,8 @@ int RecordSet::determine_mat_from(size_t i) const {
 }
 
 int RecordSet::determine_pat_from(size_t i) const {
-	const string	pat_gt1 = gt_each(i, prev_pat_record);
-	const string	pat_gt2 = gt_each(i, next_pat_record);
+	const int	pat_gt1 = gt_each(i, prev_pat_record);
+	const int	pat_gt2 = gt_each(i, next_pat_record);
 	const int	prev_pat_from = from_which_chrom_prev_pat(pat_gt1);
 	const int	next_pat_from = from_which_chrom_next_pat(pat_gt2);
 	// とりあえず、両側Noneはないと仮定する
@@ -444,35 +448,37 @@ vector<pair<int, int>> RecordSetSmall::possible_phasings() const {
 	if(record == NULL)
 		return vector<pair<int, int>>();
 	
-	if(!this->record->is_phased(0) && !this->record->is_phased(1))
-		return RecordSet::possible_phasings();
-	
-	const char	*gts[] = { "0|0", "1|0", "0|1", "1|1" };
-	for(int i = 0; i < 4; ++i) {
-		if(record->get_GT(0) == gts[i]) {
-			vector<pair<int, int>>	pairs;
-			for(int g = 0; g < 4; ++g)
-				pairs.push_back(P(i, g));
-			return pairs;
+	if(this->record->is_phased(0) || this->record->is_phased(1)) {
+		for(int gt = 0; gt < 4; ++gt) {
+			if(this->record->get_geno()[0] == (gt | 4)) {
+				vector<pair<int, int>>	phasings;
+				for(int g = 0; g < 4; ++g)
+					phasings.push_back(make_pair(gt, g));
+				return phasings;
+			}
+			else if(this->record->get_geno()[1] == (gt | 4)) {
+				vector<pair<int, int>>	phasings;
+				for(int g = 0; g < 4; ++g)
+					phasings.push_back(make_pair(g, gt));
+				return phasings;
+			}
 		}
-		if(record->get_GT(1) == gts[i]) {
-			vector<pair<int, int>>	pairs;
-			for(int g = 0; g < 4; ++g)
-				pairs.push_back(P(g, i));
-			return pairs;
-		}
+		return vector<pair<int, int>>();
 	}
-	return vector<pair<int, int>>();
+	else {
+		return RecordSet::possible_phasings();
+	}
 }
 
-double RecordSetSmall::compute_phasing_likelihood(int mat_phasing,
-													int pat_phasing) const {
+double RecordSetSmall::compute_phasing_likelihood(int mat_gt,
+													int pat_gt) const {
 	if(this->record == NULL)
 		return 0.0;
 	
-	double	ll = RecordSet::compute_phasing_likelihood(mat_phasing,
-														pat_phasing);
-	ll +=  log(this->record->mat_int_gt() == mat_phasing ? 0.9 : 0.1);
-	ll +=  log(this->record->pat_int_gt() == pat_phasing ? 0.9 : 0.1);
+	double	ll = RecordSet::compute_phasing_likelihood(mat_gt, pat_gt);
+	const int	mat_int_gt = (mat_gt & 1) + ((mat_gt >> 1) & 1);
+	const int	pat_int_gt = (pat_gt & 1) + ((pat_gt >> 1) & 1);
+	ll +=  log(this->record->unphased_mat() == mat_int_gt ? 0.9 : 0.1);
+	ll +=  log(this->record->unphased_pat() == pat_int_gt ? 0.9 : 0.1);
 	return ll;
 }

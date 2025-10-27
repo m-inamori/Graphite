@@ -1,7 +1,7 @@
 #include "../include/LargeFamily.h"
 #include "../include/VCFHeteroHomo.h"
 #include "../include/VCFFillable.h"
-#include "../include/VCFImpFamily.h"
+#include "../include/VCFImpFamilyRecord.h"
 #include "../include/VCFJunkRecord.h"
 #include "../include/VCFHomoHomo.h"
 #include "../include/VCFHeteroHeteroLite.h"
@@ -16,42 +16,34 @@ using namespace std;
 
 //////////////////// LargeFamily ////////////////////
 
-int LargeFamily::get_int_gt(const string& gt) {
-	const int	int_gt = Genotype::get_int_gt(gt);
-	return int_gt == 3 ? -1 : int_gt;
-}
-
-VCFHeteroHomoRecord *LargeFamily::create_heterohomo_record(const STRVEC& v,
+VCFHeteroHomoRecord *LargeFamily::create_heterohomo_record(
+										const VCFFamilyRecord *record,
 										const KnownFamily *family, size_t i,
 										WrongType wrong_type, ParentComb pc) {
-	const STRVEC&	samples = family->get_samples();
+	const ll	pos = record->get_pos();
+	vector<int>	geno = record->get_geno();
 	const int	total_int_gt = pc == ParentComb::P00x01 ? 1 : 3;
 	if(!family->is_mat_known()) {
-		const int	pat_int_gt = LargeFamily::get_int_gt(v[10]);
-		const int	mat_int_gt = total_int_gt - pat_int_gt;
-		if(mat_int_gt < 0 || 2 < mat_int_gt)
+		const int	pat_gt = record->unphased_pat();
+		const int	mat_gt = total_int_gt - pat_gt;
+		if(Genotype::is_NA(pat_gt) || mat_gt < 0 || 2 < mat_gt) {
 			wrong_type = WrongType::MODIFIABLE;
+		}
 		else {
-			STRVEC	w(v.size());
-			std::copy(v.begin(), v.end(), w.begin());
-			w[9] = Genotype::int_to_gt(mat_int_gt);
-			return new VCFHeteroHomoRecord(w, samples, i, wrong_type, pc);
+			geno[0] = mat_gt;
 		}
 	}
 	else if(!family->is_pat_known()) {
-		const int	mat_int_gt = LargeFamily::get_int_gt(v[9]);
-		const int	pat_int_gt = total_int_gt - mat_int_gt;
-		if(pat_int_gt < 0 || 2 < pat_int_gt)
+		const int	mat_gt = record->unphased_mat();
+		const int	pat_gt = total_int_gt - mat_gt;
+		if(Genotype::is_NA(mat_gt) || pat_gt < 0 || 2 < pat_gt) {
 			wrong_type = WrongType::MODIFIABLE;
+		}
 		else {
-			STRVEC	w(v.size());
-			std::copy(v.begin(), v.end(), w.begin());
-			w[10] = Genotype::int_to_gt(pat_int_gt);
-			return new VCFHeteroHomoRecord(w, samples, i, wrong_type, pc);
+			geno[1] = pat_gt;
 		}
 	}
-	
-	return new VCFHeteroHomoRecord(v, samples, i, wrong_type, pc);
+	return new VCFHeteroHomoRecord(pos, geno, i, wrong_type, pc);
 }
 
 void LargeFamily::classify_record(size_t i, const VCFFamily *vcf,
@@ -61,27 +53,26 @@ void LargeFamily::classify_record(size_t i, const VCFFamily *vcf,
 								  vector<VCFImpFamilyRecord *>& other_records) {
 	ClassifyRecord	*CR = ClassifyRecord::get_instance();
 	VCFFamilyRecord	*record = vcf->get_family_record(i);
+	const ll	pos = record->get_pos();
+	const vector<int>	geno = record->get_geno();
 	const auto	pair1 = CR->classify(record, td, family->is_one_unknown());
 	const ParentComb	pc = pair1.first;
 	const WrongType	wrong_type = pair1.second;
-	const STRVEC&	v = record->get_v();
-	const STRVEC&	samples = record->get_samples();
-	if(pc == ParentComb::PNA) {		// no candidates
-		other_records[i] = new VCFJunkRecord(v, samples, i, wrong_type);
-	}
-	else if(TypeDeterminer::is_homohomo(pc)) {
-		auto	*r_ = new VCFHomoHomoRecord(v, samples, i, wrong_type, pc);
-		auto	*r = r_->impute();
-		delete r_;
-		other_records[i] = r;
+	if(TypeDeterminer::is_homohomo(pc)) {
+		auto	*record_ = new VCFHomoHomoRecord(pos, geno, i, wrong_type, pc);
+		other_records[i] = record_->impute();
+		delete record_;
 	}
 	else if(TypeDeterminer::is_heterohomo(pc)) {
-		heho_records[i] = create_heterohomo_record(v, family,
-													i, wrong_type, pc);
-	}
-	else {
-		other_records[i] = new VCFHeteroHeteroLiteRecord(v, samples, i,
+		heho_records[i] = create_heterohomo_record(record, family, i,
 															wrong_type, pc);
+	}
+	else if(pc == ParentComb::P01x01) {
+		other_records[i] = new VCFHeteroHeteroLiteRecord(pos, geno,
+															i, wrong_type, pc);
+	}
+	else {		// no candidates
+		other_records[i] = new VCFJunkRecord(pos, geno, i, wrong_type);
 	}
 }
 
@@ -185,23 +176,24 @@ LargeFamily::collect_same_parent_families(
 	return v;
 }
 
-vector<vector<VCFImpFamilyRecord *>> LargeFamily::collect_same_position_records(
+vector<vector<pair<VCFImpFamilyRecord *, size_t>>> LargeFamily::sort_records(
 				const vector<tuple<vector<VCFHeteroHomoRecord *>,
-								   vector<VCFImpFamilyRecord *>, int>>& rs) {
+								   vector<VCFImpFamilyRecord *>, size_t>>& rs) {
 	const size_t	vcf_size = get<0>(rs[0]).size();
-	vector<vector<VCFImpFamilyRecord *>>	recordss(vcf_size);
+	vector<vector<pair<VCFImpFamilyRecord *, size_t>>>	recordss(vcf_size);
 	for(auto p = rs.begin(); p != rs.end(); ++p) {
+		const size_t	index = get<2>(*p);
 		const auto&	rs1 = get<0>(*p);
 		for(auto q = rs1.begin(); q != rs1.end(); ++q) {
 			auto	*r1 = *q;
 			if(r1 != NULL && r1->is_right())
-				recordss[r1->get_index()].push_back(r1);
+				recordss[r1->get_index()].push_back(make_pair(r1, index));
 		}
 		const auto&	rs2 = get<1>(*p);
 		for(auto q = rs2.begin(); q != rs2.end(); ++q) {
 			auto	*r2 = *q;
 			if(r2 != NULL && r2->is_homohomo())
-				recordss[r2->get_index()].push_back(r2);
+				recordss[r2->get_index()].push_back(make_pair(r2, index));
 		}
 	}
 	return recordss;
@@ -209,8 +201,8 @@ vector<vector<VCFImpFamilyRecord *>> LargeFamily::collect_same_position_records(
 
 void LargeFamily::modify_00x11_each(
 				const vector<tuple<vector<VCFHeteroHomoRecord *>,
-								   vector<VCFImpFamilyRecord *>, int>>& rs) {
-	auto	records = collect_same_position_records(rs);
+								   vector<VCFImpFamilyRecord *>, size_t>>& rs) {
+	auto	records = sort_records(rs);
 	
 	for(auto p = records.begin(); p != records.end(); ++p) {
 		if(p->size() >= 2)
@@ -228,7 +220,7 @@ void LargeFamily::modify_00x11(
 	for(auto p = fams.begin(); p != fams.end(); ++p) {
 		auto	v = p->second;
 		vector<tuple<vector<VCFHeteroHomoRecord *>,
-					 vector<VCFImpFamilyRecord *>, int>>	rs;
+					 vector<VCFImpFamilyRecord *>, size_t>>	rs;
 		for(auto q = v.begin(); q != v.end(); ++q) {
 			const size_t	fam_index = q->first;
 			const size_t	p_index = q->second;
@@ -336,15 +328,14 @@ void LargeFamily::clean_in_thread(void *config) {
 	for(int i = c->first; i < n; i += T) {
 		const auto&	records = c->recordss[i];
 		const auto&	samples = c->families[i]->get_samples();
-		auto	header = c->orig_vcf->trim_header(samples);
-		auto	p = VCFHeteroHomo::clean_vcfs(records, header, samples,
-													c->geno_map, T_in_family);
+		auto	p = VCFHeteroHomo::clean_vcfs(records, samples, c->geno_map,
+													T_in_family, c->orig_vcf);
 		c->vcfss[i] = p.first;
 		c->unused_recordss[i] = p.second;
 	}
 }
 
-VCFSmall *LargeFamily::correct_large_family_VCFs(
+VCFGeno *LargeFamily::correct_large_family_VCFs(
 									const VCFSmall *orig_vcf,
 									const vector<const KnownFamily *>& families,
 									const Map& geno_map, const Option *option) {
@@ -429,5 +420,6 @@ VCFSmall *LargeFamily::correct_large_family_VCFs(
 	}
 	auto	vcf1 = VCFFillable::merge(vcfs_filled, orig_vcf->get_samples());
 	Common::delete_all(vcfs_filled);
+	cerr << families.size() << " large families have been imputed." << endl;
 	return vcf1;
 }

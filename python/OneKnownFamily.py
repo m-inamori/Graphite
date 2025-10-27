@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
 from Map import *
 from KnownFamily import *
@@ -20,19 +22,19 @@ def is_small(ref_haps: list[list[int]], L: int, op: OptionSmall) -> bool:
 	R = NH**2 * (2*NH - 1) / op.precision_ratio
 	return R * M < 10**8 and R < 10**5 and L * R * M < 10**9
 
-def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
+def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 									families: list[KnownFamily],
-									op: OptionSmall) -> Optional[VCFSmallBase]:
-	vcfs: list[VCFSmallBase] = []
+									op: OptionSmall) -> Optional[VCFGenoBase]:
+	vcfs: list[VCFGenoBase] = []
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
 		if is_small(ref_haps, len(families), op):
-			vcf1 = VCFOneParentKnown(vcf.header, vcf.records,
-										ref_haps, family.mat_known, op.map)
+			vcf1 = VCFOneParentKnown(vcf.samples, vcf.records, ref_haps,
+											family.mat_known, op.map, orig_vcf)
 			vcf1.impute_known_parent()
 			parent = vcf1.samples[0] if family.mat_known else vcf1.samples[1]
-			vcf2 = vcf1.extract_samples([parent])
+			vcf2 = vcf1.extract_by_samples([parent])
 			vcfs.append(vcf2)
 	
 	if not vcfs:
@@ -40,7 +42,7 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 	
 	print("%d families whose one parent is known and the other parent is"
 								" unknown have been imputed." % len(families))
-	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
+	new_vcf = VCFGeno.join(vcfs, orig_vcf.samples)
 	return new_vcf
 
 __all__ = ['impute']

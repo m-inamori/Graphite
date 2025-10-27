@@ -7,6 +7,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from GenoRecord import GenoRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -15,14 +16,14 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
+class SelfParentImputerLessImputed(VCFHMM[GenoRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFRecord],
+	def __init__(self, records: list[GenoRecord],
 							ref_haps: list[list[int]],
 							map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[VCFRecord] = records
+		self.records: list[GenoRecord] = records
 		self.ref_haps = ref_haps
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
 		self.Epc = self.calc_Epc(w)
@@ -53,7 +54,7 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		return self.NH()**2
 	
 	def num_progenies(self) -> int:
-		return len(self.records[0].v) - 10
+		return len(self.records[0].geno) - 1
 	
 	def parent_genotype(self, h: int, i: int) -> int:
 		h2, h1 = divmod(h, self.NH())
@@ -86,10 +87,9 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		L = self.num_states()
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
 		record = self.records[0]
-		op = Genotype.gt_to_int(record.v[9])	# observed parent
+		op = record.unphased(0)		# observed parent
 		# observed progenies
-		ocs = [ Genotype.gt_to_int(record.v[j+10])
-							for j in range(self.num_progenies()) ]
+		ocs = [ record.unphased(j+1) for j in range(self.num_progenies()) ]
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(0, h, op, ocs)
 			dp[0][h] = (E_all, h)
@@ -121,10 +121,9 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 	def update_dp(self, i: int, dp: list[DP]) -> None:
 		L = self.num_states()
 		record = self.records[i]
-		op = Genotype.gt_to_int(record.v[9])	# observed parent
+		op = record.unphased(0)		# observed parent
 		# observed progs
-		ocs = [ Genotype.gt_to_int(record.v[i+10])
-						for i in range(self.num_progenies()) ]
+		ocs = [ record.unphased(i+1) for i in range(self.num_progenies()) ]
 		
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(i, h, op, ocs)
@@ -140,7 +139,7 @@ class SelfParentImputerLessImputed(VCFHMM[VCFRecord]):
 		for i in range(M):
 			record = self.records[i]
 			parent_gt = self.parent_genotype(hs[i], i)
-			record.set_GT(0, Genotype.int_to_phased_gt(parent_gt))
+			record.geno[0] = parent_gt | 4
 	
 	def impute(self) -> None:
 		# DP

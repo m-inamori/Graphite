@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
 from Map import *
 from VCFOrphan import VCFOrphan
@@ -18,13 +20,13 @@ def is_small(ref_haps: list[list[int]], op: OptionSmall) -> bool:
 	return R * M < 10**8 and R < 10**5
 
 def impute(samples: list[str], orig_vcf: VCFSmall, ref_haps: list[list[int]],
-									op: OptionSmall) -> Optional[VCFSmallBase]:
+									op: OptionSmall) -> Optional[VCFGenoBase]:
 	if not samples:
 		return None
 	
-	vcf = orig_vcf.select_samples(samples)
+	vcf = VCFGeno.extract_samples(samples, orig_vcf)
 	if is_small(ref_haps, op):
-		vcf1 = VCFOrphan(vcf.header, vcf.records, ref_haps, op.map)
+		vcf1 = VCFOrphan(samples, vcf.records, ref_haps, op.map, orig_vcf)
 		vcf1.impute()
 		print("%d orphan samples have been imputed." % len(samples))
 		return vcf1

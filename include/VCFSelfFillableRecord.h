@@ -4,24 +4,25 @@
 #include <vector>
 #include <string>
 
+#include "VCF.h"
 #include "VCFImpSelfRecord.h"
 #include "ClassifyRecord.h"
 
 
 //////////////////// VCFSelfFillableRecord ////////////////////
 
-class VCFSelfFillableRecord : public VCFRecord {
+class VCFSelfFillableRecord : public GenoRecord {
 protected:
 	int			index;
 	SelfFillType	type;
 	ParentComb	comb;
-	std::vector<Probs>	probs;
+	std::vector<VCFRecord::Probs>	probs;
 	
 public:
-	VCFSelfFillableRecord(const STRVEC& v, const STRVEC& s,
-						int i, SelfFillType t, ParentComb c,
-						const std::vector<Probs>& ps) :
-				VCFRecord(v, s), index(i), type(t), comb(c), probs(ps) { }
+	VCFSelfFillableRecord(ll pos, const std::vector<int>& geno,
+							int i, SelfFillType t, ParentComb c,
+							const std::vector<VCFRecord::Probs>& ps) :
+				GenoRecord(pos, geno), index(i), type(t), comb(c), probs(ps) { }
 	~VCFSelfFillableRecord() { }
 	
 	int get_index() const { return index; }
@@ -46,16 +47,11 @@ public:
 		}
 	}
 	
-	VCFSelfFillableRecord *copy() const;
-	std::string gt_from_parent(int mat_from, int pat_from) const;
-	
 	int from_which_chrom(std::size_t i, bool is_mat) const;
 	
-private:
-	int find_geno_type(const std::string& type) const;
-	
 public:
-	static VCFSelfFillableRecord *convert(const VCFImpSelfRecord *record);
+	static VCFSelfFillableRecord *convert(const VCFImpSelfRecord *record,
+									const std::vector<VCFRecord::Probs>& probs);
 	static int from_which_chrom(const VCFSelfFillableRecord *record,
 										std::size_t i, bool is_mat);
 	static int from_which_chrom_mat(const VCFSelfFillableRecord *record,

@@ -31,14 +31,14 @@ public:
 					  			prev_pat_record(pp), next_pat_record(np) { }
 	virtual ~RecordSet() { }
 	
-	std::string gt_each(int i, const VCFFillableRecord *record) const {
-		return record == NULL ? "" : record->get_gt(i);
+	int gt_each(std::size_t i, const VCFFillableRecord *record) const {
+		return record == NULL ? Genotype::NA : record->get_geno()[i];
 	}
-	std::string gt(int i) const { return gt_each(i, record); }
-	std::string prev_mat_gt(int i) const { return gt_each(i, prev_mat_record); }
-	std::string next_mat_gt(int i) const { return gt_each(i, next_mat_record); }
-	std::string prev_pat_gt(int i) const { return gt_each(i, prev_pat_record); }
-	std::string next_pat_gt(int i) const { return gt_each(i, next_pat_record); }
+	int gt(std::size_t i) const { return gt_each(i, record); }
+	int prev_mat_gt(std::size_t i) const { return gt_each(i, prev_mat_record); }
+	int next_mat_gt(std::size_t i) const { return gt_each(i, next_mat_record); }
+	int prev_pat_gt(std::size_t i) const { return gt_each(i, prev_pat_record); }
+	int next_pat_gt(std::size_t i) const { return gt_each(i, next_pat_record); }
 	
 	int prev_mat_from(std::size_t i) const;
 	int next_mat_from(std::size_t i) const;
@@ -53,26 +53,26 @@ public:
 	bool is_prev_nearer(bool is_mat) const;
 	
 	// phasingされている前提
-	int from_which_chrom(const std::string& gt,
-							const VCFRecord *record, bool mat) const {
+	int from_which_chrom(int gt, const VCFFillableRecord *record,
+															bool mat) const {
 		if(record == NULL)
 			return 0;
 		
 		const std::size_t	i = mat ? 0 : 1;
-		const std::string&	parent_gt = record->get_gt(i);
-		return parent_gt.c_str()[0] == gt[i*2] ? 1 : 2;
+		const int	parent_gt = record->get_geno()[i];
+		return (parent_gt & 1) == ((gt >> i) & 1) ? 1 : 2;
 	}
 	
-	int from_which_chrom_prev_mat(const std::string& gt) const {
+	int from_which_chrom_prev_mat(int gt) const {
 		return from_which_chrom(gt, prev_mat_record, true);
 	}
-	int from_which_chrom_next_mat(const std::string& gt) const {
+	int from_which_chrom_next_mat(int gt) const {
 		return from_which_chrom(gt, next_mat_record, true);
 	}
-	int from_which_chrom_prev_pat(const std::string& gt) const {
+	int from_which_chrom_prev_pat(int gt) const {
 		return from_which_chrom(gt, prev_pat_record, false);
 	}
-	int from_which_chrom_next_pat(const std::string& gt) const {
+	int from_which_chrom_next_pat(int gt) const {
 		return from_which_chrom(gt, next_pat_record, false);
 	}
 	
@@ -98,10 +98,9 @@ public:
 					const std::vector<std::tuple<double, int, int>>& lls) const;
 	void determine_phasing() const;
 	virtual std::vector<std::pair<int, int>> possible_phasings() const;
-	int select_from(int from1, int from2,
-								const VCFRecord *record1,
-								const VCFRecord *record2) const;
-	std::string modify_gt(size_t i) const;
+	int select_from(int from1, int from2, const GenoRecord *record1,
+											const GenoRecord *record2) const;
+	int modify_gt(size_t i) const;
 	void impute(bool necessary_parents_phasing) const;
 	void impute_core() const;
 	

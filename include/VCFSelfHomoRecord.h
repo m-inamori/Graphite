@@ -8,15 +8,15 @@
 
 class VCFSelfHomoRecord : public VCFImpSelfRecord {
 public:
-	VCFSelfHomoRecord(const STRVEC& v, const STRVEC& samples,
+	VCFSelfHomoRecord(ll pos, const std::vector<int>& geno,
 						int i, WrongType type, ParentComb c) :
-								VCFImpSelfRecord(v, samples, i, type, c) { }
+								VCFImpSelfRecord(pos, geno, i, type, c) { }
 	~VCFSelfHomoRecord() { }
 	
 	bool is_imputable() const override { return false; }
 	SelfFillType get_fill_type() const override { return SelfFillType::FILLED; }
 	
-	std::vector<std::string> gts() const;
+	std::vector<int> gts() const;
 	
 	VCFSelfHomoRecord *impute() const;
 };

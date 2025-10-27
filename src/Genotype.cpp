@@ -7,6 +7,15 @@ using namespace std;
 
 //////////////////// Genotype ////////////////////
 
+const int Genotype::UN_00;
+const int Genotype::UN_01;
+const int Genotype::UN_11;
+const int Genotype::NA;
+const int Genotype::PH_00;
+const int Genotype::PH_01;
+const int Genotype::PH_10;
+const int Genotype::PH_11;
+
 Genotype::Genotype(const string& s) : gt1(s.c_str()[0]), gt2(s.c_str()[2]),
 												phasing(s.c_str()[1] == '|') { }
 
@@ -16,15 +25,6 @@ pair<char,char> Genotype::gts() const {
 
 bool Genotype::includes(char gt) const {
 	return gt == gt1 || gt == gt2;
-}
-
-int Genotype::get_int_gt(const string& s) {
-	try {
-		return stoi(s.substr(0, 1)) + stoi(s.substr(2, 1));
-	}
-	catch(std::invalid_argument& e) {
-		return 3;
-	}
 }
 
 string Genotype::int_to_gt(int n) {
@@ -50,45 +50,29 @@ bool Genotype::conflicts(const Genotype& mat_gt, const Genotype& pat_gt,
 	}
 }
 
-bool Genotype::is_valid(const string& gt, int mat_gt, int pat_gt) {
-	if(gt.length() < 3)
-		return false;
-	
-	const string	mat_gts = possible_gts(mat_gt);
-	const string	pat_gts = possible_gts(pat_gt);
-	return (mat_gts.find(gt.substr(0, 1)) != string::npos &&
-			pat_gts.find(gt.substr(2, 1)) != string::npos) ||
-		   (mat_gts.find(gt.substr(2, 1)) != string::npos &&
-			pat_gts.find(gt.substr(0, 1)) != string::npos);
-}
-
-string Genotype::possible_gts(int gt) {
-	switch(gt) {
-		case  0: return "0";
-		case  3: return "1";
-		default: return "01";
+bool Genotype::is_valid(int gt, int mat_gt, int pat_gt) {
+	const vector<int>	mat_gts = possible_gts(mat_gt);
+	const vector<int>	pat_gts = possible_gts(pat_gt);
+	for(auto p = mat_gts.begin(); p != mat_gts.end(); ++p) {
+		for(auto q = pat_gts.begin(); q != pat_gts.end(); ++q) {
+			if(*p + *q == 0 && Genotype::is_00(gt))
+				return true;
+			else if(*p + *q == 1 && Genotype::is_01(gt))
+				return true;
+			else if(*p + *q == 2 && Genotype::is_11(gt))
+				return true;
+		}
 	}
+	return false;
 }
 
-int Genotype::sum_gt(const string& gt) {
-	return (int)((gt.c_str()[0] - '0') + (gt.c_str()[2] - '0'));
-}
-
-bool Genotype::is_all_NA(const vector<string>& GTs) {
-	for(auto p = GTs.begin(); p != GTs.end(); ++p) {
-		if(*p != "./.")
-			return false;
-	}
-	return true;
-}
-
-string Genotype::int_to_phased_gt(int gt_int) {
-	switch(gt_int) {
-		case 0:  return "0|0";
-		case 1:  return "1|0";
-		case 2:  return "0|1";
-		default: return "1|1";
-	}
+vector<int> Genotype::possible_gts(int gt) {
+	if(Genotype::is_00(gt))
+		return {0};
+	else if(Genotype::is_11(gt))
+		return {1};
+	else
+		return {0, 1};
 }
 
 size_t Genotype::find_key_position(const string& info, const string& key) {

@@ -9,6 +9,8 @@ from collections import defaultdict
 from typing import Optional
 
 from VCF import *
+from VCFGeno import VCFGenoBase, VCFGeno
+from GenoRecord import GenoRecord
 from VCFSelfHetero import VCFSelfHetero
 from VCFImpSelfRecord import SelfFillType, VCFImpSelfRecord
 from VCFSelfFillableRecord import VCFSelfFillableRecord
@@ -22,17 +24,17 @@ from common import *
 
 #################### VCFSelfFillable ####################
 
-class VCFSelfFillable(VCFBase, VCFSmallBase):
-	def __init__(self, header: list[list[str]],
-							records: list[VCFSelfFillableRecord]) -> None:
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
+class VCFSelfFillable(VCFGenoBase):
+	def __init__(self, samples: list[str],
+						records: list[VCFSelfFillableRecord],
+						vcf: VCFSmall) -> None:
+		VCFGenoBase.__init__(self, samples, vcf)
 		self.records: list[VCFSelfFillableRecord] = records
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def modify(self) -> None:
@@ -41,46 +43,32 @@ class VCFSelfFillable(VCFBase, VCFSmallBase):
 		for record_set in groups.generate_record_sets():
 			record_set.determine_parents_phasing()
 	
-	def find_prev_same_type_record(self, i: int, c: int
-										) -> Optional[VCFSelfFillableRecord]:
-		type = self.records[i].type
-		chromosome = self.records[i].v[0]
-		for j in range(i - 1, -1, -1):
-			record = self.records[j]
-			if record.v[0] != chromosome:
-				return None
-			if record.type == type and record.v[c][:3] != './.':
-				return self.records[j]
-		else:
-			return None
-	
-	def find_next_same_type_record(self, i: int, c: int
-										) -> Optional[VCFSelfFillableRecord]:
-		type = self.records[i].type
-		chromosome = self.records[i].v[0]
-		for j in range(i + 1, len(self.records)):
-			record = self.records[j]
-			if record.v[0] != chromosome:
-				return None
-			if record.type == type and record.v[c][:3] != './.':
-				return self.records[j]
-		else:
-			return None
-	
 	@staticmethod
 	def fill(vcfs: list[VCFSelfHetero],
 					records: list[VCFImpSelfRecord]) -> VCFSelfFillable:
 		merged_records = VCFSelfFillable.merge_records(vcfs, records)
-		vcf = VCFSelfFillable(vcfs[0].header, merged_records)
+		vcf = VCFSelfFillable(vcfs[0].samples, merged_records, vcfs[0].vcf)
 		vcf.modify()
 		return vcf
 	
 	@staticmethod
-	def merge_records(vcfs: list[VCFSelfHetero],
-						records: list[VCFImpSelfRecord],
-						) -> list[VCFSelfFillableRecord]:
-		all_records = [ VCFSelfFillableRecord.convert(record) for record in
-						chain((r for vcf in vcfs for r in vcf.records), records)
-		]
+	def merge_records(vcfs: list[VCFSelfHetero], records: list[VCFImpSelfRecord]
+											) -> list[VCFSelfFillableRecord]:
+		all_records = [ record for record in chain(
+							(r for vcf in vcfs for r in vcf.records), records) ]
 		all_records.sort(key=lambda record: record.index)
-		return all_records
+		probs = VCFSelfFillable.calc_probs(all_records, vcfs[0])
+		new_records = [ VCFSelfFillableRecord.convert(r, p)
+									for r, p in zip(all_records, probs) ]
+		return new_records
+	
+	@staticmethod
+	def calc_probs(records: list[VCFImpSelfRecord],
+					vcf: VCFGenoBase) -> list[list[tuple[float, float, float]]]:
+		orig_vcf = vcf.vcf
+		cols = orig_vcf.extract_columns(vcf.samples)
+		prob_table = []
+		for record, orig_record in zip(records, orig_vcf.records):
+			probs = orig_record.parse_PL(record.geno, cols)
+			prob_table.append(probs)
+		return prob_table

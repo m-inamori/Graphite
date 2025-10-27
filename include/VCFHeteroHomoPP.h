@@ -1,7 +1,7 @@
 #ifndef __VCFHETEROHOMOPP
 #define __VCFHETEROHOMOPP
 
-#include "VCFImpFamily.h"
+#include "VCFImpFamilyRecord.h"
 #include "VCFFillable.h"
 #include "group.h"
 #include "Map.h"
@@ -10,7 +10,6 @@
 #include "Baum_Welch_with_fixed_Ts.h"
 
 class Map;
-class Family;
 class KnownFamily;
 class PedigreeTable;
 class VCFOriginal;
@@ -18,8 +17,7 @@ class VCFOriginal;
 
 //////////////////// VCFHeteroHomoPP ////////////////////
 
-class VCFHeteroHomoPP : public VCFBase, public VCFSmallBase,
-						public VCFFamilyBase, public VCFMeasurable {
+class VCFHeteroHomoPP : public VCFFamilyBase, public VCFMeasurable {
 public:
 	struct ConfigThread {
 		const VCFSmall	*orig_vcf;
@@ -45,23 +43,17 @@ protected:
 	std::vector<VCFFillableRecord *>	records;
 	
 public:
-	VCFHeteroHomoPP(const std::vector<STRVEC>& h, const STRVEC& s,
-					const std::vector<VCFFillableRecord *>& rs, const Map& m);
+	VCFHeteroHomoPP(const STRVEC& s, const std::vector<VCFFillableRecord *>& rs,
+											const Map& m, const VCFSmall *vcf);
 	~VCFHeteroHomoPP();
 	
-	///// virtual methods for VCFSmallBase /////
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
 	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
 	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
@@ -77,18 +69,20 @@ public:
 	void fill();
 	
 private:
-	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
+	double record_cM(std::size_t i) const { return cM(records[i]->get_pos()); }
 	std::string make_seq(std::size_t i) const;
 	std::string impute_sample_seq(std::size_t i,
 								const std::vector<double>& cMs, double min_c);
-	std::string update_each(std::size_t i, std::size_t j, char c);
+	int update_each(std::size_t i, std::size_t j, char c);
 	void update(std::size_t i, const STRVEC& seqs);
 	
 	void impute_core(const RecordSet *record_set);
 	
 public:
-	static std::map<FillType, std::vector<VCFFillableRecord *>>
-				classify_records(const std::vector<VCFFamilyRecord *>& records);
+	static std::array<std::vector<VCFFillableRecord *>, 4>
+				classify_records(const STRVEC& samples,
+								 const std::vector<VCFFamilyRecord *>& records,
+								 const VCFSmall *ref_vcf);
 	static VCFFillable *merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 								  const VCFHeteroHomoPP *pat_vcf,
 				 const std::vector<VCFFillableRecord *>& homohomo_records,
@@ -100,8 +94,9 @@ public:
 											const TypeDeterminer *td);
 	static VCFFillableRecord *fill_NA(VCFRecord *record1,
 											const STRVEC& samples, int i);
-	static VCFHeteroHomoPP *merge(const VCFSmallBase *vcf_parents,
-									const VCFSmallBase *vcf_progenies,
+	static VCFHeteroHomoPP *merge(const VCFSmall *vcf_parents,
+									const VCFSmall *vcf_progenies,
+									const VCFSmall *orig_vcf,
 									const STRVEC& samples,
 									const Map& m, const Option *option);
 	

@@ -19,6 +19,9 @@ class KnownFamily(Family):
 	def is_both_unknown(self) -> bool:
 		return not self.mat_known and not self.pat_known
 	
+	def is_both_known(self) -> bool:
+		return self.mat_known and self.pat_known
+	
 	def is_one_unknown(self) -> bool:
 		return ((not self.mat_known and self.pat_known) or
 				(self.mat_known and not self.pat_known))

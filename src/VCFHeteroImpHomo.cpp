@@ -17,12 +17,12 @@ VCFHeteroImpHomo::DP VCFHeteroImpHomo::init_dp() const {
 // When heterozygous parents are determined
 // are the genotype of each progeny correct even if it does not crossover?
 vector<bool> VCFHeteroImpHomo::is_right_gt(int order, int gt_imputed,
-							const State& state, const VCFRecord *record) const {
+							const State& state, const GenoRecord *record) const {
 	const size_t	n = num_progenies();
 	vector<bool>	bs(n, false);
 	for(size_t i = 0; i < n; ++i) {
-		const int	gt = record->get_int_gt(i+2);
-		if(gt == -1) {
+		const int	gt = record->unphased(i+2);
+		if(Genotype::is_NA(gt)) {
 			// If it is N/A, do not crossover
 			// considering that there is no mistake
 			bs[i] = true;
@@ -37,10 +37,10 @@ vector<bool> VCFHeteroImpHomo::is_right_gt(int order, int gt_imputed,
 }
 
 vector<pair<VCFHeteroImpHomo::State, VCFHeteroImpHomo::Value>>
-VCFHeteroImpHomo::next_states(State state, const VCFRecord *record) const {
+VCFHeteroImpHomo::next_states(State state, const GenoRecord *record) const {
 	vector<pair<State, Value>>	states;
 	const int	n = (int)num_progenies();
-	const int	gt_imputed = record->get_int_gt(imputed_index());
+	const int	gt_imputed = record->unphased(imputed_index());
 	for(int order = 0; order < 2; ++order) {
 		const vector<bool>	bs = is_right_gt(order, gt_imputed, state, record);
 		int	num_falses = 0;
@@ -85,7 +85,7 @@ VCFHeteroImpHomo::next_states(State state, const VCFRecord *record) const {
 }
 
 VCFHeteroImpHomo::DP VCFHeteroImpHomo::update_dp(const DP& dp,
-												const VCFRecord *record) const {
+											const GenoRecord *record) const {
 	const int	n = num_progenies();
 	const int	L = (n*2+1) << n;
 	DP	new_dp(L, Value(INF, State(0, n), 0));
@@ -108,19 +108,18 @@ void VCFHeteroImpHomo::trace_back(State state, const vector<DP>& dps) {
 	for(size_t k = records.size(); k > 0; --k) {
 		const size_t	i = k - 1;
 		const int	order = dps[i+1][state.s].order;
-		VCFRecord	*record = records[i];
-		string	hetero_GT = order == 0 ? "0|1" : "1|0";
-		record->set_GT(non_imputed_index(), hetero_GT);
-		const char	gt_imp = record->get_gt(imputed_index()).c_str()[0];
-		for(size_t j = 2; j < samples.size(); ++j) {
+		GenoRecord	*record = records[i];
+		const int	hetero_GT = order == 0 ? Genotype::PH_01 : Genotype::PH_10;
+		record->set_geno(non_imputed_index(), hetero_GT);
+		const char	gt_imp = record->get_allele(imputed_index(), 0);
+		for(size_t j = 2; j < get_samples().size(); ++j) {
 			const int	h = state.haplotype(j-2);
-			stringstream	ss;
+//if(j >= record->get_geno().size())
+//cerr << "j : " << j << " size : " << get_samples().size() << " " << record->get_geno().size() << endl;
 			if(is_mat_hetero)
-				ss << (order ^ h) << '|' << gt_imp;
+				record->set_geno(j, Genotype::from_alleles(order^h, gt_imp));
 			else
-				ss << gt_imp << '|' << (order ^ h);
-			const string	GT = ss.str();
-			record->set_GT(j, GT);
+				record->set_geno(j, Genotype::from_alleles(gt_imp, order^h));
 		}
 		state = dps[k][state.s].state;
 	}

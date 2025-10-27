@@ -5,19 +5,22 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from itertools import *
-from VCF import *
+
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase
+from GenoRecord import GenoRecord
 from Haplotype import *
 from Map import *
 from typing import Iterator, Tuple, TypeVar
 
-R = TypeVar('R', bound='VCFRecord', covariant=True)
+R = TypeVar('R', bound='GenoRecord', covariant=True)
 
 
 #################### VCFImputable ####################
 
-class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
-	def __init__(self, map_: Map):
-		VCFSmallBase.__init__(self)
+class VCFImputable(VCFGenoBase, VCFMeasurable, ABC):
+	def __init__(self, samples: list[str], map_: Map, vcf: VCFSmall):
+		VCFGenoBase.__init__(self, samples, vcf)
 		VCFMeasurable.__init__(self, map_)
 	
 	@abstractmethod
@@ -29,7 +32,7 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 		pass
 	
 	def get_int_gts(self, sample_index: int) -> list[int]:
-		int_gts: list[int] = [ self.get_record(i).get_int_gt(sample_index)
+		int_gts: list[int] = [ self.get_record(i).unphased(sample_index)
 												for i in range(len(self)) ]
 		return int_gts
 	
@@ -37,8 +40,8 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 		hap = self.clip_raw_haplotype(sample_index, side)
 		return Haplotype(hap, sample_index, side)
 	
-	def is_block(self, record: VCFRecord, rs: list[R]) -> bool:
-		length = self.cM(record.pos()) - self.cM(rs[0].pos())
+	def is_block(self, record: GenoRecord, rs: list[R]) -> bool:
+		length = self.cM(record.pos) - self.cM(rs[0].pos)
 		if length < 1.0:
 			return True
 		elif len(rs) < 10 and length < 10.0:
@@ -51,7 +54,7 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 		int_gts: list[int] = self.get_int_gts(sample_index)
 		haps_mat: list[Haplotype] = self.collect_haplotypes_mat(sample_index)
 		haps_pat: list[Haplotype] = self.collect_haplotypes_pat(sample_index)
-		seed: int = self.get_record(0).pos()
+		seed: int = self.get_record(0).pos
 		hap = Haplotype.impute(int_gts, haps_mat, haps_pat, prev_hap, seed)
 		if exec:	# actually impute?
 			self.set_haplotype(hap, sample_index)
@@ -61,5 +64,5 @@ class VCFImputable(VCFSmallBase, VCFMeasurable, ABC):
 		hap_mat, hap_pat = hap
 		for i in range(len(self)):
 			record = self.get_record(i)
-			gt = "%d|%d" % (hap_mat.hap[i], hap_pat.hap[i])
-			record.set_GT(sample_index, gt)
+			gt = hap_mat.hap[i] | (hap_pat.hap[i] << 1) | 4
+			record.geno[sample_index] = gt

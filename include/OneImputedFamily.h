@@ -2,8 +2,10 @@
 #define __ONEIMPUTEDFAMILY
 
 #include <vector>
-#include "VCF.h"
 
+class VCFSmallBase;
+class VCFSmall;
+class VCFGeno;
 class VCFOneParentImputedBase;
 class Family;
 class KnownFamily;
@@ -24,10 +26,6 @@ namespace OneImputedFamily {
 									first(i), num_threads(n), vcfs(vcfs_) { }
 	};
 	
-	VCFSmallBase *impute(const VCFSmall *orig_vcf, const VCFSmall *imputed_vcf,
-							const std::vector<std::vector<int>>& ref_haps,
-							const std::vector<const KnownFamily *>& families,
-							const OptionSmall& op);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const std::vector<std::vector<int>>& ref_haps,
 									std::size_t L, const OptionSmall& op);
@@ -35,7 +33,7 @@ namespace OneImputedFamily {
 									std::size_t L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFOneParentImputedBase *>& vcfs, int T);
-	VCFSmallBase *impute(const VCFSmall *orig_vcf, const VCFSmall *imputed_vcf,
+	VCFGenoBase *impute(const VCFSmall *orig_vcf, const VCFGeno *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
 							const OptionSmall& op);

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include "../include/VCFGeno.h"
 #include "../include/SelfFamily.h"
 #include "../include/VCFSelfParentImputed.h"
 #include "../include/VCFSelfProgenyImputed.h"
@@ -13,17 +14,17 @@ using namespace std;
 
 //////////////////// SelfFamily ////////////////////
 
-VCFSmallBase *SelfFamily::impute(const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
-									const vector<vector<int>>& ref_haps,
-									const vector<const KnownFamily *>& families,
-									const vector<string>& imputed_samples,
-									const OptionSmall& op) {
+VCFGeno *SelfFamily::impute(const VCFSmall *orig_vcf,
+							const VCFGeno *imputed_vcf,
+							const vector<vector<int>>& ref_haps,
+							const vector<const KnownFamily *>& families,
+							const vector<string>& imputed_samples,
+							const OptionSmall& op) {
 	const size_t	N = families.size();
 	if(N == 0)
 		return NULL;
 	
-	vector<const VCFSmallBase *>	vcfs;
+	vector<const VCFGenoBase *>	vcfs;
 	const set<string>	set_imputed_samples(imputed_samples.begin(),
 											imputed_samples.end());
 	for(size_t i = 0; i < N; ++i) {
@@ -45,11 +46,11 @@ VCFSmallBase *SelfFamily::impute(const VCFSmall *orig_vcf,
 				if(set_imputed_samples.find(prog) == set_imputed_samples.end())
 					samples.push_back(prog);
 			}
-			auto	*vcf = VCFSmall::create_by_two_vcfs(imputed_vcf,
+			auto	*vcf = VCFGeno::create_by_two_vcfs(imputed_vcf,
 														orig_vcf, samples);
-			auto	*vcf1 = new VCFSelfParentImputed(vcf->get_header(), samples,
+			auto	*vcf1 = new VCFSelfParentImputed(samples,
 														vcf->get_records(),
-														op.map, 0.01);
+														op.map, 0.01, orig_vcf);
 				vcf1->impute();
 			vcfs.push_back(vcf1);
 			vcf->clear_records();
@@ -63,11 +64,11 @@ VCFSmallBase *SelfFamily::impute(const VCFSmall *orig_vcf,
 				if(set_imputed_samples.find(prog) == set_imputed_samples.end())
 					samples.push_back(prog);
 			}
-			auto	*vcf = VCFSmall::create_by_two_vcfs(imputed_vcf,
+			auto	*vcf = VCFGeno::create_by_two_vcfs(imputed_vcf,
 														orig_vcf, samples);
-			auto	*vcf1 = new VCFSelfProgenyImputed(vcf->get_header(),
-													samples, vcf->get_records(),
-													ref_haps, 0, op.map, 0.01);
+			auto	*vcf1 = new VCFSelfProgenyImputed(samples, vcf->get_records(),
+														ref_haps, 0, op.map, 0.01,
+														orig_vcf);
 			vcf1->impute();
 			vcfs.push_back(vcf1);
 			vcf->clear_records();
@@ -79,7 +80,7 @@ VCFSmallBase *SelfFamily::impute(const VCFSmall *orig_vcf,
 		return NULL;
 	
 	cout << vcfs.size() << " self families have been imputed." << endl;
-	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
 }

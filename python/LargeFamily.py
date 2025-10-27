@@ -11,15 +11,16 @@ from multiprocessing import Pool
 from typing import Optional
 
 from VCF import *
-from VCFFamily import VCFFamily, VCFFamilyBase, VCFFamilyRecord
+from VCFGeno import VCFGeno
+from VCFFamily import VCFFamily, VCFFamilyRecord
 from pedigree import PedigreeTable, Family
 from VCFHeteroHomo import *
 from VCFHomoHomo import VCFHomoHomoRecord
-from VCFHeteroHeteroLite import VCFHeteroHeteroLiteRecord
+from VCFHeteroHeteroLiteRecord import VCFHeteroHeteroLiteRecord
 from VCFJunkRecord import *
 from VCFFillable import *
 from VCFHeteroHomoPP import *
-from VCFImpFamily import VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
 from Map import *
 import ClassifyRecord as CR
 from KnownFamily import KnownFamily
@@ -31,44 +32,45 @@ from common import *
 
 #################### process ####################
 
-def create_heterohomo_record(v: list[str], family: KnownFamily, i: int,
-					wrong_type: str, pair: ParentComb) -> VCFHeteroHomoRecord:
+def create_heterohomo_record(pos: int, geno: list[int], family: KnownFamily,
+			i: int, wrong_type: str, pair: ParentComb) -> VCFHeteroHomoRecord:
 	# 片親が不明の時、Genotypeを補う
 	total_int_gt = 1 if pair == ParentComb.P00x01 else 3
 	if not family.mat_known:
-		pat_int_gt = Genotype.gt_to_int(v[10])
+		pat_int_gt = Genotype.unphased(geno[1])
 		mat_int_gt = total_int_gt - pat_int_gt
 		if pat_int_gt == 3 or mat_int_gt < 0 or 2 < mat_int_gt:
 			wrong_type = 'Modifiable'
 		else:
-			v[9] = Genotype.int_to_gt(mat_int_gt)
+			geno[0] = mat_int_gt
 	elif not family.pat_known:
-		mat_int_gt = Genotype.get_int_gt(v[9])
+		mat_int_gt = Genotype.unphased(geno[0])
 		pat_int_gt = total_int_gt - mat_int_gt
 		if mat_int_gt == 3 or pat_int_gt < 0 or 2 < pat_int_gt:
 			wrong_type = 'Modifiable'
 		else:
-			v[10] = Genotype.int_to_gt(pat_int_gt)
-	return VCFHeteroHomoRecord(v, family.samples(), i, wrong_type, pair)
+			geno[1] = pat_int_gt
+	return VCFHeteroHomoRecord(pos, geno, i, wrong_type, pair)
 
 def classify_record(i: int, vcf: VCFFamily, td: TypeDeterminer,
 					family: KnownFamily,
 					heho_records: list[Optional[VCFHeteroHomoRecord]],
 					other_records: list[Optional[VCFImpFamilyRecord]]) -> None:
 	record = vcf.records[i]
-	samples = record.samples
+	pos = record.pos
+	geno = vcf.records[i].geno
+	samples = vcf.samples
 	wrong_type, pair = CR.classify_record(record, td, family.is_one_unknown())
-	v = vcf.records[i].v
 	if pair.is_homohomo():
-		record_ = VCFHomoHomoRecord(v, samples, i, wrong_type, pair)
+		record_ = VCFHomoHomoRecord(pos, geno, i, wrong_type, pair)
 		other_records[i] = record_.impute()
 	elif pair.is_heterohomo():
-		heho_records[i] = create_heterohomo_record(v, family, i,
-													wrong_type, pair)
+		heho_records[i] = create_heterohomo_record(pos, geno, family, i,
+														wrong_type, pair)
 	elif pair == ParentComb.P01x01:
-		other_records[i] = VCFHeteroHeteroLiteRecord(v, samples, i, wrong_type)
+		other_records[i] = VCFHeteroHeteroLiteRecord(pos, geno, i, wrong_type)
 	else:		# 候補が無い
-		other_records[i] = VCFJunkRecord(v, samples, i, wrong_type)
+		other_records[i] = VCFJunkRecord(pos, geno, i, wrong_type)
 
 def classify_records_parallel(v: tuple[VCFFamily, TypeDeterminer, KnownFamily,
 									   list[Optional[VCFHeteroHomoRecord]],
@@ -84,7 +86,7 @@ def classify_records_parallel(v: tuple[VCFFamily, TypeDeterminer, KnownFamily,
 def classify_records(vcf: VCFFamily, family: KnownFamily,
 						option: Option) -> tuple[list[VCFHeteroHomoRecord],
 												 list[VCFImpFamilyRecord]]:
-	td = CR.get_typedeterminer(vcf.num_samples()-2, option.ratio)
+	td = CR.get_typedeterminer(vcf.num_progenies(), option.ratio)
 	records1: list[Optional[VCFHeteroHomoRecord]] = [None] * len(vcf)
 	records2: list[Optional[VCFImpFamilyRecord]] = [None] * len(vcf)
 	args = [ (vcf, td, family, records1, records2, i, option.num_threads)
@@ -127,19 +129,19 @@ def collect_same_parent_families(families: list[KnownFamily]
 
 def sort_records(rs: list[tuple[list[VCFHeteroHomoRecord],
 								list[VCFImpFamilyRecord], int]]
-										) -> list[list[VCFImpFamilyRecord]]:
+							) -> list[list[tuple[VCFImpFamilyRecord, int]]]:
 	indices1 = [ rs1[-1].index if rs1 else 0 for rs1, _, __ in rs ]
 	indices2 = [ rs2[-1].index if rs2 else 0 for _, rs2, __ in rs ]
 	max_index = max(indices1 + indices2)
-	recordss: list[list[VCFImpFamilyRecord]] = \
-							[ [] for _ in range(max_index + 1) ]
-	for rs1, rs2, _ in rs:
+	recordss: list[list[tuple[VCFImpFamilyRecord, int]]] = \
+								[ [] for _ in range(max_index + 1) ]
+	for rs1, rs2, parent_index in rs:
 		for r1 in rs1:
 			if r1.parents_wrong_type == 'Right':
-				recordss[r1.index].append(r1)
+				recordss[r1.index].append((r1, parent_index))
 		for r2 in rs2:
 			if r2.pair.is_homohomo():
-				recordss[r2.index].append(r2)
+				recordss[r2.index].append((r2, parent_index))
 	return recordss
 
 def modify_00x11_each(rs: list[tuple[list[VCFHeteroHomoRecord],
@@ -157,8 +159,11 @@ def modify_00x11_each(rs: list[tuple[list[VCFHeteroHomoRecord],
 def modify_00x11(heho_recordss: list[list[VCFHeteroHomoRecord]],
 				 other_recordss: list[list[VCFImpFamilyRecord]],
 				 families: list[KnownFamily]) -> None:
+	# { parent: [(family index, parent index)] }
 	fams = collect_same_parent_families(families)
-	for parent, v in fams:
+	# やり方を変える
+	# どの家系のどちらの親かだけ持っておけばよい
+	for _, v in fams:
 		rs = [ (heho_recordss[fam_index], other_recordss[fam_index], p_index)
 												for fam_index, p_index in v ]
 		modify_00x11_each(rs)
@@ -207,15 +212,15 @@ def impute_hetero_homo(orig_vcf: VCFSmall, families: list[KnownFamily],
 	# 家系ごとに処理する
 	vcfss: list[list[VCFHeteroHomo]] = []
 	for records, others, family in zip(heho_recordss, other_recordss, families):
-		header = orig_vcf.trim_header(family.samples())
-		vcfs, unused = VCFHeteroHomo.impute_vcfs(records, header, geno_map)
+		vcfs, unused = VCFHeteroHomo.impute_vcfs(records, family.samples(),
+															geno_map, orig_vcf)
 		vcfss.append(vcfs)
 		others.extend(unused)
 	
 	return (vcfss, other_recordss)
 
 def impute(orig_vcf: VCFSmall, families: list[KnownFamily],
-							  geno_map: Map, option: Option) -> VCFSmall:
+							  geno_map: Map, option: Option) -> VCFGeno:
 	vcfss, other_recordss = impute_hetero_homo(orig_vcf, families,
 															geno_map, option)
 	

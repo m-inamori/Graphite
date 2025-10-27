@@ -6,20 +6,19 @@
 using namespace std;
 
 VCFBothParentImputed::VCFBothParentImputed(
-							const std::vector<STRVEC>& header,
 							const STRVEC& s,
 							const std::vector<VCFFamilyRecord *>& rs,
-							const Map& map_, double w) :
-				VCFBase(header, s), VCFSmallBase(), records(rs),
-				prog_imputer(new ProgenyImputer(records, map_, w)) { }
+							const Map& map_, double w, const VCFSmall *vcf) :
+										VCFFamilyBase(s, vcf),
+										records(rs),
+										prog_imputer(records, map_, w) { }
 
 VCFBothParentImputed::~VCFBothParentImputed() {
 	Common::delete_all(records);
-	delete prog_imputer;
 }
 
 void VCFBothParentImputed::impute() {
-	for(size_t ic = 0; ic < num_samples() - 2; ++ic) {
-		prog_imputer->impute(ic);
+	for(size_t ic = 0; ic < num_progenies(); ++ic) {
+		prog_imputer.impute(ic);
 	}
 }

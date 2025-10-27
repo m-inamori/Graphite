@@ -3,30 +3,42 @@
 
 #include "VCFFamily.h"
 #include "VCFOneParentImputedBase.h"
+#include "ParentImputer.h"
+#include "ProgenyImputer.h"
 
 class Map;
-class ParentImputer;
-class ProgenyImputer;
 
 
 //////////////////// VCFOneParentImputedRough ////////////////////
 
 class VCFOneParentImputedRough : public VCFOneParentImputedBase {
-	const std::vector<VCFFamilyRecord *>	ref_records;
-	ParentImputer	*parent_imputer;
-	ProgenyImputer	*prog_imputer;
+	const std::vector<VCFFamilyRecord *>	records;
+	ParentImputer	parent_imputer;
+	ProgenyImputer	prog_imputer;
 	
 public:
-	VCFOneParentImputedRough(const std::vector<STRVEC>& header, const STRVEC& s,
-						const std::vector<VCFFamilyRecord *>& records,
-						const std::vector<std::vector<int>>& ref_haps,
-						bool is_mat_imputed, const Map& map_, double w);
+	VCFOneParentImputedRough(const STRVEC& s,
+								const std::vector<VCFFamilyRecord *>& records,
+								const std::vector<std::vector<int>>& ref_haps,
+								bool is_mat_imputed, const Map& map_, double w,
+								const VCFSmall *vcf);
 	VCFOneParentImputedRough(const VCFOneParentImputedRough&) = delete;
 	VCFOneParentImputedRough& operator=(const VCFOneParentImputedRough&) = delete;
 	~VCFOneParentImputedRough();
 	
-	///// virtual methods /////
-	void impute() override;
-	std::size_t amount() const override;
+	///// virtual methods for VCFGenoBase /////
+	std::size_t size() const override { return records.size(); }
+	GenoRecord *get_record(std::size_t i) const override {
+		return records[i];
+	}
+	
+	///// virtual methods for VCFFamilyBase /////
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
+		return records[i];
+	}
+	
+	///// non-virtual methods /////
+	std::size_t amount() const;
+	void impute();
 };
 #endif

@@ -4,7 +4,7 @@
 
 #include <vector>
 
-#include "VCFImpFamily.h"
+#include "VCFImpFamilyRecord.h"
 #include "RecordSet.h"
 
 class VCFFillableRecord;

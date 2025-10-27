@@ -24,9 +24,10 @@ FillType VCFHeteroHomoRecord::get_fill_type() const {
 		return FillType::IMPUTABLE;
 }
 
-vector<int> VCFHeteroHomoRecord::genotypes_from_hetero_parent() const {
-	const vector<int>	gts = this->get_int_gts();
-	const int	homo_gt = this->is_mat_hetero() ? pat_int_gt() : mat_int_gt();
+vector<int> VCFHeteroHomoRecord::alleles_from_hetero_parent() const {
+	const vector<int>	gts = this->unphased_gts();
+	const int	homo_gt = this->is_mat_hetero() ? unphased_pat() :
+													unphased_mat();
 	vector<int>	which_froms;
 	for(auto p = gts.begin() + 2; p != gts.end(); ++p) {
 		const int	gt = homo_gt == 0 ? *p : *p - 1;
@@ -38,35 +39,39 @@ vector<int> VCFHeteroHomoRecord::genotypes_from_hetero_parent() const {
 void VCFHeteroHomoRecord::set_haplo(int h) {
 	const int	hetero_index = this->is_mat_hetero() ? 0 : 1;
 	const int	homo_index = hetero_index == 0 ? 1 : 0;
-	set_GT(hetero_index, h == 0 ? "0|1" : "1|0");
-	set_GT(homo_index, get_gt(homo_index).c_str()[0] == '0' ? "0|0" : "1|1");
+	this->set_geno(hetero_index, h == 0 ? Genotype::PH_01 : Genotype::PH_10);
+	this->set_geno(homo_index, unphased(homo_index) == Genotype::UN_00 ?
+											Genotype::PH_00 : Genotype::PH_11);
 	
-	const auto	gts = this->genotypes_from_hetero_parent();
+	const auto	gts = this->alleles_from_hetero_parent();
 	for(size_t i = 0; i < gts.size(); ++i)
 		this->which_comes_from[i] = gts[i] == -1 ? -1 : (gts[i] == h ? 0 : 1);
 }
 
-void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(int w, int i) {
+void VCFHeteroHomoRecord::set_int_gt_by_which_comes_from(int w, size_t i) {
 	this->which_comes_from[i] = w;
-	const string&	mat_gt = this->v[9];
-	const string&	pat_gt = this->v[10];
+	const int	mat_gt = this->mat_gt();
+	const int	pat_gt = this->pat_gt();
 	if(this->is_mat_hetero()) {
-		const string	homo_gt = pat_gt.substr(0, 1);
-		this->set_GT(i+2, mat_gt.substr(w*2, 1) + '|' + homo_gt);
+		const int	pat_allele = pat_gt & 1;
+		const int	mat_allele = Genotype::get_allele(mat_gt, w);
+		set_geno(i+2,  Genotype::from_alleles(mat_allele, pat_allele));
 	}
 	else {
-		const string	homo_gt = mat_gt.substr(0, 1);
-		this->set_GT(i+2, homo_gt + '|' + pat_gt.substr(w*2, 1));
+		const int	mat_allele = mat_gt & 1;
+		const int	pat_allele = Genotype::get_allele(pat_gt, w);
+		set_geno(i+2,  Genotype::from_alleles(mat_allele, pat_allele));
 	}
 }
 
 //////////////////// VCFHeteroHomo ////////////////////
 
-VCFHeteroHomo::VCFHeteroHomo(const vector<STRVEC>& h, const STRVEC& s,
+VCFHeteroHomo::VCFHeteroHomo(const STRVEC& s,
 								const vector<VCFHeteroHomoRecord *>& rs,
-								const Map& m) :
-						VCFBase(h, s), VCFSmallBase(),
-						VCFFamilyBase(), VCFMeasurable(m), records(rs) { }
+								const Map& m, const VCFSmall *vcf) :
+													VCFFamilyBase(s, vcf),
+													VCFMeasurable(m),
+													records(rs) { }
 
 VCFHeteroHomo::~VCFHeteroHomo() {
 	for(auto p = records.begin(); p != records.end(); ++p)
@@ -76,7 +81,7 @@ VCFHeteroHomo::~VCFHeteroHomo() {
 InvGraph VCFHeteroHomo::make_graph(double max_dist) const {
 	vector<vector<int>>	gtss;
 	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
-		gtss.push_back((*p)->genotypes_from_hetero_parent());
+		gtss.push_back((*p)->alleles_from_hetero_parent());
 	}
 	
 	vector<double>	cMs;
@@ -193,8 +198,8 @@ VCFHeteroHomo *VCFHeteroHomo::make_subvcf(const InvGraph& graph) const {
 		record->set_haplo(haplo[i]);
 		records.push_back(record);
 	}
-	return new VCFHeteroHomo(this->header, this->samples,
-										records, this->get_map());
+	return new VCFHeteroHomo(this->samples, records,
+									this->get_map(), this->get_ref_vcf());
 }
 
 bool operator <(const InvGraph& g1, const InvGraph& g2) {
@@ -268,6 +273,7 @@ string VCFHeteroHomo::clean_each_sample_seq(size_t i,
 void VCFHeteroHomo::clean_each_sample(size_t i, const vector<double>& cMs,
 																double min_c) {
 	const string	cleaned_seq = clean_each_sample_seq(i, cMs, min_c);
+	vector<int>	ws(this->size());
 	for(size_t k = 0; k < this->size(); ++k) {
 		VCFHeteroHomoRecord	*record = this->records[k];
 		const int	w = cleaned_seq.c_str()[k] - '0';
@@ -326,8 +332,9 @@ pair<vector<VCFHeteroHomo *>, vector<VCFHeteroHomoRecord *>>
 	if(this->records.empty()) {
 		// If it do not create a new VCF,
 		// it will delete the VCF that cannot be deleted.
-		VCFHeteroHomo	*empty_vcf = new VCFHeteroHomo(header, samples,
-								vector<VCFHeteroHomoRecord *>(), get_map());
+		VCFHeteroHomo	*empty_vcf = new VCFHeteroHomo(samples,
+												vector<VCFHeteroHomoRecord *>(),
+												get_map(), get_ref_vcf());
 		return make_pair(vector<VCFHeteroHomo *>(1, empty_vcf),
 									vector<VCFHeteroHomoRecord *>());
 	}
@@ -349,10 +356,8 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 	if(this->records.empty() || other->records.empty())
 		return pair<int, int>(0, 0);
 	
-	const string	mat_GT1 = this->records.front()->get_GT(0);
-	const string	mat_GT2 = other->records.front()->get_GT(0);
-	const int	hetero_col1 = mat_GT1.c_str()[0] != mat_GT1.c_str()[2] ? 9 : 10;
-	const int	hetero_col2 = mat_GT2.c_str()[0] != mat_GT2.c_str()[2] ? 9 : 10;
+	const int	hetero_index1 = this->is_mat_hetero() ? 0 : 1;
+	const int	hetero_index2 = other->is_mat_hetero() ? 0 : 1;
 	int	num_match = 0;
 	int	num_unmatch = 0;
 	size_t	k = 0;
@@ -360,15 +365,16 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 	while(k < this->size() && l < other->size()) {
 		const VCFHeteroHomoRecord	*record1 = this->records[k];
 		const VCFHeteroHomoRecord	*record2 = other->records[l];
-		if(record1->pos() == record2->pos()) {
-			if(record1->get_v()[hetero_col1] == record2->get_v()[hetero_col2])
+		if(record1->get_pos() == record2->get_pos()) {
+			if(record1->get_geno()[hetero_index1] ==
+						record2->get_geno()[hetero_index2])
 				num_match += 1;
 			else
 				num_unmatch += 1;
 		}
-		if(record1->pos() <= record2->pos())
+		if(record1->get_pos() <= record2->get_pos())
 			k += 1;
-		if(record1->pos() >= record2->pos())
+		if(record1->get_pos() >= record2->get_pos())
 			l += 1;
 	}
 	
@@ -378,18 +384,18 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 void VCFHeteroHomo::inverse_hetero_parent_phases() {
 	const int	hetero_index = this->is_mat_hetero() ? 0 : 1;
 	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
-		if((*p)->get_GT(hetero_index) == "0|1")
-			(*p)->set_GT(hetero_index, "1|0");
+		if((*p)->get_geno()[hetero_index] == Genotype::PH_01)
+			(*p)->set_geno(hetero_index, Genotype::PH_10);
 		else
-			(*p)->set_GT(hetero_index, "0|1");
+			(*p)->set_geno(hetero_index, Genotype::PH_01);
 	}
 }
 
 // Create a pair of VCFHeteroHomo for each Family and store it for each parent
 tuple<VCFHeteroHomo *, VCFHeteroHomo *, vector<VCFHeteroHomoRecord *>>
 VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
-								  const vector<STRVEC>& header,
-								  const STRVEC& samples, const Map& geno_map) {
+								  const STRVEC& samples, const Map& geno_map,
+								  const VCFSmall *vcf) {
 	// classify records
 	vector<VCFHeteroHomoRecord *>	heho_mat_records;
 	vector<VCFHeteroHomoRecord *>	heho_pat_records;
@@ -406,10 +412,10 @@ VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
 			heho_pat_records.push_back(record);
 	}
 	
-	auto	*vcf_mat = new VCFHeteroHomo(header, samples,
-											heho_mat_records, geno_map);
-	auto	*vcf_pat = new VCFHeteroHomo(header, samples,
-											heho_pat_records, geno_map);
+	auto	*vcf_mat = new VCFHeteroHomo(samples,
+											heho_mat_records, geno_map, vcf);
+	auto	*vcf_pat = new VCFHeteroHomo(samples,
+											heho_pat_records, geno_map, vcf);
 	return make_tuple(vcf_mat, vcf_pat, unused_records);
 }
 
@@ -417,9 +423,9 @@ VCFHeteroHomo::make_VCFHeteroHomo(const vector<VCFHeteroHomoRecord *>& records,
 // and change the phase to be as same as possible
 ImpResult VCFHeteroHomo::clean_vcfs(
 							const vector<VCFHeteroHomoRecord *>& records,
-							const vector<STRVEC>& header, const STRVEC& samples,
-							const Map& geno_map, int num_threads) {
-	auto	tuple1 = make_VCFHeteroHomo(records, header, samples, geno_map);
+							const STRVEC& samples, const Map& geno_map,
+							int num_threads, const VCFSmall *vcf) {
+	auto	tuple1 = make_VCFHeteroHomo(records, samples, geno_map, vcf);
 	auto	*vcf_mat = get<0>(tuple1);
 	auto	*vcf_pat = get<1>(tuple1);
 	auto	unused = get<2>(tuple1);

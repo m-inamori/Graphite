@@ -9,8 +9,12 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator
 import random
 import time
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase
+from GenoRecord import GenoRecord
 from VCFFamily import *
-from VCFImpFamily import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from Genotype import Genotype
 from TypeDeterminer import ParentComb
 from Map import *
 import Imputer
@@ -23,17 +27,17 @@ from invgraph import InvGraph
 #################### VCFHeteroHomoRecord ####################
 
 class VCFHeteroHomoRecord(VCFImpFamilyRecord):
-	def __init__(self, v: list[str], samples: list[str],
+	def __init__(self, pos: int, geno: list[int],
 							i: int, parents_wrong_type: str,
 							pair: ParentComb) -> None:
-		super().__init__(v, samples, i, parents_wrong_type, pair)
+		super().__init__(pos, geno, i, parents_wrong_type, pair)
 		self.which_comes_from: list[int] = [-1] * self.num_progenies()
 	
 	def is_mat_hetero(self) -> bool:
-		return self.mat_int_gt() == 1
+		return self.unphased_mat() == 1
 	
 	def is_pat_hetero(self) -> bool:
-		return self.pat_int_gt() == 1
+		return self.unphased_pat() == 1
 	
 	def is_imputable(self) -> bool:
 		return self.parents_wrong_type == 'Right'
@@ -44,58 +48,62 @@ class VCFHeteroHomoRecord(VCFImpFamilyRecord):
 		else:
 			return FillType.IMPUTABLE
 	
-	def genotypes_from_hetero_parent(self) -> list[int]:
+	def alleles_from_hetero_parent(self) -> list[int]:
 		def encode(gt: int, homo_parent: int) -> int:
-			gt_ = gt if homo_parent == 0 else gt - 1
+			gt_ = gt if homo_parent == Genotype.UN_00 else gt - 1
 			if gt_ not in (0, 1):
 				return -1
 			else:
 				return gt_
 		
-		gts = self.get_int_gts()
-		homo = self.pat_int_gt() if self.is_mat_hetero() else self.mat_int_gt()
+		gts = self.unphased_gts()
+		# homoのGenotypeは0/0か1/1か
+		homo = (self.unphased_pat() if self.is_mat_hetero()
+									else self.unphased_mat())
 		return [ encode(gt, homo) for gt in gts[2:] ]
 	
 	def set_haplo(self, h: int) -> None:
-		hetero_index = 0 if self.mat_int_gt() == 1 else 1
+		hetero_index = 0 if self.is_mat_hetero() else 1
 		homo_index = 1 if hetero_index == 0 else 0
-		self.set_GT(hetero_index, '0|1' if h == 0 else '1|0')
-		self.set_GT(homo_index, '0|0' if self.get_gt(homo_index)[0] == '0'
-																	else '1|1')
+		self.geno[hetero_index] = Genotype.PH_01 if h == 0 else Genotype.PH_10
+		self.geno[homo_index] = (Genotype.PH_00
+								 if self.unphased(homo_index) == Genotype.UN_00
+								 else Genotype.PH_11)
 		
-		gts = self.genotypes_from_hetero_parent()
+		gts = self.alleles_from_hetero_parent()
 		for i, gt in enumerate(gts):
 			self.which_comes_from[i] = -1 if gt == -1 else 0 if gt == h else 1
 	
 	def set_int_gt_by_which_comes_from(self, ws: list[int]) -> None:
+		# 親はphasingされている前提
 		self.which_comes_from = ws
-		mat_gt: str = self.v[9]
-		pat_gt: str = self.v[10]
+		mat_gt: int = self.mat_gt()
+		pat_gt: int = self.pat_gt()
 		if self.is_mat_hetero():
-			pat_int_gt = int(pat_gt[0])
+			pat_allele = pat_gt & 1
 			for i in range(self.num_progenies()):
-				self.set_GT(i+2, '%s|%d' % (mat_gt[ws[i]*2], pat_int_gt))
+				mat_allele = (mat_gt >> ws[i]) & 1
+				self.geno[i+2] = Genotype.from_alleles(mat_allele, pat_allele)
 		else:
-			mat_int_gt = int(mat_gt[0])
+			mat_allele = mat_gt & 1
 			for i in range(self.num_progenies()):
-				self.set_GT(i+2, '%d|%s' % (mat_int_gt, pat_gt[ws[i]*2]))
+				pat_allele = (pat_gt >> ws[i]) & 1
+				self.geno[i+2] = Genotype.from_alleles(mat_allele, pat_allele)
 
 
 #################### VCFHeteroHomo ####################
 
-class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
-	def __init__(self, header: list[list[str]],
-					records: list[VCFHeteroHomoRecord], map_: Map) -> None:
-		self.records = records
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
-		VCFFamilyBase.__init__(self)
+class VCFHeteroHomo(VCFFamilyBase, VCFMeasurable):
+	def __init__(self, samples: list[str], records: list[VCFHeteroHomoRecord],
+											map_: Map, vcf: VCFSmall) -> None:
+		VCFFamilyBase.__init__(self, samples, vcf)
 		VCFMeasurable.__init__(self, map_)
+		self.records: list[VCFHeteroHomoRecord] = records
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
@@ -142,8 +150,8 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		graph: InvGraph = InvGraph()
 		for k in range(L):
 			graph[Node(k)] = []
-		gtss = [ r.genotypes_from_hetero_parent() for r in self.records ]
-		cMs = [ self.cM(record.pos()) for record in self.records ]
+		gtss = [ r.alleles_from_hetero_parent() for r in self.records ]
+		cMs = [ self.cM(record.pos) for record in self.records ]
 		# C++版ではkで並列化したい
 		for k in range(L):
 			for l in range(k+1, L):
@@ -193,7 +201,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		for record, h in zip(records, haplo):
 			record.set_haplo(h)
 		
-		return VCFHeteroHomo(self.header, records, self.map)
+		return VCFHeteroHomo(self.samples, records, self.map, self.vcf)
 	
 	def determine_haplotype(self, option: OptionImpute
 					) -> tuple[list[VCFHeteroHomo], list[VCFHeteroHomoRecord]]:
@@ -243,7 +251,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		return painted_seq
 	
 	def impute_each(self, option: OptionImpute) -> None:
-		cMs = [ self.cM(record.pos()) for record in self.records ]
+		cMs = [ self.cM(record.pos) for record in self.records ]
 		imputed_seqs = [
 				self.impute_each_sample_seq(i, cMs, option.min_crossover)
 								for i in range(self.num_samples() - 2) ]
@@ -253,7 +261,7 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	
 	def create_option(self) -> OptionImpute:
 		num = max(2, len(self))
-		total_cM = self.cM(self.records[-1].pos())
+		total_cM = self.cM(self.records[-1].pos)
 		max_dist = max(4, int(total_cM * self.num_progenies()
 											/ num * log10(num) * 2.5 * 0.01))
 		return OptionImpute(max_dist, 20, 5, 1.0)
@@ -274,57 +282,56 @@ class VCFHeteroHomo(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		if len(self) == 0 or len(other) == 0:
 			return (0, 0)
 		
-		hetero_col1 = 9 if self.is_mat_hetero() else 10
-		hetero_col2 = 9 if other.is_mat_hetero() else 10
+		hetero_col1 = 0 if self.is_mat_hetero() else 1
+		hetero_col2 = 0 if other.is_mat_hetero() else 1
 		L, M = len(self), len(other)
 		num_match, num_unmatch = 0, 0
 		k, l = 0, 0
 		while k < L and l < M:
 			record1 = self.records[k]
 			record2 = other.records[l]
-			if record1.pos() == record2.pos():
-				if record1.v[hetero_col1] == record2.v[hetero_col2]:
+			if record1.pos == record2.pos:
+				if record1.geno[hetero_col1] == record2.geno[hetero_col2]:
 					num_match += 1
 				else:
 					num_unmatch += 1
-			if record1.pos() <= record2.pos():
+			if record1.pos <= record2.pos:
 				k += 1
-			if record1.pos() >= record2.pos():
+			if record1.pos >= record2.pos:
 				l += 1
 		
 		return (num_match, num_unmatch)
 	
 	def inverse_hetero_parent_phases(self) -> None:
-		hetero_col = 9 if self.is_mat_hetero() else 10
+		hetero_col = 0 if self.is_mat_hetero() else 1
 		for record in self.records:
-			if record.v[hetero_col] == '0|1':
-				record.v[hetero_col] = '1|0'
+			if record.geno[hetero_col] == Genotype.PH_01:
+				record.geno[hetero_col] = Genotype.PH_10
 			else:
-				record.v[hetero_col] = '0|1'
+				record.geno[hetero_col] = Genotype.PH_01
 	
 	# Create a pair of VCFHeteroHomo for each Family and store it for each parent
 	@staticmethod
 	def make_VCFHeteroHomo(records: list[VCFHeteroHomoRecord],
-							header: list[list[str]], geno_map: Map
+							samples: list[str], geno_map: Map, vcf: VCFSmall
 									) -> tuple[VCFHeteroHomo, VCFHeteroHomo,
 													list[VCFHeteroHomoRecord]]:
-		unused_records: list[VCFHeteroHomoRecord] = []
 		heho_mat_records = [ r for r in records
-								if r.is_imputable() and r.is_mat_hetero() ]
+								if r.is_imputable() and not r.is_pat_hetero() ]
 		heho_pat_records = [ r for r in records
 								if r.is_imputable() and not r.is_mat_hetero() ]
 		# TODO: classifyのときにunusedに入れておけばいいのでは？
 		unused_records = [ r for r in records if not r.is_imputable() ]
-		vcf_mat = VCFHeteroHomo(header, heho_mat_records, geno_map)
-		vcf_pat = VCFHeteroHomo(header, heho_pat_records, geno_map)
+		vcf_mat = VCFHeteroHomo(samples, heho_mat_records, geno_map, vcf)
+		vcf_pat = VCFHeteroHomo(samples, heho_pat_records, geno_map, vcf)
 		return (vcf_mat, vcf_pat, unused_records)
 	
 	@staticmethod
 	def impute_vcfs(records: list[VCFHeteroHomoRecord],
-					header: list[list[str]], geno_map: Map
+					samples: list[str], geno_map: Map, vcf: VCFSmall
 					) -> tuple[list[VCFHeteroHomo], list[VCFHeteroHomoRecord]]:
 		vcf_mat, vcf_pat, unused = VCFHeteroHomo.make_VCFHeteroHomo(
-													records, header, geno_map)
+											records, samples, geno_map, vcf)
 		vcfs_mat, unused_records1 = vcf_mat.impute()
 		vcfs_pat, unused_records2 = vcf_pat.impute()
 		vcfs = []

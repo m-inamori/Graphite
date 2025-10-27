@@ -8,26 +8,26 @@
 
 //////////////////// SelfProgenyImputer ////////////////////
 
-class SelfProgenyImputer : public VCFHMM<VCFRecord> {
+class SelfProgenyImputer : public VCFHMM<GenoRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFRecord *>&	records;
+	const std::vector<GenoRecord *>&	records;
 	const std::size_t	ic;
 	const std::vector<double>	Cc;
 	
 public:
-	SelfProgenyImputer(const std::vector<VCFRecord *>& rs,
+	SelfProgenyImputer(const std::vector<GenoRecord *>& rs,
 						std::size_t iprog, const Map& map_, double w);
 	~SelfProgenyImputer() { }
 	
 	void impute();
 	
 private:
-	std::vector<double> calc_Cc(const std::vector<VCFRecord *>& rs) const;
+	std::vector<double> calc_Cc(const std::vector<GenoRecord *>& rs) const;
 	std::size_t M() const { return records.size(); }
 	std::size_t num_progenies() const {
 		return records[0]->num_samples() - 1;

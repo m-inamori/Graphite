@@ -7,6 +7,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from GenoRecord import GenoRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -15,14 +16,14 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class SelfParentImputer(VCFHMM[VCFRecord]):
+class SelfParentImputer(VCFHMM[GenoRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFRecord],
+	def __init__(self, records: list[GenoRecord],
 							ref_haps: list[list[int]],
 							iprog: int, map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[VCFRecord] = records
+		self.records: list[GenoRecord] = records
 		self.ref_haps = ref_haps
 		self.ic = iprog		# 何番目の後代か
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
@@ -39,10 +40,10 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 	# 親と後代のnon-phased genotypeからの後代の排出確率
 	def calc_Epc(self, w: float) -> list[list[float]]:
 		E1: list[list[float]] = [
-				[ 1.0-w*2,  w/2,       w/2,    w ],
+				[ 1.0-w*2,	w/2,	   w/2,    w ],
 				[ 0.25-w/4, 0.5-w/2, 0.25-w/4, w ],
 				[ 0.25-w/4, 0.5-w/2, 0.25-w/4, w ],
-				[ w/2,      w/2,     1.0-w*2,  w ]
+				[ w/2,		w/2,	 1.0-w*2,  w ]
 		]
 		E = [ [ log(p) for p in v ] for v in E1 ]
 		return E
@@ -51,7 +52,7 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		return len(self.ref_haps)
 	
 	def num_progenies(self) -> int:
-		return len(self.records[0].v) - 10
+		return len(self.records[0].geno) - 9
 	
 	def decode_state(self, h: int) -> tuple[int, int, int, int]:
 		# 1bit目: 後代の左は親のどちらのハプロタイプ由来か
@@ -113,11 +114,10 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		L = self.num_states()
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
 		record = self.records[0]
-		op = Genotype.gt_to_int(record.v[9])	# observed parent
-		prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
-		ocs = [ Genotype.gt_to_int(record.v[j+10])
-						for j in range(self.num_progenies())
-						if j != self.ic ]
+		op = record.unphased(0)		# observed parent
+		prog_gt = record.geno[self.ic+1] & 3	# phased progeny
+		ocs = [ record.unphased(j+1) for j in range(self.num_progenies())
+														if j != self.ic ]
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(h, 0, op, prog_gt, ocs)
 			dp[0][h] = (E_all, h)
@@ -159,11 +159,10 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		record = self.records[i]
 		cc = self.Cc[i-1]	# 遷移確率
 		cp = self.Cp[i-1]	# 親の遷移確率
-		op = Genotype.gt_to_int(record.v[9])	# observed parent
-		prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
-		ocs = [ Genotype.gt_to_int(record.v[j+10])
-						for j in range(self.num_progenies())
-						if j != self.ic ]
+		op = record.unphased(0)		# observed parent
+		prog_gt = record.geno[self.ic+1] & 3	# phased progeny
+		ocs = [ record.unphased(j+1) for j in range(self.num_progenies())
+															if j != self.ic ]
 		
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(h, i, op, prog_gt, ocs)
@@ -178,9 +177,9 @@ class SelfParentImputer(VCFHMM[VCFRecord]):
 		M = len(self.records)
 		for i in range(M):
 			record = self.records[i]
-			prog_gt = Genotype.phased_gt_to_int(record.v[self.ic+10])
+			prog_gt = record.geno[self.ic+1] & 3
 			parent_gt = self.parent_genotype(hs[i], i, prog_gt)
-			record.set_GT(0, Genotype.int_to_phased_gt(parent_gt))
+			record.geno[0] = parent_gt | 4
 	
 	def impute(self) -> None:
 		# DP

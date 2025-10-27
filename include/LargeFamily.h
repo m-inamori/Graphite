@@ -6,6 +6,7 @@
 #include "ClassifyRecord.h"
 
 class VCFSmall;
+class VCFGeno;
 class VCFFamily;
 class VCFHeteroHomo;
 class VCFFillable;
@@ -40,8 +41,8 @@ namespace LargeFamily {
 					heho_records(heho_rs), other_records(other_rs) { }
 	};
 	
-	int get_int_gt(const std::string& gt);
-	VCFHeteroHomoRecord *create_heterohomo_record(const STRVEC& v,
+	VCFHeteroHomoRecord *create_heterohomo_record(
+									const VCFFamilyRecord *record,
 									const KnownFamily *family, std::size_t i,
 									WrongType wrong_type, ParentComb pc);
 	// separate hetero x homo records from others
@@ -127,15 +128,15 @@ namespace LargeFamily {
 						  std::vector<std::pair<std::size_t, std::size_t>>>>
 	collect_same_parent_families(
 							const std::vector<const KnownFamily *>& families);
-	std::vector<std::vector<VCFImpFamilyRecord *>>
-	collect_same_position_records(
-				const std::vector<std::tuple<std::vector<VCFHeteroHomoRecord *>,
-											 std::vector<VCFImpFamilyRecord *>,
-											 int>>& rs);
+	std::vector<std::vector<std::pair<VCFImpFamilyRecord *, std::size_t>>>
+	sort_records(
+			const std::vector<std::tuple<std::vector<VCFHeteroHomoRecord *>,
+										 std::vector<VCFImpFamilyRecord *>,
+										 std::size_t>>& rs);
 	void modify_00x11_each(
 				const std::vector<std::tuple<std::vector<VCFHeteroHomoRecord *>,
 											 std::vector<VCFImpFamilyRecord *>,
-											 int>>& rs);
+											 std::size_t>>& rs);
 	void modify_00x11(
 				std::vector<std::vector<VCFHeteroHomoRecord *>>& heho_recordss,
 				std::vector<std::vector<VCFImpFamilyRecord *>>& other_recordss,
@@ -150,7 +151,7 @@ namespace LargeFamily {
 			const std::vector<std::vector<VCFImpFamilyRecord *>>& other_recordss,
 			const std::vector<const KnownFamily *>& families, int num_threads);
 	void compress_records(std::vector<VCFImpFamilyRecord *>& others);
-	VCFSmall *correct_large_family_VCFs(const VCFSmall *orig_vcf,
+	VCFGeno *correct_large_family_VCFs(const VCFSmall *orig_vcf,
 							const std::vector<const KnownFamily *>& families,
 							const Map& geno_map, const Option *option);
 }

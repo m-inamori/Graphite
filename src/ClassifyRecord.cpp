@@ -30,14 +30,14 @@ pair<ParentComb, WrongType> ClassifyRecord::classify(
 	const vector<int>	gts = record->get_progeny_int_gts();
 	const array<int, 3>	counter = count_int_gts(gts);
 	const auto	combs = td->determine(counter);
-	return classify_record_core(combs, record->mat_int_gt(),
-										record->pat_int_gt(), one_parent);
+	return classify_record_core(combs, record->unphased_mat(),
+										record->unphased_pat(), one_parent);
 }
 
 pair<ParentComb, WrongType> ClassifyRecord::classify_self_record(
-												const VCFRecord *record,
+												const GenoRecord *record,
 												const TypeDeterminer *td) {
-	const vector<int>	gts = record->get_int_gts();
+	const vector<int>	gts = record->unphased_gts();
 	const array<int, 3>	counter = count_int_gts(gts.begin() + 1, gts.end());
 	const auto	pairs = td->determine(counter);
 	if(pairs.empty())
@@ -46,13 +46,13 @@ pair<ParentComb, WrongType> ClassifyRecord::classify_self_record(
 	const int	parent_gt = gts[0];
 	const ParentComb	comb = pairs[0].second;
 	if(comb == ParentComb::P01x01 &&
-						(parent_gt == 1 || parent_gt == -1))
+						(parent_gt == 1 || Genotype::is_NA(parent_gt)))
 		return make_pair(ParentComb::P01x01, WrongType::RIGHT);
 	else if(comb == ParentComb::P00x00 &&
-						(parent_gt == 0 || parent_gt == -1))
+						(parent_gt == 0 || Genotype::is_NA(parent_gt)))
 		return make_pair(ParentComb::P00x00, WrongType::RIGHT);
 	else if(comb == ParentComb::P11x11 &&
-						(parent_gt == 2 || parent_gt == -1))
+						(parent_gt == 2 || Genotype::is_NA(parent_gt)))
 		return make_pair(ParentComb::P11x11, WrongType::RIGHT);
 	else
 		return make_pair(ParentComb::PNA, WrongType::UNSPECIFIED);
@@ -78,7 +78,7 @@ array<int, 3> ClassifyRecord::count_int_gts(
 									vector<int>::const_iterator last) const {
 	array<int, 3>	ns = {0, 0, 0};
 	for(auto p = first; p != last; ++p) {
-		if(*p != -1)
+		if(!Genotype::is_NA(*p))
 			ns[*p] += 1;
 	}
 	return ns;
@@ -122,8 +122,10 @@ WrongType ClassifyRecord::select_wrong_type(ParentComb comb, int mat_gt,
 		const int	avoiding_gt = TypeDeterminer::get_avoiding_gt(comb);
 		if(mat_gt == pat_gt)
 			return WrongType::UNMODIFIABLE;
-		else if((mat_gt == -1 && (pat_gt != -1 && pat_gt != avoiding_gt)) ||
-				(pat_gt == -1 && (mat_gt != -1 && mat_gt != avoiding_gt))) {
+		else if((Genotype::is_NA(mat_gt) &&
+						(!Genotype::is_NA(pat_gt) && pat_gt != avoiding_gt)) ||
+				(Genotype::is_NA(pat_gt) &&
+						(!Genotype::is_NA(mat_gt) && mat_gt != avoiding_gt))) {
 			return one_parent ? WrongType::RIGHT : WrongType::MODIFIABLE;
 		}
 		else if(mat_gt != avoiding_gt && pat_gt != avoiding_gt)

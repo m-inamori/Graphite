@@ -7,15 +7,16 @@ import sys
 
 from VCFFamily import *
 from VCFImpSelfRecord import SelfFillType, VCFImpSelfRecord
+from Genotype import Genotype
 from TypeDeterminer import ParentComb
 
 
 #################### VCFSelfHomoRecord ####################
 
 class VCFSelfHomoRecord(VCFImpSelfRecord):
-	def __init__(self, v: list[str], samples: list[str],
+	def __init__(self, pos: int, geno: list[int],
 						index: int, parents_wrong_type: str, pair: ParentComb):
-		super().__init__(v, samples, index, parents_wrong_type, pair)
+		super().__init__(pos, geno, index, parents_wrong_type, pair)
 	
 	def is_imputable(self) -> bool:
 		return False
@@ -23,13 +24,12 @@ class VCFSelfHomoRecord(VCFImpSelfRecord):
 	def get_fill_type(self) -> SelfFillType:
 		return SelfFillType.FILLED
 	
-	def gts(self) -> list[str]:
+	def gts(self) -> list[int]:
 		if self.pair == ParentComb.P00x00:
-			return ['0|0'] * len(self.samples)
+			return [Genotype.PH_00] * self.num_samples()
 		else:
-			return ['1|1'] * len(self.samples)
+			return [Genotype.PH_11] * self.num_samples()
 	
 	def impute(self) -> VCFSelfHomoRecord:
-		v = self.v[:9] + [ gt + s[3:] for gt, s in zip(self.gts(), self.v[9:]) ]
-		return VCFSelfHomoRecord(v, self.samples, self.index,
+		return VCFSelfHomoRecord(self.pos, self.gts(), self.index,
 											self.parents_wrong_type, self.pair)

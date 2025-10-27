@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include "../include/VCFGeno.h"
 #include "../include/OneImputedFamily.h"
 #include "../include/VCFOneParentImputed.h"
 #include "../include/VCFOneParentImputedRough.h"
@@ -68,8 +69,8 @@ void OneImputedFamily::impute_small_VCFs(vector<VCFOneParentImputedBase *>& v,
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
+VCFGenoBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
+									const VCFGeno *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
@@ -82,20 +83,18 @@ VCFSmallBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf, 
 														orig_vcf, samples);
 		if(is_small(ref_haps, L, op)) {
-			auto	*vcf1 = new VCFOneParentImputed(vcf->get_header(),
-												samples,
-												vcf->get_family_records(),
-												ref_haps, is_mat_known,
-												op.map, 0.01);
+			auto	*vcf1 = new VCFOneParentImputed(samples,
+													vcf->get_family_records(),
+													ref_haps, is_mat_known,
+													op.map, 0.01, orig_vcf);
 			small_vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
 		else if(is_small_ref(ref_haps, L, op)) {
-			auto	*vcf1 = new VCFOneParentImputedRough(vcf->get_header(),
-												samples,
-												vcf->get_family_records(),
-												ref_haps, is_mat_known,
-												op.map, 0.01);
+			auto	*vcf1 = new VCFOneParentImputedRough(samples,
+													vcf->get_family_records(),
+													ref_haps, is_mat_known,
+													op.map, 0.01, orig_vcf);
 			small_vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
@@ -108,9 +107,9 @@ VCFSmallBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_small_VCFs(small_vcfs, op.num_threads);
 	cout << small_vcfs.size() << " families whose one parent is imputed and"
-					<< " the other parent is known have been imputed." << endl;
-	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
-	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+				<< " the other parent is unknown have been imputed." << endl;
+	vector<const VCFGenoBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
+	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(small_vcfs);
 	return new_vcf;
 }

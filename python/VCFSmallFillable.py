@@ -8,8 +8,11 @@ from collections import defaultdict
 
 from typing import Optional
 
+from VCF import VCFSmall
+from GenoRecord import GenoRecord
+from VCFGeno import VCFGeno
 from VCFFamily import *
-from VCFImpFamily import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from VCFFillable import *
 from VCFHeteroHomo import *
@@ -23,14 +26,14 @@ from common import *
 #################### VCFSmallFillable ####################
 
 class VCFSmallFillable(VCFFillable):
-	def __init__(self, header: list[list[str]],
-							records: list[VCFFillableRecord]):
-		VCFFillable.__init__(self, header, records)
+	def __init__(self, samples: list[str],
+							records: list[VCFFillableRecord], vcf: VCFSmall):
+		VCFFillable.__init__(self, samples, records, vcf)
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
@@ -51,26 +54,22 @@ class VCFSmallFillable(VCFFillable):
 				self.impute_NA_pat(i)
 			elif record.type in (FillType.IMPUTABLE, FillType.UNABLE):
 				self.impute_others(i)
-		
-		for record in self.records:
-			record.fill_PGT()
 	
 	# 家系ごとで./.にしたGenotypeを補完
 	def impute_NA_pat(self, i: int) -> None:
 		record = self.records[i]
-		for c in range(11, len(record.v)):
-			if record.is_NA(c-9):
-				self.impute_NA_pat_each(i, c)
+		for k in range(2, len(record.geno)):
+			if record.is_NA(k):
+				self.impute_NA_pat_each(i, k)
 	
-	def remove_parents(self) -> VCFSmall:
+	def remove_parents(self) -> VCFGeno:
 		samples: list[str] = self.samples[2:]
-		records: list[VCFRecord] = []
+		records: list[GenoRecord] = []
 		for record in self.records:
-			v = record.v[:9] + record.v[11:]
-			r = VCFRecord(v, samples)
+			geno = record.geno[2:]
+			r = GenoRecord(record.pos, geno)
 			records.append(r)
-		header = self.trim_header(samples)
-		return VCFSmall(header, records)
+		return VCFGeno(samples, records, self.vcf)
 
 
 __all__ = ['VCFSmallFillable']

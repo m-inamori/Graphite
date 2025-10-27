@@ -1,23 +1,19 @@
 #include <map>
 #include <set>
 #include <cassert>
-#include "../include/VCFImpFamily.h"
+#include "../include/VCFImpFamilyRecord.h"
 #include "../include/common.h"
 
 using namespace std;
 
-void VCFImpFamilyRecord::set_00x11_parents(int i, int gt) {
-	assert(gt != 1);
-	const string	gt1 = gt == 0 ? "0|0" : "1|1";
-	const string	gt2 = gt == 0 ? "1|1" : "0|0";
-	const int	j = i == 0 ? 1 : 0;
-	this->set_GT(i, gt1);
-	this->set_GT(j, gt2);
-	
-	// If the parent's genotypes are swapped, change the progenies' genotypes.
-	const string	progeny_GT = ((i == 0) ^ (gt == 2)) ? "0|1" : "1|0";
-	for(int k = 2; k < (int)num_samples(); ++k)
-		this->set_GT(k, progeny_GT);
+void VCFImpFamilyRecord::set_00x11_parents(size_t i, int gt) {
+	const size_t	j = i == 0 ? 1 : 0;
+	geno[i] = gt;		// 2 * 3 + 4
+	geno[j] = 7 - gt;	// 2 * 3
+	const int	prog_gt = (gt == 0) ^ (i == 0) ? 5 : 6;
+	for(size_t k = 2; k < geno.size(); ++k) {
+		geno[k] = prog_gt;
+	}
 }
 
 int VCFImpFamilyRecord::get_records_type(const vector<RecordWithPos>& records) {
@@ -62,7 +58,7 @@ std::pair<int, vector<VCFImpFamilyRecord::RecordWithPos>>
 VCFImpFamilyRecord::which_is_fixed(const vector<RecordWithPos>& v) {
 	vector<int>	gts;
 	for(auto p = v.begin(); p != v.end(); ++p) {
-		gts.push_back(p->first->get_int_gt(p->second));
+		gts.push_back(p->first->unphased(p->second));
 	}
 	if(Common::is_all_same(gts))
 		return make_pair(gts.front(), vector<RecordWithPos>());
@@ -75,6 +71,24 @@ VCFImpFamilyRecord::which_is_fixed(const vector<RecordWithPos>& v) {
 	}
 	const vector<std::pair<int, vector<RecordWithPos>>>
 	items(dic.begin(), dic.end());
+	
+	// Is the number of the fixed records one?
+	vector<bool>	bs(items.size(), true);
+	for(size_t i = 0; i < items.size(); ++i) {
+		const auto&	w = items[i].second;
+		for(auto p = w.begin(); p != w.end(); ++p) {
+			if(!p->first->is_fixed())
+				bs[i] = false;
+		}
+	}
+	int	counter = 0;
+	for(auto p = bs.begin(); p != bs.end(); ++p) {
+		if(*p)
+			counter += 1;
+	}
+	if(counter != 1) {
+		return make_pair(gts.front(), vector<RecordWithPos>());
+	}
 	
 	// What number is all fixed?
 	const size_t	fixed_index = find_fixed_index(items);
@@ -98,26 +112,13 @@ VCFImpFamilyRecord::which_is_fixed(const vector<RecordWithPos>& v) {
 	return make_pair(fixed_GT, wrongs);
 }
 
-void VCFImpFamilyRecord::modify_00x11(
-						const vector<VCFImpFamilyRecord *>& records) {
-	// collect records by sample
-	map<string, vector<std::pair<VCFImpFamilyRecord *, int>>>	dic;
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		dic[(*p)->get_samples()[0]].push_back(make_pair(*p, 0));
-		dic[(*p)->get_samples()[1]].push_back(make_pair(*p, 1));
-	}
-	
-	for(auto p = dic.begin(); p != dic.end(); ++p) {
-		if(p->second.size() < 2)
-			continue;
-		
-		auto	v = which_is_fixed(p->second);
-		const int	fixed_gt = v.first;
-		const auto	wrongs = v.second;
-		for(auto q = wrongs.begin(); q != wrongs.end(); ++q) {
-			auto	*record = q->first;
-			int		i = q->second;
-			record->set_00x11_parents(i, fixed_gt);
-		}
+void VCFImpFamilyRecord::modify_00x11(const vector<RecordWithPos>& v) {
+	const auto	pair = VCFImpFamilyRecord::which_is_fixed(v);
+	const int	right_gt = pair.first;
+	const vector<VCFImpFamilyRecord::RecordWithPos>& wrongs = pair.second;
+	for(auto p = wrongs.begin(); p != wrongs.end(); ++p) {
+		auto	*record = p->first;
+		const size_t	i = p->second;
+		record->set_00x11_parents(i, right_gt);
 	}
 }

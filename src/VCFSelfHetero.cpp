@@ -15,33 +15,12 @@
 using namespace std;
 
 
-//////////////////// VCFSelfHeteroRecord ////////////////////
-
-vector<int> VCFSelfHeteroRecord::progeny_gts() const {
-	const vector<int>	gts = this->get_int_gts();
-	return vector<int>(gts.begin() + 1, gts.end());
-}
-
-void VCFSelfHeteroRecord::set_haplo(int h) {
-	this->set_GT(0, h == 0 ? "0|1" : "1|0");
-}
-
-void VCFSelfHeteroRecord::set_int_gt_by_which_comes_from(int w1, int w2,
-																	size_t i) {
-	const string&	parent_gt = this->get_gt(0);
-	stringstream	ss;
-	ss << parent_gt.c_str()[w1*2] << "|" << parent_gt.c_str()[w2*2];
-	const string&	GT = ss.str();
-	set_GT(i + 1, GT);
-}
-
-
 //////////////////// VCFSelfHetero ////////////////////
 
-VCFSelfHetero::VCFSelfHetero(const vector<STRVEC>& h, const STRVEC& s,
+VCFSelfHetero::VCFSelfHetero(const STRVEC& s,
 								const vector<VCFSelfHeteroRecord *>& rs,
-								const Map& m) :
-							VCFBase(h, s), VCFSmallBase(),
+								const Map& m, const VCFSmall *vcf) :
+							VCFGenoBase(s, vcf),
 							VCFMeasurable(m), records(rs) { }
 
 VCFSelfHetero::~VCFSelfHetero() {
@@ -104,7 +83,7 @@ pair<double, bool> VCFSelfHetero::distance(const vector<int>& gts1,
 	for(size_t i = 0; i < gts1.size(); ++i) {
 		const int	int_gt1 = gts1[i];
 		const int	int_gt2 = gts2[i];
-		if(int_gt1 == -1 || int_gt2 == -1)
+		if(Genotype::is_NA(int_gt1) || Genotype::is_NA(int_gt2))
 			counter_NA += 1;
 		else if(int_gt1 == 1 && int_gt2 == 1)
 			counter_hetero_right += 1;
@@ -177,8 +156,8 @@ VCFSelfHetero *VCFSelfHetero::make_subvcf(const InvGraph& graph) const {
 		record->set_haplo(haplo[i]);
 		records.push_back(record);
 	}
-	return new VCFSelfHetero(this->header, this->samples,
-										records, this->get_map());
+	return new VCFSelfHetero(this->samples, records,
+								this->get_map(), this->get_ref_vcf());
 }
 
 pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
@@ -224,20 +203,45 @@ pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
 }
 
 string VCFSelfHetero::make_seq(size_t i) const {
-	string	seq;
+	stringstream	ss;
 	const size_t	q = i >> 1;
 	const size_t	r = i & 1;
 	for(size_t j = 0; j < this->size(); ++j) {
 		const VCFSelfHeteroRecord	*record = records[j];
-		const char	a = record->get_gt(q+1).c_str()[r*2];
-		if(a == record->get_gt(0).c_str()[0])
-			seq.push_back('0');
-		else if(a != '.')
-			seq.push_back('1');
-		else
-			seq.push_back('N');
+		const int	prog_gt = record->get_geno()[q+1];
+		int	a;
+		if(r == 0) {
+			switch(prog_gt) {
+				case Genotype::UN_11:	a =  1; break;
+				case Genotype::NA:		a = -1; break;
+				default:				a =  0; break;
+			}
+		}
+		else {
+			switch(prog_gt) {
+				case Genotype::UN_00:	a =  0; break;
+				case Genotype::NA:		a = -1; break;
+				default:				a =  1; break;
+			}
+		}
+		if(record->get_geno()[0] == Genotype::PH_01) {
+			if(a == 0)
+				ss << '0';
+			else if(Genotype::is_NA(prog_gt))
+				ss << 'N';
+			else
+				ss << '1';
+		}
+		else {
+			if(a == 1)
+				ss << '0';
+			else if(Genotype::is_NA(prog_gt))
+				ss << 'N';
+			else
+				ss << '1';
+		}
 	}
-	return seq;
+	return ss.str();
 }
 
 string VCFSelfHetero::impute_each_sample_seq(size_t i,
@@ -290,8 +294,9 @@ pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
 	if(this->records.empty()) {
 		// If it do not create a new VCF,
 		// it will delete the VCF that cannot be deleted.
-		VCFSelfHetero	*empty_vcf = new VCFSelfHetero(header, samples,
-								vector<VCFSelfHeteroRecord *>(), get_map());
+		VCFSelfHetero	*empty_vcf = new VCFSelfHetero(samples,
+												vector<VCFSelfHeteroRecord *>(),
+												get_map(), get_ref_vcf());
 		return make_pair(vector<VCFSelfHetero *>(1, empty_vcf),
 									vector<VCFSelfHeteroRecord *>());
 	}

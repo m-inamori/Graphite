@@ -59,10 +59,10 @@ class VCFHeteroImpHomo : public VCFHeteroHomoOnePhased {
 	using DP = std::vector<Value>;
 	
 public:
-	VCFHeteroImpHomo(const std::vector<STRVEC>& h, const STRVEC& s,
+	VCFHeteroImpHomo(const STRVEC& s,
 						const std::vector<VCFFillableRecord *>& rs,
-						bool is_mat_hetero, const Map& m) :
-				VCFHeteroHomoOnePhased(h, s, rs, is_mat_hetero, m) { }
+						bool is_mat_hetero, const Map& m, const VCFSmall *vcf) :
+				VCFHeteroHomoOnePhased(s, rs, is_mat_hetero, m, vcf) { }
 	~VCFHeteroImpHomo() { }
 	
 	///// non-virtual methods /////
@@ -79,10 +79,10 @@ public:
 	}
 	
 	std::vector<bool> is_right_gt(int order, int gt_imputed,
-						const State& state, const VCFRecord *record) const;
+						const State& state, const GenoRecord *record) const;
 	std::vector<std::pair<State, Value>> next_states(State state,
-												const VCFRecord *record) const;
-	DP update_dp(const DP& dp, const VCFRecord *record) const;
+												const GenoRecord *record) const;
+	DP update_dp(const DP& dp, const GenoRecord *record) const;
 	void trace_back(State state, const std::vector<DP>& dps);
 	
 	void impute() override;

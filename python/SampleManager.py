@@ -26,9 +26,11 @@ class SampleException(ExceptionWithCode):
 
 class SampleManager:
 	def __init__(self, ped: PedigreeTable, large_families: list[KnownFamily],
+							large_self_families: list[KnownFamily],
 							small_families: list[KnownFamily], lower_p: int):
 		self.ped: PedigreeTable				= ped
 		self.large_families: list[KnownFamily]	= large_families
+		self.large_self_families: list[KnownFamily]	= large_self_families
 		self.small_families: list[KnownFamily]	= small_families
 		self.lower_progs: int				= lower_p
 		self.imputed_samples: set[str]		= set()
@@ -73,7 +75,7 @@ class SampleManager:
 	def extract_imputed_and_known_families(self) -> list[Family]:
 		families = [ family for family in self.small_families
 						if not family.is_self() and
-							(self.is_imputed(family.mat) or
+							(self.is_imputed(family.mat) ^
 							self.is_imputed(family.pat)) and
 							family.mat_known and family.pat_known and
 							any(not self.is_imputed(prog)
@@ -126,7 +128,7 @@ class SampleManager:
 														for f in families ]
 	
 	def extract_self_families(self) -> list[KnownFamily]:
-		families = [ family for family in self.small_families
+		families = [ family for family in self.large_self_families
 						if family.is_self() and
 								any(not self.is_imputed(s)
 									for s in family.samples()) ]
@@ -135,14 +137,14 @@ class SampleManager:
 									f.progenies) for f in families ]
 	
 	def extract_self_parent_imputed_families(self) -> list[KnownFamily]:
-		families = [ family for family in self.small_families
+		families = [ family for family in self.large_self_families
 						if family.is_self() and self.is_imputed(family.mat) ]
 		
 		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
 									f.progenies) for f in families ]
 	
 	def extract_self_parent_non_imputed_families(self) -> list[KnownFamily]:
-		families = [ family for family in self.small_families
+		families = [ family for family in self.large_self_families
 						if family.is_self() and
 							not self.is_imputed(family.mat) and
 							any(not self.is_imputed(s)
@@ -234,16 +236,21 @@ class SampleManager:
 			families = [ families[i] for i in family_indices ]
 		
 		large_families = []
+		large_self_families = []
 		small_families = []
 		for f in families:
 			# 片親のGenotypeが無くても、後代の数が十分なら不明の親にしない
 			if (not f.is_self() and f.num_progenies() >= lower_progs and
 													not f.is_both_unknown()):
 				large_families.append(f)
+			elif (f.is_self() and f.num_progenies() >= lower_progs and
+														f.is_both_known()):
+				large_self_families.append(f)
 			else:
 				small_families.append(f)
 		
-		if not large_families:
+		if not large_families and not large_self_families:
 			raise SampleException()
 		
-		return SampleManager(ped, large_families, small_families, lower_progs)
+		return SampleManager(ped, large_families, large_self_families,
+													small_families, lower_progs)

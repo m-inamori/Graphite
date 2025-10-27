@@ -1,7 +1,7 @@
 #ifndef __VCFHETEROHOMO
 #define __VCFHETEROHOMO
 
-#include "VCFImpFamily.h"
+#include "VCFImpFamilyRecord.h"
 #include "Map.h"
 #include "invgraph.h"
 #include "Baum_Welch_with_fixed_Ts.h"
@@ -27,14 +27,12 @@ class VCFHeteroHomoRecord : public VCFImpFamilyRecord {
 	std::vector<int>	which_comes_from;
 	
 public:
-	VCFHeteroHomoRecord(const STRVEC& v, const STRVEC& s,
+	VCFHeteroHomoRecord(ll pos, const std::vector<int>& geno,
 							int i, WrongType type, ParentComb c) :
-							VCFImpFamilyRecord(v, s, i, type, c),
+							VCFImpFamilyRecord(pos, geno, i, type, c),
 							which_comes_from(num_progenies(), -1) { }
 	
 	int get_which_comes_from(int i) const { return which_comes_from[i]; }
-	bool is_mat_hetero() const { return this->mat_int_gt() == 1; }
-	bool is_pat_hetero() const { return this->pat_int_gt() == 1; }
 	
 	bool is_homohomo() const override { return false; }
 	bool is_imputable() const override {
@@ -42,16 +40,15 @@ public:
 	}
 	FillType get_fill_type() const override;
 	
-	std::vector<int> genotypes_from_hetero_parent() const;
+	std::vector<int> alleles_from_hetero_parent() const;
 	void set_haplo(int h);
-	void set_int_gt_by_which_comes_from(int w, int i);
+	void set_int_gt_by_which_comes_from(int w, std::size_t i);
 };
 
 
 //////////////////// VCFHeteroHomo ////////////////////
 
-class VCFHeteroHomo : public VCFBase, public VCFSmallBase, 
-						public VCFFamilyBase, public VCFMeasurable {
+class VCFHeteroHomo : public VCFFamilyBase, public VCFMeasurable {
 public:
 	struct ConfigThreadCleanSeq {
 		const std::size_t	first;
@@ -72,21 +69,18 @@ protected:
 	std::vector<VCFHeteroHomoRecord *>	records;
 	
 public:
-	VCFHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
-					const std::vector<VCFHeteroHomoRecord *>& rs, const Map& m);
+	VCFHeteroHomo(const STRVEC& s,
+					const std::vector<VCFHeteroHomoRecord *>& rs,
+					const Map& m, const VCFSmall *vcf);
 	~VCFHeteroHomo();
 	
-	///// virtual methods /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
+	
+	///// virtual methods for VCFFamilyBase /////
 	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}
@@ -119,7 +113,7 @@ public:
 							const std::vector<int>& gts2, int max_dist) const;
 	
 private:
-	double record_cM(std::size_t i) const { return cM(records[i]->pos()); }
+	double record_cM(std::size_t i) const { return cM(records[i]->get_pos()); }
 	InvGraph make_graph(double max_dist) const;
 	std::string make_seq(std::size_t i) const;
 	std::string clean_each_sample_seq(std::size_t i,
@@ -135,15 +129,14 @@ public:
 	static std::tuple<VCFHeteroHomo *, VCFHeteroHomo *,
 						std::vector<VCFHeteroHomoRecord *>>
 		make_VCFHeteroHomo(const std::vector<VCFHeteroHomoRecord *>& records,
-						   const std::vector<STRVEC>& header,
-						   const STRVEC& samples, const Map& geno_map);
+						   const STRVEC& samples, const Map& geno_map,
+						   const VCFSmall *vcf);
 	// collect VCFs whose hetero parent is the same, and impute it
 	// and change the phase to be as same as possible
 	static ImpResult clean_vcfs(
 						const std::vector<VCFHeteroHomoRecord *>& records,
-						const std::vector<STRVEC>& header,
-						const STRVEC& samples,
-						const Map& geno_map, int num_threads);
+						const STRVEC& samples, const Map& geno_map,
+						int num_threads, const VCFSmall *vcf);
 	static void inverse_phases(const std::vector<VCFHeteroHomo *>& vcfs);
 	static const InverseGraph *make_vcf_graph(
 										const std::vector<VCFHeteroHomo *>& vcfs);

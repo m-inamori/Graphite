@@ -8,6 +8,8 @@ from functools import reduce
 from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
 from Map import *
 from VCFBothKnown import VCFBothKnown
@@ -20,14 +22,15 @@ def is_small(ref_haps: list[list[int]], L: int, op: OptionSmall) -> bool:
 	R = NH**2 * (2*NH - 1) / op.precision_ratio
 	return R * M < 10**8 and R < 10**5 and L * R * M < 10**9
 
-def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
-			families: list[Family], op: OptionSmall) -> Optional[VCFSmallBase]:
-	vcfs: list[VCFSmallBase] = []
+def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
+			families: list[Family], op: OptionSmall) -> Optional[VCFGenoBase]:
+	vcfs: list[VCFGenoBase] = []
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
 		if is_small(ref_haps, len(families), op):
-			vcf1 = VCFBothKnown(vcf.header, vcf.records, ref_haps, op.map)
+			vcf1 = VCFBothKnown(vcf.samples, vcf.records,
+										ref_haps, op.map, orig_vcf)
 			vcf1.impute()
 			vcfs.append(vcf1)
 	
@@ -36,7 +39,7 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 	
 	print("%d families whose parents are known have been imputed." %
 															len(families))
-	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
+	new_vcf = VCFGeno.join(vcfs, orig_vcf.samples)
 	return new_vcf
 
 __all__ = ['impute']

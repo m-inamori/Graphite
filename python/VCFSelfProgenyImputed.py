@@ -4,21 +4,24 @@ from __future__ import annotations
 # VCFSelfProgenyImputed.py
 # 自殖で後代の一部がimputeされている
 
-from VCFFamily import *
-from SelfParentImputer import *
-from SelfProgenyImputer import *
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase
+from GenoRecord import GenoRecord
+from SelfParentImputer import SelfParentImputer
+from SelfProgenyImputer import SelfProgenyImputer
 from Map import *
 
 
 #################### VCFSelfProgenyImputed ####################
 
-class VCFSelfProgenyImputed(VCFBase, VCFSmallBase):
-	def __init__(self, header: list[list[str]],
-						records: list[VCFRecord],
-						ref_haps: list[list[int]], ic: int, map_: Map) -> None:
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
-		self.records: list[VCFRecord] = records
+class VCFSelfProgenyImputed(VCFGenoBase, VCFMeasurable):
+	def __init__(self, samples: list[str],
+						records: list[GenoRecord],
+						ref_haps: list[list[int]],
+						ic: int, map_: Map, vcf: VCFSmall) -> None:
+		VCFGenoBase.__init__(self, samples, vcf)
+		VCFMeasurable.__init__(self, map_)
+		self.records: list[GenoRecord] = records
 		self.ic: int = ic	# index of imputed progeny
 		self.parent_imputer = SelfParentImputer(records, ref_haps,
 															ic, map_, 0.01)
@@ -28,7 +31,7 @@ class VCFSelfProgenyImputed(VCFBase, VCFSmallBase):
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_samples(self) -> list[str]:

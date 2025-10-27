@@ -2,38 +2,34 @@
 #define __VCFSELFNOIMPUTEDROUGH
 
 #include <vector>
-#include "VCF.h"
+#include "VCFGeno.h"
+#include "SelfParentImputerLessImputed.h"
 
+class VCFSmall;
+class GenoRecord;
 class Map;
-class SelfParentImputerLessImputed;
 class SelfProgenyImputer;
 
 
 //////////////////// VCFSelfNoImputedRough ////////////////////
 
-class VCFSelfNoImputedRough : public VCFBase, public VCFSmallBase {
-	const std::vector<VCFRecord *>	records;
-	SelfParentImputerLessImputed	*imputer;
+class VCFSelfNoImputedRough : public VCFGenoBase, VCFMeasurable {
+	const std::vector<GenoRecord *>	records;
+	SelfParentImputerLessImputed	imputer;
 	std::vector<SelfProgenyImputer *>	imputers;
 	
 public:
-	VCFSelfNoImputedRough(const std::vector<STRVEC>& header, const STRVEC& s,
-								const std::vector<VCFRecord *>& records,
-								const std::vector<std::vector<int>>& ref_hs,
-								const Map& map_, double w);
+	VCFSelfNoImputedRough(const STRVEC& s,
+							const std::vector<GenoRecord *>& records,
+							const std::vector<std::vector<int>>& ref_hs,
+							const Map& map_, double w, const VCFSmall *vcf);
 	VCFSelfNoImputedRough(const VCFSelfNoImputedRough&) = delete;
 	VCFSelfNoImputedRough& operator=(const VCFSelfNoImputedRough&) = delete;
 	~VCFSelfNoImputedRough();
 	
-	///// virtual methods for VCFSmallBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	

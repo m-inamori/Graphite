@@ -4,6 +4,7 @@
 #include <vector>
 #include "VCF.h"
 
+class VCFGenoBase;
 class VCFOrphan;
 class Family;
 class KnownFamily;
@@ -27,7 +28,7 @@ namespace Orphan {
 	void impute_small_in_thread(void *config);
 	void impute_small_VCF(VCFOrphan *vcf, int T);
 	
-	VCFSmallBase *impute(const std::vector<std::string>& samples,
+	VCFGenoBase *impute(const std::vector<std::string>& samples,
 							const VCFSmall *orig_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const OptionSmall& op);

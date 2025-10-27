@@ -51,8 +51,8 @@ void OneKnownFamily::impute_small_VCFs(vector<VCFOneParentKnown *>& vcfs,
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
+VCFGenoBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
+									const VCFGeno *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
@@ -65,11 +65,10 @@ VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 											orig_vcf, family->get_samples());
 		
 		if(is_small(ref_haps, L, op)) {
-			auto	*vcf1 = new VCFOneParentKnown(vcf->get_header(),
-												   family->get_samples(),
+			auto	*vcf1 = new VCFOneParentKnown(family->get_samples(),
 												   vcf->get_family_records(),
 												   ref_haps, is_mat_known,
-												   op.map, 0.01);
+												   op.map, 0.01, orig_vcf);
 			vcf->clear_records();
 			vcfs.push_back(vcf1);
 		}
@@ -78,11 +77,11 @@ VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 	
 	impute_small_VCFs(vcfs, op.num_threads);
 	
-	vector<const VCFSmallBase *>	vcfs2;
+	vector<const VCFGenoBase *>	vcfs2;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		const auto	*vcf1 = *p;
 		const string	parent = vcf1->get_known_parent();
-		auto	*vcf2 = vcf1->extract_samples(vector<string>(1, parent));
+		auto	*vcf2 = vcf1->extract_by_samples(vector<string>(1, parent));
 		vcfs2.push_back(vcf2);
 		delete vcf1;
 	}
@@ -94,7 +93,7 @@ VCFSmallBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 				<< " the other parent is unknown have been imputed." << endl;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	auto	*new_vcf = VCFSmall::join(vcfs2, orig_vcf->get_samples());
+	auto	*new_vcf = VCFGeno::join(vcfs2, orig_vcf->get_samples());
 	Common::delete_all(vcfs2);
 	return new_vcf;
 }

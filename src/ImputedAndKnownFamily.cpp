@@ -17,110 +17,111 @@ using namespace std;
 
 //////////////////// ImputedAndKnownFamily ////////////////////
 
-int ImputedAndKnownFamily::get_gt_type(const VCFRecord *record, int i) {
-	if(record->is_hetero(i))
-		return 0;	// 0/1
-	else if(record->get_gt(i).c_str()[0] == '0')
-		return -1;	// 0/0
-	else
-		return 1;	// 1/1
-}
-
 std::pair<ParentComb, FillType> ImputedAndKnownFamily::classify_record(
-													const VCFRecord *record) {
+												const VCFFamilyRecord *record) {
 	if(record->is_NA(0) || record->is_NA(1))
 		return make_pair(ParentComb::PNA, FillType::IMPUTABLE);
 	
-	const int	mat_gt_type = get_gt_type(record, 0);
-	const int	pat_gt_type = get_gt_type(record, 1);
-	if(mat_gt_type == 0) {
-		switch(pat_gt_type) {
-			case 0:  return make_pair(ParentComb::P01x01, FillType::IMPUTABLE);
-			case -1: return make_pair(ParentComb::P00x01, FillType::MAT);
-			default: return make_pair(ParentComb::P01x11, FillType::MAT);
-		}
+	if(record->is_mat_hetero()) {
+		if(record->is_pat_hetero())
+			return make_pair(ParentComb::P01x01, FillType::IMPUTABLE);
+		else if(record->is_00(1))
+			return make_pair(ParentComb::P00x01, FillType::MAT);
+		else
+			return make_pair(ParentComb::P01x11, FillType::MAT);
 	}
-	else if(mat_gt_type == -1) {
-		switch(pat_gt_type) {
-			case 0:  return make_pair(ParentComb::P00x01, FillType::PAT);
-			case -1: return make_pair(ParentComb::P00x00, FillType::FILLED);
-			default: return make_pair(ParentComb::P00x11, FillType::FILLED);
-		}
+	else if(record->is_00(0)) {
+		if(record->is_pat_hetero())
+			return make_pair(ParentComb::P00x01, FillType::PAT);
+		else if(record->is_00(1))
+			return make_pair(ParentComb::P00x00, FillType::FILLED);
+		else
+			return make_pair(ParentComb::P00x11, FillType::FILLED);
 	}
 	else {
-		switch(pat_gt_type) {
-			case 0:  return make_pair(ParentComb::P01x11, FillType::PAT);
-			case -1: return make_pair(ParentComb::P00x11, FillType::FILLED);
-			default: return make_pair(ParentComb::P11x11, FillType::FILLED);
-		}
+		if(record->is_pat_hetero())
+			return make_pair(ParentComb::P01x11, FillType::PAT);
+		else if(record->is_00(1))
+			return make_pair(ParentComb::P00x11, FillType::FILLED);
+		else
+			return make_pair(ParentComb::P11x11, FillType::FILLED);
 	}
 }
 
 array<vector<VCFFillableRecord *>, 4>
-ImputedAndKnownFamily::classify_records(const vector<VCFFamilyRecord *>& records) {
+ImputedAndKnownFamily::classify_records(const STRVEC& samples,
+								const vector<VCFFamilyRecord *>& records,
+								const VCFSmall *ref_vcf) {
+	const auto	cols = ref_vcf->extract_columns(samples);
 	// hetero x hetero, homo x hetero, hetero x homo, homo x homo
 	array<vector<VCFFillableRecord *>, 4>	rss;
 	for(size_t index = 0; index < records.size(); ++index) {
 		VCFFamilyRecord	*record = records[index];
+		const vector<int>&	geno = record->get_geno();
 		const auto	p = classify_record(record);
 		const ParentComb	comb = p.first;
 		const FillType		type = p.second;
-		const auto			probs = record->parse_PL();
-		auto	r = new VCFFillableRecord(record->get_v(),
-											record->get_samples(),
-											index, type, comb, probs);
+		const VCFRecord		*ref_record = ref_vcf->get_record(index);
+		const auto			probs = ref_record->parse_PL(geno, cols);
+		auto	r = new VCFFillableRecord(record->get_pos(), geno,
+												index, type, comb, probs);
 		assert(static_cast<int>(type) < 4);
 		rss[static_cast<int>(type)].push_back(r);
 	}
 	return rss;
 }
 
-VCFHeteroHomoOnePhased *ImputedAndKnownFamily::create(const vector<STRVEC>& header,
+VCFHeteroHomoOnePhased *ImputedAndKnownFamily::create(
 										const STRVEC& samples,
 										const vector<VCFFillableRecord *>& rs,
 										bool is_mat_hetero, bool is_mat_imputed,
-										const Map& gmap) {
+										const Map& gmap, const VCFSmall *vcf) {
 	if(is_mat_hetero == is_mat_imputed)
-		return new VCFImpHeteroHomo(header, samples, rs, is_mat_hetero, gmap);
+		return new VCFImpHeteroHomo(samples, rs, is_mat_hetero, gmap, vcf);
 	else
-		return new VCFHeteroImpHomo(header, samples, rs, is_mat_hetero, gmap);
+		return new VCFHeteroImpHomo(samples, rs, is_mat_hetero, gmap, vcf);
 }
 
-bool ImputedAndKnownFamily::compare_record(const VCFRecord *a, const VCFRecord *b) {
-	return a->pos() < b->pos();
+bool ImputedAndKnownFamily::compare_record(const GenoRecord *a,
+											const GenoRecord *b) {
+	return a->get_pos() < b->get_pos();
 }
 
 VCFSmallFillable *ImputedAndKnownFamily::merge_vcf(
-					const std::vector<STRVEC>& header, const STRVEC& samples,
-					const array<vector<VCFFillableRecord *>, 4>& rss) {
+							const STRVEC& samples,
+							const array<vector<VCFFillableRecord *>, 4>& rss,
+							const VCFSmall *vcf) {
 	vector<VCFFillableRecord *>	rs;
 	for(int i = 0; i < 4; ++i) {
 		for(auto p = rss[i].begin(); p != rss[i].end(); ++p)
 			rs.push_back(*p);
 	}
 	std::sort(rs.begin(), rs.end(), ImputedAndKnownFamily::compare_record);
-	return new VCFSmallFillable(header, samples, rs);
+	return new VCFSmallFillable(samples, rs, vcf);
 }
 
-VCFSmallBase *ImputedAndKnownFamily::impute(const Family& family, VCFFamily *vcf,
+VCFSmallFillable *ImputedAndKnownFamily::impute(const Family& family,
+											VCFFamily *vcf,
 											const STRVEC& non_imputed_parents,
-											const Map& gmap) {
-	const auto&	header = vcf->get_header();
+											const Map& gmap,
+											const VCFSmall *ref_vcf) {
 	const STRVEC&	samples = family.get_samples();
-	const auto	rss = classify_records(vcf->get_family_records());
+	const auto&		records = vcf->get_family_records();
+	const auto	rss = classify_records(samples, records, ref_vcf);
 	const bool	is_mat_imp = std::find(non_imputed_parents.begin(),
 										non_imputed_parents.end(),
 										family.get_pat())
 												!= non_imputed_parents.end();
 	const auto&	rs_mat = rss[static_cast<int>(FillType::MAT)];
-	auto	*mat_vcf = create(header, samples, rs_mat, true, is_mat_imp, gmap);
+	auto	*mat_vcf = create(samples, rs_mat, true, is_mat_imp, gmap, ref_vcf);
 	mat_vcf->impute();
 	delete mat_vcf;
 	const auto&	rs_pat = rss[static_cast<int>(FillType::PAT)];
-	auto	*pat_vcf = create(header, samples, rs_pat, false, is_mat_imp, gmap);
+	auto	*pat_vcf = create(samples, rs_pat, false,
+											is_mat_imp, gmap, ref_vcf);
 	pat_vcf->impute();
 	delete pat_vcf;
-	auto	*merged_vcf = merge_vcf(header, samples, rss);
+	auto	*merged_vcf = merge_vcf(samples, rss, ref_vcf);
 	merged_vcf->modify(1);
 	return merged_vcf;
 }
@@ -130,7 +131,7 @@ bool ImputedAndKnownFamily::is_small(const Family *family,
 										const vector<vector<int>>& ref_haps,
 										int L, const OptionSmall& op) {
 	const size_t	N = family->num_progenies();
-	if(N > 1)
+	if(N > 2)
 		return false;
 	
 	const size_t	M = ref_haps[0].size();
@@ -187,9 +188,9 @@ void ImputedAndKnownFamily::impute_small_VCFs(
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
+VCFGenoBase *ImputedAndKnownFamily::impute_by_parent(
 									const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
+									const VCFGeno *imputed_vcf,
 									const vector<vector<int>>& ref_haps,
 									const vector<const KnownFamily *>& families,
 									const STRVEC& non_imputed_parents,
@@ -198,7 +199,7 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 	if(N == 0)
 		return NULL;
 	
-	vector<const VCFSmallBase *>	vcfs(N);
+	vector<const VCFGenoBase *>	vcfs(N);
 	vector<VCFOneParentImputed *>	small_vcfs;
 	for(size_t i = 0; i < N; ++i) {
 		const KnownFamily	*family = families[i];
@@ -209,11 +210,10 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 											   family->get_pat())
 										!= non_imputed_parents.end();
 		if(is_small(family, ref_haps, (int)N, op)) {
-			auto	*vcf = new VCFOneParentImputed(vcf1->get_header(),
-												family->get_samples(),
+			auto	*vcf = new VCFOneParentImputed(family->get_samples(),
 												vcf1->get_family_records(),
-												ref_haps,
-												is_mat_imputed, op.map, 0.01);
+												ref_haps, is_mat_imputed,
+												op.map, 0.01, orig_vcf);
 			small_vcfs.push_back(vcf);
 			vcfs[i] = vcf;
 			// The records are being reused,
@@ -221,18 +221,18 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 			vcf1->clear_records();
 		}
 		else if(is_small_ref(ref_haps, (int)N, op)) {
-			auto	*vcf2 = new VCFOneParentImputedRough(vcf1->get_header(),
-												family->get_samples(),
-												vcf1->get_family_records(),
-												ref_haps,
-												is_mat_imputed, op.map, 0.01);
+			auto	*vcf2 = new VCFOneParentImputedRough(family->get_samples(),
+													vcf1->get_family_records(),
+													ref_haps, is_mat_imputed,
+													op.map, 0.01, orig_vcf);
 			vcf2->impute();
 			vcfs[i] = vcf2;
 			vcf1->clear_records();
 		}
 		else {
 			auto	*imputed_vcf1 = impute(*family, vcf1,
-											non_imputed_parents, op.map);
+											non_imputed_parents,
+											op.map, orig_vcf);
 			vcfs[i] = imputed_vcf1;
 		}
 		delete vcf1;
@@ -242,7 +242,7 @@ VCFSmallBase *ImputedAndKnownFamily::impute_by_parent(
 	impute_small_VCFs(small_vcfs, op.num_threads);
 	cout << N << " families whose one parent is imputed and the other parent"
 									<< " is known have been imputed." << endl;
-	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
 }

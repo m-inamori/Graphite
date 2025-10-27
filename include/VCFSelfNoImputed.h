@@ -2,7 +2,9 @@
 #define __VCFSELFNOIMPUTED
 
 #include <vector>
-#include "VCF.h"
+#include "GenoRecord.h"
+#include "VCFGeno.h"
+#include "Map.h"
 
 class Map;
 class SelfImputer;
@@ -10,28 +12,21 @@ class SelfImputer;
 
 //////////////////// VCFSelfNoImputed ////////////////////
 
-class VCFSelfNoImputed : public VCFBase, public VCFSmallBase {
-	const std::vector<VCFRecord *>	records;
+class VCFSelfNoImputed : public VCFGenoBase, public VCFMeasurable {
+	const std::vector<GenoRecord *>	records;
 	SelfImputer	*imputer;
 	
 public:
-	VCFSelfNoImputed(const std::vector<STRVEC>& header, const STRVEC& s,
-								const std::vector<VCFRecord *>& records,
+	VCFSelfNoImputed(const STRVEC& s, const std::vector<GenoRecord *>& records,
 								const std::vector<std::vector<int>>& ref_hs,
-								const Map& map_, double w);
+								const Map& map_, double w, const VCFSmall *vcf);
 	VCFSelfNoImputed(const VCFSelfNoImputed&) = delete;
 	VCFSelfNoImputed& operator=(const VCFSelfNoImputed&) = delete;
 	~VCFSelfNoImputed();
 	
-	///// virtual methods for VCFSmallBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	

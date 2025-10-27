@@ -13,6 +13,36 @@ enum class ParentComb {
 	P00x00 = 0, P00x01, P01x01, P00x11, P01x11, P11x11, PNA
 };
 
+inline bool is_NA(ParentComb comb) {
+	return comb == ParentComb::PNA;
+}
+
+inline bool is_homohomo(ParentComb comb) {
+	return comb == ParentComb::P00x00 ||
+		   comb == ParentComb::P00x11 ||
+		   comb == ParentComb::P11x11;
+}
+
+inline bool is_heterohomo(ParentComb comb) {
+	return comb == ParentComb::P00x01 || comb == ParentComb::P01x11;
+}
+
+inline bool is_same_parent_genotype(ParentComb comb) {
+	return comb == ParentComb::P00x00 ||
+		   comb == ParentComb::P01x01 ||
+		   comb == ParentComb::P11x11;
+}
+
+inline std::pair<int, int> int_gt_pair(ParentComb comb) {
+	const int	p = static_cast<int>(comb);
+	if(p == 0)
+		return std::pair<int, int>(0, 0);
+	else if(p < 3)
+		return std::pair<int, int>(p - 1, 1);
+	else
+		return std::pair<int, int>(p - 3, 2);
+}
+
 
 //////////////////// TypeDeterminer ////////////////////
 

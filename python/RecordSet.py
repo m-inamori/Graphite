@@ -7,7 +7,7 @@ from typing import Optional, Iterator
 from itertools import product
 from math import log
 
-from VCF import VCFRecord
+from GenoRecord import GenoRecord
 from VCFFillableRecord import VCFFillableRecord
 from TypeDeterminer import ParentComb
 from Genotype import Genotype
@@ -51,13 +51,13 @@ class RecordSet:
 			return 0
 		return self.next_pat_record.from_which_chrom(i, False)
 	
-	def gt_each(self, i: int, record: Optional[VCFFillableRecord]) -> str:
-		return './.' if record is None else record.v[i+9]
+	def gt_each(self, i: int, record: Optional[VCFFillableRecord]) -> int:
+		return Genotype.NA if record is None else record.geno[i]
 	
-	def gt(self, i: int) -> str:
+	def gt(self, i: int) -> int:
 		return self.gt_each(i, self.record)
 	
-	def gts(self, i: int) -> tuple[str, str, str, str, str]:
+	def gts(self, i: int) -> tuple[int, int, int, int, int]:
 		v = [ self.gt_each(i, r) for r in self.records() ]
 		return (v[0], v[1], v[2], v[3], v[4])
 	
@@ -69,29 +69,33 @@ class RecordSet:
 			if self.prev_mat_record is None or self.next_mat_record is None:
 				return False
 			else:
-				return (self.prev_mat_record.pos() + self.next_mat_record.pos()
-														> self.record.pos()*2)
+				return (self.prev_mat_record.pos + self.next_mat_record.pos
+														> self.record.pos*2)
 		else:
 			if self.prev_pat_record is None or self.next_pat_record is None:
 				return False
 			else:
-				return (self.prev_pat_record.pos() + self.next_pat_record.pos()
-														> self.record.pos()*2)
+				return (self.prev_pat_record.pos + self.next_pat_record.pos
+														> self.record.pos*2)
 	
 	def __select_phasing(self, candidates: list[tuple[int, int]]
 												) -> tuple[int, int]:
 		if len(candidates) == 1 or self.record is None:
 			return candidates[0]
 		
-		mat_int_gt = self.record.mat_int_gt()
-		pat_int_gt = self.record.pat_int_gt()
+		mat_gt = self.record.unphased_mat()
+		pat_gt = self.record.unphased_pat()
 		
 		v: list[tuple[float, int, int]] = []
 		for mat_phasing, pat_phasing in candidates:
-			mat_int_gt1 = (mat_phasing >> 1) + (mat_phasing & 1)
-			pat_int_gt1 = (pat_phasing >> 1) + (pat_phasing & 1)
-			score = (abs(mat_int_gt1 - mat_int_gt) +
-					 abs(pat_int_gt1 - pat_int_gt))
+			mat_gt1 = (mat_phasing >> 1) + (mat_phasing & 1)
+			pat_gt1 = (pat_phasing >> 1) + (pat_phasing & 1)
+			score = 0
+			# N/Aは無視
+			if not Genotype.is_NA(mat_gt):
+				score += abs(mat_gt1 - mat_gt)
+			if not Genotype.is_NA(pat_gt):
+				score += abs(pat_gt1 - pat_gt)
 			v.append((score, mat_phasing, pat_phasing))
 		
 		# これだと、同じスコアならphasingが小さい方から選んでいる
@@ -137,48 +141,48 @@ class RecordSet:
 			return list(product(range(4), range(4)))
 	
 	# phasingされている前提
-	def from_which_chrom(self, gt: str, record: Optional[VCFRecord],
-														mat: bool) -> int:
+	def from_which_chrom(self, gt: int, record: Optional[VCFFillableRecord],
+															mat: bool) -> int:
 		if record is None:
 			return 0
 		
 		i = 0 if mat else 1
-		parent_gt = record.v[9+i]
-		return 1 if parent_gt[0] == gt[i*2] else 2
+		parent_gt = record.geno[i]
+		return 1 if (parent_gt & 1) == ((gt >> i) & 1) else 2
 	
-	def from_which_chrom_prev_mat(self, gt: str) -> int:
+	def from_which_chrom_prev_mat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.prev_mat_record, True)
 	
-	def from_which_chrom_next_mat(self, gt: str) -> int:
+	def from_which_chrom_next_mat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.next_mat_record, True)
 	
-	def from_which_chrom_prev_pat(self, gt: str) -> int:
+	def from_which_chrom_prev_pat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.prev_pat_record, False)
 	
-	def from_which_chrom_next_pat(self, gt: str) -> int:
+	def from_which_chrom_next_pat(self, gt: int) -> int:
 		return self.from_which_chrom(gt, self.next_pat_record, False)
 	
-	def gen_gts(self) -> Iterator[tuple[int, str, str, str, str]]:
+	def gen_gts(self) -> Iterator[tuple[int, int, int, int, int]]:
 		if self.record is None:
 			return
 		
-		for c in range(11, len(self.record.v)):
-			gts = [ r.v[c] if r else '' for r in self.records() ]
-			yield (c-9, gts[1], gts[2], gts[3], gts[4])
+		for i in range(2, len(self.record.geno)):
+			gts = [ r.geno[i] if r else Genotype.NA for r in self.records() ]
+			yield (i, gts[1], gts[2], gts[3], gts[4])
 	
 	def is_mat_prev_near(self) -> bool:
 		if (self.record is None or self.prev_mat_record is None or
 										self.next_mat_record is None):
 			return False
-		return (self.record.pos() * 2 <
-					self.prev_mat_record.pos() + self.next_mat_record.pos())
+		return (self.record.pos * 2 <
+					self.prev_mat_record.pos + self.next_mat_record.pos)
 	
 	def is_pat_prev_near(self) -> bool:
 		if (self.record is None or self.prev_pat_record is None or
 										self.next_pat_record is None):
 			return False
-		return (self.record.pos() * 2 <
-					self.prev_pat_record.pos() + self.next_pat_record.pos())
+		return (self.record.pos * 2 <
+					self.prev_pat_record.pos + self.next_pat_record.pos)
 	
 	def near_mat_from(self, i: int) -> int:
 		return (self.prev_mat_from(i) if self.is_mat_prev_near()
@@ -213,29 +217,23 @@ class RecordSet:
 			return (self.near_mat_from(i), self.near_pat_from(i))
 	
 	def select_pair(self, pairs: list[tuple[int, int]], i: int,
-							selected: bool = False) -> tuple[int, int]:
-		def sum_gt(gt: str) -> int:
-			try:
-				return int(gt[0]) + int(gt[2])
-			except ValueError:
-				return -1
-		
+									selected: bool = False) -> tuple[int, int]:
 		record = self.record
 		if record is None:	# for mypy
 			return (0, 0)
-		gt = record.get_gt(i)
+		gt = record.geno[i]
 		if not pairs:
 			return (0, 0)
 		elif len(pairs) == 1:
 			return pairs[0]
-		elif not Genotype.is_valid(gt, record.mat_int_gt(),
-											record.pat_int_gt()):
+		elif not Genotype.is_valid(gt, record.mat_gt(), record.pat_gt()):
 			return self.select_nearest_froms(pairs, i)
 		elif selected:
 			return self.select_nearest_froms(pairs, i)
 		else:
 			new_pairs = [ v for v in pairs
-						if sum_gt(gt) == sum_gt(record.gt_from_parent(*v)) ]
+							if Genotype.unphased(gt) ==
+								Genotype.unphased(record.gt_from_parent(*v)) ]
 			pair = self.select_pair(new_pairs, i, True)
 			if pair != (0, 0):
 				return pair
@@ -323,13 +321,12 @@ class RecordSet:
 		mat_gt, pat_gt = self.determine_phasing_core(lls)
 		if record is None:
 			return
-		gt = ['0|0', '1|0', '0|1', '1|1']
-		record.v[9] = gt[mat_gt] + record.v[9][3:]
-		record.v[10] = gt[pat_gt] + record.v[10][3:]
+		record.geno[0] = mat_gt | 4
+		record.geno[1] = pat_gt | 4
 	
 	# どちらから来たか決める
-	def select_from(self, froms: list[int], record1: Optional[VCFRecord],
-										  record2: Optional[VCFRecord]) -> int:
+	def select_from(self, froms: list[int], record1: Optional[GenoRecord],
+										  record2: Optional[GenoRecord]) -> int:
 		if len(froms) == 1:
 			return froms[0]
 		
@@ -343,16 +340,16 @@ class RecordSet:
 			if self.record is None or record1 is None or record2 is None:
 				# ここには来ないはず
 				return 0
-			elif self.record.pos() * 2 < record1.pos() + record2.pos():
+			elif self.record.pos * 2 < record1.pos + record2.pos:
 				return froms[0]
 			else:
 				return froms[1]
 	
-	def modify_gt(self, i: int) -> str:
+	def modify_gt(self, i: int) -> int:
 		if self.record is None:
-			return ""
+			return Genotype.NA
 		
-		gt = self.record.get_gt(i)
+		gt = self.record.geno[i]
 		prev_mat_from = self.prev_mat_from(i)
 		next_mat_from = self.next_mat_from(i)
 		prev_pat_from = self.prev_pat_from(i)
@@ -370,11 +367,11 @@ class RecordSet:
 			if any(mat_from != 0 for mat_from in mat_froms):
 				mat_from_nz = self.select_from(mat_froms,
 									self.prev_mat_record, self.next_mat_record)
-				return self.record.gt_from_mat(mat_from_nz, i+9)
+				return self.record.gt_from_mat(mat_from_nz, i)
 			elif any(pat_from != 0 for pat_from in pat_froms):
 				pat_from_nz = self.select_from(pat_froms,
 									self.prev_pat_record, self.next_pat_record)
-				return self.record.gt_from_pat(pat_from_nz, i+9)
+				return self.record.gt_from_pat(pat_from_nz, i)
 			else:
 				return gt	# phasingしない
 		else:
@@ -383,7 +380,7 @@ class RecordSet:
 	def impute_core(self) -> None:
 		if self.record is not None:
 			new_gts = [ self.modify_gt(i)
-						for i in range(2, len(self.record.samples)) ]
+						for i in range(2, len(self.record.geno)) ]
 			self.record.modify_gts(new_gts)
 			self.record.modify_parents_type()
 	
@@ -405,13 +402,13 @@ class RecordSetSmall(RecordSet):
 		if self.record is None:
 			return []
 		
+		# 無駄なことをしているが、結果が変わるので、あとで書き直したい
 		if self.record.is_phased(0) or self.record.is_phased(1):
-			gts = ['0|0', '1|0', '0|1', '1|1']
-			for i, gt in enumerate(gts):
-				if self.record.get_GT(0) == gt:
-					return [ (i, g) for g in range(4) ]
-				if self.record.get_GT(1) == gt:
-					return [ (g, i) for g in range(4) ]
+			for gt in range(4):
+				if self.record.geno[0] == gt | 4:
+					return [ (gt, g) for g in range(4) ]
+				if self.record.geno[1] == gt | 4:
+					return [ (g, gt) for g in range(4) ]
 			else:
 				return []
 		else:
@@ -422,6 +419,8 @@ class RecordSetSmall(RecordSet):
 			return 0.0
 		
 		ll = super().compute_phasing_likelihood(mat_gt, pat_gt)
-		ll +=  log(0.9 if self.record.mat_int_gt() == mat_gt else 0.1)
-		ll +=  log(0.9 if self.record.pat_int_gt() == pat_gt else 0.1)
+		mat_int_gt = (mat_gt & 1) + ((mat_gt >> 1) & 1)
+		pat_int_gt = (pat_gt & 1) + ((pat_gt >> 1) & 1)
+		ll +=  log(0.9 if self.record.unphased_mat() == mat_int_gt else 0.1)
+		ll +=  log(0.9 if self.record.unphased_pat() == pat_int_gt else 0.1)
 		return ll

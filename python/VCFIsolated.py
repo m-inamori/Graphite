@@ -7,26 +7,28 @@ from __future__ import annotations
 from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator
 
-from VCF import *
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
+from GenoRecord import GenoRecord
 from VCFImputable import *
+from Genotype import Genotype
 from OptionSmall import *
 
 
 #################### VCFIsolated ####################
 
 # imputed samples at the beginning, followed by reference samples
-class VCFIsolated(VCFBase, VCFImputable):
-	def __init__(self, header: list[list[str]], num_imputed_samples: int,
-									records: list[VCFRecord], map_: Map):
-		VCFBase.__init__(self, header)
-		VCFImputable.__init__(self, map_)
-		self.records: list[VCFRecord] = records
+class VCFIsolated(VCFImputable):
+	def __init__(self, samples: list[str], num_imputed_samples: int,
+						records: list[GenoRecord], map_: Map, vcf: VCFSmall):
+		VCFImputable.__init__(self, samples, map_, vcf)
+		self.records: list[GenoRecord] = records
 		self.num_imputed_samples = num_imputed_samples
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	# divide VCF by 1 cM
@@ -38,12 +40,12 @@ class VCFIsolated(VCFBase, VCFImputable):
 			if self.is_block(record, rs):
 				rs.append(record)
 			else:
-				yield VCFIsolated(self.header, self.num_imputed_samples,
-															rs, self.map)
+				yield VCFIsolated(self.samples, self.num_imputed_samples,
+														rs, self.map, self.vcf)
 				rs = [record]
 		
-		yield VCFIsolated(self.header, self.num_imputed_samples,
-															rs, self.map)
+		yield VCFIsolated(self.samples, self.num_imputed_samples,
+														rs, self.map, self.vcf)
 	
 	def collect_haplotype_from_refs(self) -> list[Haplotype]:
 		return [ self.clip_haplotype(i, j)
@@ -70,28 +72,26 @@ class VCFIsolated(VCFBase, VCFImputable):
 			haps = vcf_cM.impute_cM(haps)
 		print("%d samples are imputed." % self.num_imputed_samples)
 	
-	def extract_isolated_samples(self) -> VCFSmall:
-		isolated_samples = self.samples[:self.num_imputed_samples]
-		return self.extract_samples(isolated_samples)
-	
 	@staticmethod
-	def create(orig_vcf: VCFSmall, merged_vcf: VCFSmall,
+	def create(orig_vcf: VCFSmall, merged_vcf: VCFGeno,
 						samples: list[str], references: list[str],
 						op: OptionSmall) -> VCFIsolated:
-		sample_columns = orig_vcf.extract_columns(samples)
+		samples.sort()	# C++と合わせるため
+		columns = orig_vcf.extract_columns(samples)
 		ref_columns = merged_vcf.extract_columns(references)
-		new_samples = [ orig_vcf.samples[c-9]
-								for c in sample_columns ] + references
+		new_samples = [ orig_vcf.samples[c-9] for c in columns ] + references
 		header = orig_vcf.trim_header(new_samples)
-		new_records = []
+		new_records: list[GenoRecord] = []
 		for i in range(len(orig_vcf)):
 			record = orig_vcf.records[i]
 			imputed_record = merged_vcf.records[i]
-			v = (record.v[:9] + [ record.v[c] for c in sample_columns ] +
-								[ imputed_record.v[c] for c in ref_columns ])
-			new_record = VCFRecord(v, new_samples)
+			pos = imputed_record.pos
+			geno = ([ Genotype.all_gt_to_int(record.v[c]) for c in columns ] +
+								[ imputed_record.geno[c] for c in ref_columns ])
+			new_record = GenoRecord(pos, geno)
 			new_records.append(new_record)
-		vcf = VCFIsolated(header, len(samples), new_records, op.map)
+		vcf = VCFIsolated(new_samples, len(samples),
+								new_records, op.map, orig_vcf)
 		return vcf
 
 __all__ = ['VCFIsolated']

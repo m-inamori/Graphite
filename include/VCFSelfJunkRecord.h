@@ -8,9 +8,9 @@
 
 class VCFSelfJunkRecord : public VCFImpSelfRecord {
 public:
-	VCFSelfJunkRecord(const STRVEC& v, const STRVEC& samples,
+	VCFSelfJunkRecord(ll pos, const std::vector<int>& geno,
 										int i, WrongType type) :
-					VCFImpSelfRecord(v, samples, i, type, ParentComb::PNA) { }
+					VCFImpSelfRecord(pos, geno, i, type, ParentComb::PNA) { }
 	~VCFSelfJunkRecord() { }
 	
 	bool is_imputable() const override { return false; }

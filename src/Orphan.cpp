@@ -50,15 +50,14 @@ void Orphan::impute_small_VCF(VCFOrphan *vcf, int T) {
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *Orphan::impute(const vector<string>& samples,
+VCFGenoBase *Orphan::impute(const vector<string>& samples,
 								const VCFSmall *orig_vcf,
 								const vector<vector<int>>& ref_haps,
 								const OptionSmall& op) {
-	auto	*vcf = orig_vcf->select_samples(samples);
+	auto	*vcf = VCFGeno::extract_samples(samples, orig_vcf);
 	if(is_small(ref_haps, op)) {
-		auto	*vcf1 = new VCFOrphan(vcf->get_header(), samples,
-										vcf->get_records(),
-										ref_haps, op.map, 0.01);
+		auto	*vcf1 = new VCFOrphan(samples, vcf->get_records(),
+										ref_haps, op.map, 0.01, orig_vcf);
 		impute_small_VCF(vcf1, op.num_threads);
 		cout << samples.size() << " orphan samples have been imputed." << endl;
 		vcf->clear_records();

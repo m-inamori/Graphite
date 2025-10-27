@@ -4,13 +4,13 @@
 
 using namespace std;
 
-SelfProgenyImputer::SelfProgenyImputer(const vector<VCFRecord *>& rs,
+SelfProgenyImputer::SelfProgenyImputer(const vector<GenoRecord *>& rs,
 									 size_t iprog, const Map& map_, double w) :
 					VCFHMM(rs, map_, w), records(rs), ic(iprog), Cc(calc_Cc(rs))
 					{ }
 
 vector<double> SelfProgenyImputer::calc_Cc(
-							const vector<VCFRecord *>& rs) const {
+							const vector<GenoRecord *>& rs) const {
 	const size_t	M = rs.size();
 	vector<double>	Cc(M-1);
 	for(size_t i = 0; i < M - 1; ++i) {
@@ -35,9 +35,9 @@ double SelfProgenyImputer::transition_probability(size_t i,
 
 vector<SelfProgenyImputer::DP> SelfProgenyImputer::initialize_dp() const {
 	vector<DP>	dp(M(), DP(4, pair<double, int>(MIN_PROB, 0)));
-	const VCFRecord	*record = records[0];
-	const int	parent_gt = Genotype::phased_gt_to_int(record->get_gt(0));
-	const int	oc = Genotype::gt_to_int(record->get_gt(ic+1));
+	const GenoRecord	*record = records[0];
+	const int	parent_gt = record->get_geno()[0];
+	const int	oc = record->get_geno()[ic+1];
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(h, parent_gt, oc);
 		dp[0][h] = make_pair(E_all, h);
@@ -46,9 +46,9 @@ vector<SelfProgenyImputer::DP> SelfProgenyImputer::initialize_dp() const {
 }
 
 void SelfProgenyImputer::update_dp(size_t i, vector<DP>& dp) const {
-	const VCFRecord	*record = records[i];
-	const int	parent_gt = Genotype::phased_gt_to_int(record->get_gt(0));
-	const int	oc = Genotype::gt_to_int(record->get_gt(ic+1));
+	const GenoRecord	*record = records[i];
+	const int	parent_gt = record->get_geno()[0];
+	const int	oc = record->get_geno()[ic+1];
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(h, parent_gt, oc);
 		
@@ -62,10 +62,10 @@ void SelfProgenyImputer::update_dp(size_t i, vector<DP>& dp) const {
 
 void SelfProgenyImputer::update_genotypes(const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
-		VCFRecord	*record = records[i];
-		const int	parent_gt = Genotype::phased_gt_to_int(record->get_gt(0));
+		GenoRecord	*record = records[i];
+		const int	parent_gt = record->get_geno()[0];
 		const int	prog_gt = progeny_genotype(hs[i], parent_gt);
-		record->set_GT(ic + 1, Genotype::int_to_phased_gt(prog_gt));
+		record->set_geno(ic + 1, prog_gt | 4);
 	}
 }
 

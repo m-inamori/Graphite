@@ -4,6 +4,8 @@
 #include <vector>
 #include "VCF.h"
 
+class VCFGenoBase;
+class VCFGeno;
 class VCFBothKnown;
 class KnownFamily;
 class Map;
@@ -30,10 +32,10 @@ namespace BothKnownFamily {
 											int L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFBothKnown *>& vcfs, int T);
-	VCFSmallBase *impute(const VCFSmall *orig_vcf,
-							const VCFSmall *imputed_vcf,
-							const std::vector<std::vector<int>>& ref_haps,
-							const std::vector<const KnownFamily *>& families,
-							const OptionSmall& op);
+	VCFGenoBase *impute(const VCFSmall *orig_vcf,
+						const VCFGeno *imputed_vcf,
+						const std::vector<std::vector<int>>& ref_haps,
+						const std::vector<const KnownFamily *>& families,
+						const OptionSmall& op);
 };
 #endif

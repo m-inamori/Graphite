@@ -47,7 +47,6 @@ public:
 	ll	pos() const { return stoll(this->v[1]); }
 	const std::string	format() const { return this->v[8]; }
 	std::string	gt(const std::string& sample) const;
-	bool is_NA(std::size_t i) const { return Genotype::is_NA(v[i+9]); }
 	bool is_phased(std::size_t i) const {
 		const char	*gt1 = this->v[i+9].c_str();
 		return gt1[0] != '.' && gt1[1] == '|' && gt1[2] != '.';
@@ -56,10 +55,7 @@ public:
 	const std::string& get_gt(std::size_t i) const { return v[i+9]; }
 	std::string& get_mut_gt(std::size_t i) { return v[i+9]; }
 	std::string get_GT(std::size_t i) const { return v[i+9].substr(0, 3); }
-	int get_int_gt(std::size_t i) const {
-		const int	int_gt = Genotype::get_int_gt(v[i+9]);
-		return int_gt == 3 ? -1 : int_gt;
-	}
+	int get_int_gt(std::size_t i) const { return Genotype::gt_to_int(v[i+9]); }
 	std::vector<int> get_int_gts() const;
 	bool is_homo(std::size_t i) const;
 	bool is_hetero(std::size_t i) const;
@@ -70,7 +66,15 @@ public:
 	void set(const STRVEC& new_v) { v = new_v; }
 	WrongRecordType check() const;
 	std::size_t find_key_position(const std::string& key) const;
-	std::vector<Probs> parse_PL() const;
+	Probs parse_PL_each(std::size_t c, std::size_t PL_pos, int gt) const;
+	std::vector<Probs> parse_PL(const std::vector<int>& geno,
+								const std::vector<std::size_t>& cols) const;
+	static Probs decide_PL_by_genotype(int gt) {
+		if(Genotype::is_00(gt))			return Probs(0.98, 0.01, 0.01);
+		else if(Genotype::is_01(gt))	return Probs(0.01, 0.98, 0.01);
+		else if(Genotype::is_11(gt))	return Probs(0.01, 0.01, 0.98);
+		else 							return Probs(1./3, 1./3, 1./3);
+	}
 };
 
 
@@ -93,7 +97,6 @@ public:
 	POSITION record_position(const VCFRecord& record) const;
 	std::string chr(int chr_id) const;
 	int find_column(const std::string& sample) const;
-	void write_header(std::ostream& os) const;
 	
 	void copy_chrs(VCFBase *vcf) const { vcf->chrs = chrs; }
 	

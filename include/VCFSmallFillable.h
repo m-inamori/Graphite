@@ -22,9 +22,10 @@ public:
 	};
 	
 public:
-	VCFSmallFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-							const std::vector<VCFFillableRecord *>& rs) :
-													VCFFillable(h, s, rs) { }
+	VCFSmallFillable(const STRVEC& s,
+						const std::vector<VCFFillableRecord *>& rs,
+						const VCFSmall *vcf) :
+										VCFFillable(s, rs, vcf) { }
 	~VCFSmallFillable() { }
 	
 	///// non-virtual methods /////

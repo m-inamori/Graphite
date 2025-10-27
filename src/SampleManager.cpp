@@ -18,6 +18,7 @@ const char *SampleException::what() const noexcept {
 
 SampleManager::~SampleManager() {
 	Common::delete_all(large_families);
+	Common::delete_all(large_self_families);
 	Common::delete_all(small_families);
 }
 
@@ -53,8 +54,8 @@ bool SampleManager::is_parents_imputed_and_progenies_not_imputed(
 bool SampleManager::is_parent_imputed_and_progenies_not_imputed(
 												const Family *family) const {
 	// only one parent is imputed
-	if(family->is_self() || !this->is_imputed(family->get_mat()) ||
-							!this->is_imputed(family->get_pat()))
+	if(family->is_self() || !(this->is_imputed(family->get_mat()) ^
+							  this->is_imputed(family->get_pat())))
 		return false;
 	
 	const vector<const Progeny *>&	progenies = family->get_progenies();
@@ -218,7 +219,8 @@ bool SampleManager::is_all_samples_imputed(const KnownFamily *family) const {
 
 vector<const KnownFamily *> SampleManager::extract_self_families() const {
 	vector<const KnownFamily *>	families;
-	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+	for(auto p = large_self_families.begin();
+						p != large_self_families.end(); ++p) {
 		const KnownFamily	*family = *p;
 		if(family->is_self() && !is_all_samples_imputed(family)) {
 			families.push_back(family);
@@ -230,7 +232,8 @@ vector<const KnownFamily *> SampleManager::extract_self_families() const {
 vector<const KnownFamily *>
 SampleManager::extract_self_parent_non_imputed_families() const {
 	vector<const KnownFamily *>	families;
-	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+	for(auto p = large_self_families.begin();
+							p != large_self_families.end(); ++p) {
 		const KnownFamily	*family = *p;
 		if(family->is_self() && !is_imputed(family->get_mat()) &&
 								!is_all_progenies_imputed(family)) {
@@ -406,12 +409,16 @@ SampleManager *SampleManager::create(const PedigreeTable *ped,
 											lower_progs, family_indices);
 	
 	vector<const KnownFamily *>	large_families;
+	vector<const KnownFamily *>	large_self_families;
 	vector<const KnownFamily *>	small_families;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const KnownFamily *family	= *p;
 		if(!family->is_self() && family->num_progenies() >= lower_progs &&
 														family->is_any_known())
 			large_families.push_back(family);
+		else if(family->is_self() && family->num_progenies() >= lower_progs &&
+														family->is_both_known())
+			large_self_families.push_back(family);
 		else
 			small_families.push_back(family);
 	}
@@ -419,5 +426,6 @@ SampleManager *SampleManager::create(const PedigreeTable *ped,
 	if(large_families.empty())
 		throw SampleException();
 	
-	return new SampleManager(ped, large_families, small_families, lower_progs);
+	return new SampleManager(ped, large_families, large_self_families,
+												small_families, lower_progs);
 }

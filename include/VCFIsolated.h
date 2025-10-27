@@ -11,7 +11,7 @@ class OptionSmall;
 //////////////////// VCFIsolated ////////////////////
 
 // imputed samples at the beginning, followed by reference samples
-class VCFIsolated : public VCFBase, public VCFImputable {
+class VCFIsolated : public VCFImputable {
 public:
 	struct ConfigThread {
 		const std::vector<VCFIsolated *>&	vcfs;
@@ -26,25 +26,18 @@ public:
 	};
 	
 private:
-	std::vector<VCFRecord *>	records;
+	std::vector<GenoRecord *>	records;
 	const std::size_t	num_imputed_samples;
-	const bool	modify_genotypes;
 	
 public:
-	VCFIsolated(const std::vector<STRVEC>& h, const STRVEC& s,
-				std::vector<VCFRecord *>& rs, std::size_t nis,
-				const Map& m, bool modify_genotypes);
+	VCFIsolated(const STRVEC& s, std::size_t nis,
+				std::vector<GenoRecord *>& rs,
+				const Map& m, const VCFSmall *vcf);
 	~VCFIsolated();
 	
 	///// virtual methods for VFSmallBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	
@@ -56,19 +49,19 @@ public:
 	void set_gts(const std::vector<std::string>& gts, std::size_t sample_index);
 	
 	///// non-virtual methods /////
-	VCFIsolated *divide_by_positions(std::size_t first, std::size_t last) const;
 	void impute();
-	void add_record(VCFRecord *record) { records.push_back(record); }
+	void add_record(GenoRecord *record) { records.push_back(record); }
 	
 	std::vector<Haplotype> collect_haplotype_from_refs() const;
 	
 private:
+	std::vector<VCFIsolated *> divide_by_cM() const;
 	std::vector<HaplotypePair> impute_cM(
 								const std::vector<HaplotypePair>& prev_haps);
 	
 public:
 	static VCFIsolated *create(const VCFSmall *orig_vcf,
-								const VCFSmall *merged_vcf,
+								const VCFGeno *merged_vcf,
 								const STRVEC& samples,
 								const STRVEC& references,
 								const OptionSmall& op);

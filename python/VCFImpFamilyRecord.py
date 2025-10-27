@@ -28,9 +28,9 @@ class FillType(Enum):
 #################### VCFImpFamilyRecord ####################
 
 class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
-	def __init__(self, v: list[str], samples: list[str],
-						index: int, parents_wrong_type: str, pair: ParentComb):
-		super().__init__(v, samples)
+	def __init__(self, pos: int, geno: list[int], index: int,
+						parents_wrong_type: str, pair: ParentComb) -> None:
+		super().__init__(pos, geno)
 		self.index: int = index
 		self.parents_wrong_type: str = parents_wrong_type
 		self.pair: ParentComb = pair
@@ -45,18 +45,14 @@ class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
 	def enable_modification(self) -> None:
 		self.parents_wrong_type = 'Modifiable'
 	
+	# gt: 0 => 0|0 x 1|1 gt: 2 => 1|1 x 0|0
 	def set_00x11_parents(self, i: int, gt: int) -> None:
-		def GT(gt: int) -> str:
-			return '{0}|{0}'.format(gt // 2)
-		
-		GT1 = GT(gt)
-		GT2 = GT(2 if gt == 0 else 0)
 		j = 1 if i == 0 else 0
-		self.set_GT(i, GT1)
-		self.set_GT(j, GT2)
-		progeny_GT = '0|1' if xor(i == 0, gt == 2) else '1|0'
-		for k in range(2, len(self.samples)):
-			self.set_GT(k, progeny_GT)
+		self.geno[i] = gt // 2 * 3 + 4
+		self.geno[j] = 7 - gt // 2 * 3
+		prog_gt = 5 if xor(gt == 0, i == 0) else 6
+		for k in range(2, len(self.geno)):
+			self.geno[k] = prog_gt
 	
 	@abstractmethod
 	def is_imputable(self) -> bool:
@@ -66,12 +62,13 @@ class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
 	def get_fill_type(self) -> FillType:
 		pass
 	
+	# 複数の家系で同じサンプルを集めたRecord
 	# あるGenotypeはfixedのみ、その他はfixed以外
 	# -> (right GT, [(wrong record, parent index)])
 	@staticmethod
 	def which_is_fixed(v: list[tuple[VCFImpFamilyRecord, int]]
 						) -> tuple[int, list[tuple[VCFImpFamilyRecord, int]]]:
-		gts = [ r.get_int_gt(i) for r, i in v ]
+		gts = [ r.unphased(i) for r, i in v ]
 		if is_all_same(gts):
 			return (gts[0], [])
 		
@@ -106,17 +103,7 @@ class VCFImpFamilyRecord(VCFFamilyRecord, metaclass=ABCMeta):
 	# 親のどちらが0/0でどちらが1/1なのかを間違えている場合が多い
 	# 親が複数の家系にまたがっているとき、修正できるかもしれない
 	@staticmethod
-	def modify_00x11(records: list[VCFImpFamilyRecord]) -> None:
-		# { sample: [(VCFImpFamilyRecord, mat or pat)] }
-		dic = defaultdict(list)
-		for r in records:
-			dic[r.samples[0]].append((r, 0))
-			dic[r.samples[1]].append((r, 1))
-		
-		for v in dic.values():
-			if len(v) < 2:
-				continue
-			
-			right_gt, wrongs = VCFImpFamilyRecord.which_is_fixed(v)
-			for record, i in wrongs:
-				record.set_00x11_parents(i, right_gt)
+	def modify_00x11(records: list[tuple[VCFImpFamilyRecord, int]]) -> None:
+		right_gt, wrongs = VCFImpFamilyRecord.which_is_fixed(records)
+		for record, i in wrongs:
+			record.set_00x11_parents(i, right_gt)

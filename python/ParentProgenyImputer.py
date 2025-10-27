@@ -7,6 +7,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from VCFFamily import VCFFamilyRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -39,7 +40,7 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		return len(self.ref_haps)
 	
 	def num_progenies(self) -> int:
-		return len(self.records[0].v) - 11
+		return len(self.records[0].geno) - 2
 	
 	# ハプロタイプを決めたときのGenotype
 	def gt_by_haplotypes(self, hc1: int, hc2: int,
@@ -82,13 +83,13 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		M = len(self.records)	# マーカー数
 		L = self.NH()**2 << (2*self.num_progenies())
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
-		phased_col = 9 if self.is_mat_imputed else 10
-		non_phased_col = 10 if self.is_mat_imputed else 9
+		phased_col = 0 if self.is_mat_imputed else 1
+		non_phased_col = 1 if self.is_mat_imputed else 0
 		record = self.records[0]
-		phased_parent_gt = Genotype.phased_gt_to_int(record.v[phased_col])
-		op = Genotype.gt_to_int(record.v[non_phased_col])	# observed parent
+		phased_parent_gt = record.geno[phased_col] & 3
+		op = record.unphased(non_phased_col)	# observed parent
 		# observed progs
-		ocs = [ Genotype.gt_to_int(gt) for gt in record.v[11:] ]
+		ocs = [ record.unphased(k) for k in range(2, len(record.geno)) ]
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(0, h, op, ocs, phased_parent_gt)
 			dp[0][h] = (E_all, h)
@@ -142,14 +143,14 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		L = self.NH()**2 << (2*N)
 		Lc = 1 << (2*N)				# 子のハプロタイプの状態数
 		record = self.records[i]
-		phased_col = 9 if self.is_mat_imputed else 10
-		non_phased_col = 10 if self.is_mat_imputed else 9
+		phased_col = 0 if self.is_mat_imputed else 1
+		non_phased_col = 1 if self.is_mat_imputed else 0
 		cc = self.Cc[i-1]	# 遷移確率
 		cp = self.Cp[i-1]	# 親の遷移確率
-		phased_parent_gt = Genotype.phased_gt_to_int(record.v[phased_col])
-		op = Genotype.gt_to_int(record.v[non_phased_col])	# observed parent
+		phased_parent_gt = record.geno[phased_col] & 3
+		op = record.unphased(non_phased_col)	# observed parent
 		# observed progs
-		ocs = [ Genotype.gt_to_int(gt) for gt in record.v[11:] ]
+		ocs = [ record.unphased(k) for k in range(2, len(record.geno)) ]
 		
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(i, h, op, ocs, phased_parent_gt)
@@ -178,16 +179,16 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 			record = self.records[i]
 			if self.is_mat_imputed:
 				pat_gt = self.compute_non_phased_parent_gt(hs[i], i)
-				record.set_GT(1, Genotype.int_to_phased_gt(pat_gt))
-				mat_gt = Genotype.phased_gt_to_int(record.v[9])
+				record.geno[1] = pat_gt | 4
+				mat_gt = record.geno[0] & 3
 			else:
 				mat_gt = self.compute_non_phased_parent_gt(hs[i], i)
-				record.set_GT(0, Genotype.int_to_phased_gt(mat_gt))
-				pat_gt = Genotype.phased_gt_to_int(record.v[10])
+				record.geno[0] = mat_gt | 4
+				pat_gt = record.geno[1] & 3
 			for j in range(N):	# 個々の後代
 				hc2, hc1 = divmod((hs[i] >> (j * 2)) & 3, 2)
 				gtc_int = self.gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt)
-				record.set_GT(j+2, Genotype.int_to_phased_gt(gtc_int))
+				record.geno[j+2] = gtc_int | 4
 	
 	def impute(self) -> None:
 		# DP

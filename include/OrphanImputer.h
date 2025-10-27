@@ -1,27 +1,28 @@
 #ifndef __ORPHANIMPUTER
 #define __ORPHANIMPUTER
 
-#include "VCF.h"
+#include <cmath>
+#include "GenoRecord.h"
 #include "VCFHMM.h"
 #include "Map.h"
 
 
 //////////////////// OrphanImputer ////////////////////
 
-class OrphanImputer : public VCFHMM<VCFRecord> {
+class OrphanImputer : public VCFHMM<GenoRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFRecord *>&	ref_records;
+	const std::vector<GenoRecord *>&	ref_records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const std::vector<double>	Cp;
 	
 public:
-	OrphanImputer(const std::vector<VCFRecord *>& rs,
+	OrphanImputer(const std::vector<GenoRecord *>& rs,
 					const std::vector<std::vector<int>>& ref_haps,
 					const Map& map_, double w);
 	~OrphanImputer() { }
@@ -29,7 +30,7 @@ public:
 	void impute(std::size_t io);
 	
 private:
-	std::vector<double> calc_Cp(const std::vector<VCFRecord *>& rs) const;
+	std::vector<double> calc_Cp(const std::vector<GenoRecord *>& rs) const;
 	std::vector<std::vector<int>>
 						collect_possible_previous_hidden_states() const;
 	

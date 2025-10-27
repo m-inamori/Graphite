@@ -25,11 +25,8 @@ class SelfGroups:
 	def find_prev_record(self, i: int, g: SelfFillType
 								) -> Optional[VCFSelfFillableRecord]:
 		key, records = self.groups[i]
-		chr = records[0].v[0]
 		for j in range(i-1, -1, -1):
 			key, records = self.groups[j]
-			if records[0].v[0] != chr:
-				return None
 			if key == g:
 				return records[-1]
 		else:
@@ -38,11 +35,8 @@ class SelfGroups:
 	def find_next_record(self, i: int, g: SelfFillType
 									) -> Optional[VCFSelfFillableRecord]:
 		key, records = self.groups[i]
-		chr = records[0].v[0]
 		for j in range(i+1, len(self)):
 			key, records = self.groups[j]
-			if records[0].v[0] != chr:
-				return None
 			if key == g:
 				return records[0]
 		else:

@@ -37,5 +37,5 @@ vector<int> VCFHMM<R>::trace_back(const vector<DP>& dps) const {
 	return hs;
 }
 
-template class VCFHMM<VCFRecord>;
+template class VCFHMM<GenoRecord>;
 template class VCFHMM<VCFFamilyRecord>;

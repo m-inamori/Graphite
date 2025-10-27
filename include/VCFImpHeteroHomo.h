@@ -10,17 +10,18 @@ class Map;
 
 class VCFImpHeteroHomo : public VCFHeteroHomoOnePhased {
 public:
-	VCFImpHeteroHomo(const std::vector<STRVEC>& h, const STRVEC& s,
+	VCFImpHeteroHomo(const STRVEC& s,
 						const std::vector<VCFFillableRecord *>& rs,
-						bool is_mat_hetero, const Map& m) :
-				VCFHeteroHomoOnePhased(h, s, rs, is_mat_hetero, m) { }
+						bool is_mat_hetero, const Map& m,
+						const VCFSmall *vcf) :
+				VCFHeteroHomoOnePhased(s, rs, is_mat_hetero, m, vcf) { }
 	~VCFImpHeteroHomo() { }
 	
 	///// non-virtual methods /////
 	std::size_t imputed_index() const { return is_mat_hetero ? 0 : 1; }
 	std::size_t non_imputed_index() const { return is_mat_hetero ? 1 : 0; }
 	
-	std::string update_each(std::size_t i, std::size_t j, char c) const;
+	int update_each(std::size_t i, std::size_t j, char c) const;
 	void update(std::size_t i, const std::vector<std::string>& seqs);
 	char determine_haplotype(int which_zero,
 								int homo_int_gt, int prog_int_gt) const;

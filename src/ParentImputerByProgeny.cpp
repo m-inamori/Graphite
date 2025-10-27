@@ -4,16 +4,17 @@
 
 using namespace std;
 
-ParentImputerByProgeny::ParentImputerByProgeny(const vector<VCFRecord *>& rs,
-							 const vector<vector<int>>& ref_hs,
-							 bool is_mat_known_, const Map& map_, double w) :
-					VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
+ParentImputerByProgeny::ParentImputerByProgeny(
+							const vector<VCFFamilyRecord *>& rs,
+							const vector<vector<int>>& ref_hs,
+							bool is_mat_known_, const Map& map_, double w) :
+					VCFHMM(rs, map_, w), records(rs), ref_haps(ref_hs),
 					prev_h_table(collect_possible_previous_hidden_states()),
 					is_mat_known(is_mat_known_),
 					Cc(calc_Cc(rs)), Cp(calc_Cp(rs)) { }
 
 vector<double> ParentImputerByProgeny::calc_Cc(
-							const vector<VCFRecord *>& rs) const {
+							const vector<VCFFamilyRecord *>& rs) const {
 	const size_t	M = rs.size();
 	vector<double>	Cc(M-1);
 	for(size_t i = 0; i < M - 1; ++i) {
@@ -23,7 +24,7 @@ vector<double> ParentImputerByProgeny::calc_Cc(
 }
 
 vector<double> ParentImputerByProgeny::calc_Cp(
-							const vector<VCFRecord *>& rs) const {
+							const vector<VCFFamilyRecord *>& rs) const {
 	const double	K = 5.0;
 	const size_t	M = rs.size();
 	vector<double>	Cp(M-1);
@@ -38,8 +39,7 @@ int ParentImputerByProgeny::compute_parent_gt(size_t i, int h) const {
 									// from the parent to the progeny
 	const int	hc = (h >> 1) & 1;	// Which parent passed it to the progeny
 	const int	hp = h >> 2;		// Those who have not passed to the progeny
-	const string&	prog_gt = records[i]->get_gt(1);
-	const int	prog_allele = static_cast<int>(prog_gt.c_str()[hw*2] - '0');
+	const int	prog_allele = records[i]->get_allele(1, hw);
 	if(hc == 0)
 		return prog_allele | (ref_haps[hp][i] << 1);
 	else
@@ -48,7 +48,7 @@ int ParentImputerByProgeny::compute_parent_gt(size_t i, int h) const {
 
 double ParentImputerByProgeny::emission_probability(size_t i, int h) const {
 	const int	parent_phased_gt = compute_parent_gt(i, h);
-	const int	parent_gt = Genotype::gt_to_int(records[i]->get_GT(0));
+	const int	parent_gt = records[i]->unphased_mat();
 	return E[parent_phased_gt][parent_gt];
 }
 
@@ -114,12 +114,12 @@ void ParentImputerByProgeny::update_genotypes(const vector<int>& hs) {
 	// which of the progeny passed the parental haplotype
 	const bool	is_swapped = is_mat_known ^ ((hs[0] & 1) == 0);
 	for(size_t i = 0; i < this->M(); ++i) {
-		VCFRecord	*record = ref_records[i];
+		VCFFamilyRecord	*record = records[i];
 		const int	parent_gt = compute_parent_gt(i, hs[i]);
-		record->set_GT(0, Genotype::int_to_phased_gt(parent_gt));
+		record->set_geno(0, parent_gt | 4);
 		if(is_swapped) {
-			string&	gt = record->get_mut_gt(0);
-			std::swap(gt[0], gt[2]);
+			const int	gt = record->mat_gt();
+			record->set_geno(0, Genotype::inverse(gt));
 		}
 	}
 }

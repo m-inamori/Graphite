@@ -13,9 +13,10 @@ using namespace std;
 
 //////////////////// VCFFillable ////////////////////
 
-VCFFillable::VCFFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-							const std::vector<VCFFillableRecord *>& rs) :
-				VCFBase(h, s), VCFSmallBase(), VCFFamilyBase(), records(rs) { }
+VCFFillable::VCFFillable(const STRVEC& s,
+							const std::vector<VCFFillableRecord *>& rs,
+							const VCFSmall *vcf) :
+									VCFFamilyBase(s, vcf), records(rs) { }
 
 VCFFillable::~VCFFillable() {
 	for(auto p = records.begin(); p != records.end(); ++p)
@@ -67,82 +68,97 @@ void VCFFillable::modify(int T) {
 		else if(record->is_fillable_type())
 			this->impute_others(i);
 	}
+}
+
+void VCFFillable::phase_hetero_hetero() {
+	// Group records with type 'IMPUTABLE', 'MAT', 'PAT' and 'FIXED'
+	const Groups	*groups = Groups::create(records);
+	const auto	record_sets = groups->create_record_sets();
+	for(auto p = record_sets.begin(); p != record_sets.end(); ++p) {
+		(*p)->impute(false);
+	}
 	
-	for(auto p = records.begin(); p != records.end(); ++p)
-		(*p)->fill_PGT();
+	for(size_t i = 0U; i < records.size(); ++i) {
+		auto	*record = records[i];
+		if(record->is_mat_type())
+			this->impute_NA_mat(i);
+		else if(record->is_pat_type())
+			this->impute_NA_pat(i);
+		else if(record->is_fillable_type())
+			this->impute_others(i);
+	}
+	Common::delete_all(record_sets);
+	delete groups;
 }
 
 template<typename Iter>
 VCFFillableRecord *VCFFillable::find_neighbor_same_type_record(
-							size_t i, size_t c, Iter first, Iter last) const {
+							size_t i, size_t k, Iter first, Iter last) const {
 	const FillType	type = records[i]->get_type();
-	const string&	chromosome = records[i]->chrom();
 	for(auto p = first; p != last; ++p) {
 		auto	*record = *p;
-		if(record->chrom() != chromosome)
-			return NULL;
-		else if(record->get_type() == type && record->get_GT(c-9) != "./.")
+		if(record->get_type() == type && record->is_NA(k))
 			return record;
 	}
 	return NULL;
 }
 
 VCFFillableRecord *VCFFillable::find_prev_same_type_record(
-													size_t i, size_t c) const {
+													size_t i, size_t k) const {
 	if(i == 0U)
 		return NULL;
 	
-	return find_neighbor_same_type_record(i, c, records.rend() - i + 1,
+	return find_neighbor_same_type_record(i, k, records.rend() - i + 1,
 																records.rend());
 }
 
 VCFFillableRecord *VCFFillable::find_next_same_type_record(
-													size_t i, size_t c) const {
+													size_t i, size_t k) const {
 	if(i == records.size() - 1)
 		return NULL;
 	
 	const auto	first = records.begin() + i + 1;
 	const auto	last = records.end();
-	return find_neighbor_same_type_record(i, c, first, last);
+	return find_neighbor_same_type_record(i, k, first, last);
 }
 
 const RecordSet *VCFFillable::create_recordset(
-										size_t i, size_t c, bool is_mat) const {
+										size_t i, size_t k, bool is_mat) const {
 	auto	*record = records[i];
-	auto	*prev_record = find_prev_same_type_record(i, c);
-	auto	*next_record = find_next_same_type_record(i, c);
+	auto	*prev_record = find_prev_same_type_record(i, k);
+	auto	*next_record = find_next_same_type_record(i, k);
 	if(is_mat)
 		return new RecordSet(record, prev_record, next_record, NULL, NULL);
 	else
 		return new RecordSet(record, NULL, NULL, prev_record, next_record);
 }
 
-void VCFFillable::impute_NA_mat_each(size_t i, size_t c) {
-	const RecordSet	*rs = this->create_recordset(i, c, true);
-	rs->impute_NA_mat_each(c - 9);
+void VCFFillable::impute_NA_mat_each(size_t i, size_t k) {
+	const RecordSet	*rs = this->create_recordset(i, k, true);
+	rs->impute_NA_mat_each(k);
 	delete rs;
 }
 
 // impute N/A genotypes in families with heterozygous mat and homozygous pat
 void VCFFillable::impute_NA_mat(size_t i) {
 	auto	*record = this->records[i];
-	for(size_t c = 11U; c != samples.size() + 9; ++c) {
-		if(record->get_GT(c-9) == "./.")
-			impute_NA_mat_each(i, c);
+	for(size_t k = 2; k != get_samples().size(); ++k) {
+		if(record->is_NA(k))
+			impute_NA_mat_each(i, k);
 	}
 }
 
-void VCFFillable::impute_NA_pat_each(size_t i, size_t c) {
-	const RecordSet	*rs = this->create_recordset(i, c, false);
-	rs->impute_NA_pat_each(c - 9);
+void VCFFillable::impute_NA_pat_each(size_t i, size_t k) {
+	const RecordSet	*rs = this->create_recordset(i, k, false);
+	rs->impute_NA_pat_each(k);
 	delete rs;
 }
 
 void VCFFillable::impute_NA_pat(size_t i) {
 	auto	*record = this->records[i];
-	for(size_t c = 11U; c != samples.size() + 9; ++c) {
-		if(record->get_GT(c-9) == "./.")
-			impute_NA_pat_each(i, c);
+	for(size_t k = 2; k != get_samples().size(); ++k) {
+		if(record->is_NA(k))
+			impute_NA_pat_each(i, k);
 	}
 }
 
@@ -191,7 +207,7 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 	if(from1 == 0 && from2 == 0) {
 		// Decide which Haplotype comes from when there is no before or after
 		const auto	*r0 = this->records[i];
-		return r0->pos() % 2 + 1;
+		return r0->get_pos() % 2 + 1;
 	}
 	if(from1 == from2)
 		return from1;
@@ -204,7 +220,7 @@ int VCFFillable::select_from(const pair<int, int>& f1,
 		const auto	*r0 = this->records[i];
 		const auto	*r1 = this->records[i1];
 		const auto	*r2 = this->records[i2];
-		if(r0->pos() * 2 <= r1->pos() + r2->pos())
+		if(r0->get_pos() * 2 <= r1->get_pos() + r2->get_pos())
 			return from1;
 		else
 			return from2;
@@ -225,13 +241,12 @@ void VCFFillable::impute_others(int i) {
 	auto	*record = this->records[i];
 	const bool	mat_homo = record->is_homo(0);
 	const bool	pat_homo = record->is_homo(1);
-	for(size_t c = 11; c != record->get_v().size(); ++c) {
-		if(record->get_v()[c].c_str()[1] != '/' &&
-								record->get_int_gt(c-9) != -1)
+	for(size_t k = 2; k != record->num_samples(); ++k) {
+		if(record->is_phased(k))
 			continue;
-		const int	mat_from = mat_homo ? 1 : this->find_mat_from(i, c);
-		const int	pat_from = pat_homo ? 1 : this->find_pat_from(i, c);
-		record->set_GT(c-9, record->gt_from_parent(mat_from, pat_from));
+		const int	mat_from = mat_homo ? 1 : this->find_mat_from(i, k);
+		const int	pat_from = pat_homo ? 1 : this->find_pat_from(i, k);
+		record->set_geno(k, record->gt_from_parent(mat_from, pat_from));
 	}
 }
 
@@ -239,8 +254,8 @@ VCFFillable *VCFFillable::fill(const vector<VCFHeteroHomo *>& vcfs,
 				const vector<VCFImpFamilyRecord *>& records, int num_threads) {
 	vector<VCFFillableRecord *>	merged_records
 							 = VCFFillable::merge_records(vcfs, records, true);
-	VCFFillable	*vcf = new VCFFillable(vcfs.front()->get_header(),
-								vcfs.front()->get_samples(), merged_records);
+	VCFFillable	*vcf = new VCFFillable(vcfs[0]->get_samples(),
+										merged_records, vcfs[0]->get_ref_vcf());
 	vcf->modify(num_threads);
 	return vcf;
 }
@@ -249,22 +264,18 @@ vector<VCFFillableRecord *> VCFFillable::merge_records(
 									const vector<VCFHeteroHomo *>& vcfs,
 									const vector<VCFImpFamilyRecord *>& records,
 									bool all_out) {
-	vector<VCFFillableRecord *>	all_records;
+	vector<VCFImpFamilyRecord *>	all_records = records;
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		auto	*vcf = *p;
 		auto&	hh_records = vcf->get_records();
 		for(auto q = hh_records.begin(); q != hh_records.end(); ++q)
-			all_records.push_back(VCFFillableRecord::convert(*q));
-	}
-	
-	for(auto p = records.begin(); p != records.end(); ++p) {
-		if(all_out || (*p)->is_fillable())
-			all_records.push_back(VCFFillableRecord::convert(*p));
+			all_records.push_back(*q);
 	}
 	std::sort(all_records.begin(), all_records.end(),
-				[](const VCFFillableRecord *r1, const VCFFillableRecord *r2) {
+				[](const VCFImpFamilyRecord *r1, const VCFImpFamilyRecord *r2) {
 					return r1->get_index() < r2->get_index(); });
-	return all_records;
+	
+	return VCFFillableRecord::convert(all_records, vcfs[0]);
 }
 
 vector<vector<VCFFillableRecord *>> VCFFillable::collect_records(
@@ -279,11 +290,11 @@ vector<vector<VCFFillableRecord *>> VCFFillable::collect_records(
 	return rss;
 }
 
-pair<STRVEC, vector<vector<pair<int, int>>>>
+pair<STRVEC, vector<vector<pair<size_t, size_t>>>>
 VCFFillable::integrate_samples(const vector<STRVEC>& sss,
 									const STRVEC& orig_samples) {
 	// { sample: (index of family, index of inner family) }
-	map<string, vector<pair<int, int>>>	dic;
+	map<string, vector<pair<size_t, size_t>>>	dic;
 	for(size_t i = 0; i < sss.size(); ++i) {
 		const vector<string>&	samples = sss[i];
 		for(size_t j = 0; j < samples.size(); ++j)
@@ -291,7 +302,7 @@ VCFFillable::integrate_samples(const vector<STRVEC>& sss,
 	}
 	
 	STRVEC	new_samples;
-	vector<vector<pair<int, int>>>	pos_samples;
+	vector<vector<pair<size_t, size_t>>>	pos_samples;
 	for(auto p = orig_samples.begin(); p != orig_samples.end(); ++p) {
 		const string&	sample = *p;
 		if(dic.find(sample) != dic.end()) {
@@ -304,37 +315,31 @@ VCFFillable::integrate_samples(const vector<STRVEC>& sss,
 }
 
 // Integrate the VCF so that duplicate samples are one
-VCFSmall *VCFFillable::integrate(const VCFFillable *vcf,
+VCFGeno *VCFFillable::integrate(const VCFSmall *ref_vcf,
 								const vector<vector<VCFFillableRecord *>>& rss,
+								const vector<STRVEC>& sss,
 								const STRVEC& orig_samples) {
-	vector<STRVEC>	sss;
-	for(auto p = rss.front().begin(); p != rss.front().end(); ++p) {
-		const STRVEC&	samples = (*p)->get_samples();
-		sss.push_back(samples);
-	}
-	
 	const auto	q = integrate_samples(sss, orig_samples);
-	const STRVEC&	new_samples = q.first;
+	const STRVEC&	samples = q.first;
 	// What number of each Family is the sample at?
 	const auto&		pos_samples = q.second;
 	
-	const vector<STRVEC>	header = vcf->trim_header(new_samples);
-	VCFSmall	*new_vcf = new VCFSmall(header, new_samples,
-											vector<VCFRecord *>());
-	const STRVEC&	samples = new_vcf->get_samples();
-	vector<VCFRecord *>	records;
+	vector<GenoRecord *>	records;
 	for(auto p = rss.begin(); p != rss.end(); ++p) {
 		auto	*r = VCFFillableRecord::integrate(*p, samples, pos_samples);
 		records.push_back(r);
 	}
-	new_vcf->add_records(records);
-	return new_vcf;
+	return new VCFGeno(samples, records, ref_vcf);
 }
 
-VCFSmall *VCFFillable::merge(const vector<VCFFillable *>& vcfs,
+VCFGeno *VCFFillable::merge(const vector<VCFFillable *>& vcfs,
 											const STRVEC& orig_samples) {
 	const auto	rss = collect_records(vcfs);
-	return integrate(vcfs.front(), rss, orig_samples);
+	vector<STRVEC>	sample_table;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		sample_table.push_back((*p)->get_samples());
+	}
+	return integrate(vcfs[0]->get_ref_vcf(), rss, sample_table, orig_samples);
 }
 
 void VCFFillable::fill_in_thread(void *config) {

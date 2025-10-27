@@ -1,16 +1,16 @@
 #ifndef __VCFJUNKRECORD
 #define __VCFJUNKRECORD
 
-#include "VCFImpFamily.h"
+#include "VCFImpFamilyRecord.h"
 
 
 //////////////////// VCFJunkRecord ////////////////////
 
 class VCFJunkRecord : public VCFImpFamilyRecord {
 public:
-	VCFJunkRecord(const STRVEC& v, const STRVEC& samples,
+	VCFJunkRecord(ll pos, const std::vector<int>& geno,
 										int i, WrongType type) :
-					VCFImpFamilyRecord(v, samples, i, type, ParentComb::PNA) { }
+					VCFImpFamilyRecord(pos, geno, i, type, ParentComb::PNA) { }
 	~VCFJunkRecord() { }
 	
 	bool is_homohomo() const override { return false; }

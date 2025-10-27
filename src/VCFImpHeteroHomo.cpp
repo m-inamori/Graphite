@@ -8,31 +8,32 @@ using namespace std;
 
 //////////////////// VCFImpHeteroHomo ////////////////////
 
-string VCFImpHeteroHomo::update_each(size_t i, size_t j, char c) const {
-	
-	const auto&	v = get_record(i)->get_v();
-	const size_t	k = (size_t)(c - '0') * 2;
-	stringstream	ss;
-	if(is_mat_hetero)
-		ss << v[9].c_str()[k] << v[10].substr(1);
-	else
-		ss << v[9].substr(0, 2) << v[10].c_str()[k];
-	return ss.str();
+int VCFImpHeteroHomo::update_each(size_t i, size_t j, char c) const {
+	const GenoRecord	*record = this->get_record(i);
+	const size_t	k = (size_t)(c - '0');
+	if(is_mat_hetero) {
+		const int	a1 = record->get_allele(0, k);
+		const int	a2 = record->unphased(1) / 2;
+		return Genotype::from_alleles(a1, a2);
+	}
+	else {
+		const int	a1 = record->unphased(0) / 2;
+		const int	a2 = record->get_allele(1, k);
+		return Genotype::from_alleles(a1, a2);
+	}
 }
 
 void VCFImpHeteroHomo::update(size_t i, const vector<string>& seqs) {
-	auto	record = get_record(i);
-	const string	gt = record->get_gt(non_imputed_index());
-	stringstream	ss;
-	ss << gt.c_str()[0] << '|' << gt.c_str()[2];
-	record->set_GT(non_imputed_index(), ss.str());
-	for(size_t j = 2; j < samples.size(); ++j)
-		record->set_GT(j, update_each(i, j, seqs[j-2].c_str()[i]));
+	auto	record = this->get_record(i);
+	const int	a = record->unphased(non_imputed_index()) / 2;
+	record->set_geno(non_imputed_index(), Genotype::from_alleles(a, a));
+	for(size_t j = 2; j < num_samples(); ++j)
+		record->set_geno(j, update_each(i, j, seqs[j-2].c_str()[i]));
 }
 
 char VCFImpHeteroHomo::determine_haplotype(int which_zero,
 							int homo_int_gt, int prog_int_gt) const {
-	if(prog_int_gt == -1)
+	if(Genotype::is_NA(prog_int_gt))
 		return 'N';
 	
 	const int	pat_int = homo_int_gt / 2;
@@ -52,15 +53,15 @@ string VCFImpHeteroHomo::make_seq(size_t i) const {
 	stringstream	ss;
 	for(auto p = records.begin(); p != records.end(); ++p) {
 		const auto	*record = *p;
-		const int	gt = record->get_int_gt(i + 2);
+		const int	gt = record->unphased(i + 2);
 		if(is_mat_hetero) {
-			const int	which_zero = (int)(record->mat_gt().c_str()[0] - '0');
-			const int	pat_int_gt = record->pat_int_gt();
+			const int	which_zero = record->get_mat_allele(0);
+			const int	pat_int_gt = record->unphased_pat();
 			ss << determine_haplotype(which_zero, pat_int_gt, gt);
 		}
 		else {
-			const int	which_zero = (int)(record->pat_gt().c_str()[0] - '0');
-			const int	mat_int_gt = record->mat_int_gt();
+			const int	which_zero = record->get_pat_allele(0);
+			const int	mat_int_gt = record->unphased_mat();
 			ss << determine_haplotype(which_zero, mat_int_gt, gt);
 		}
 	}
@@ -86,7 +87,7 @@ void VCFImpHeteroHomo::impute() {
 	vector<double>	cMs;
 	const size_t	L = this->size();
 	for(size_t i = 0; i < L; ++i) {
-		cMs.push_back(this->cM(records[i]->pos()));
+		cMs.push_back(this->cM(records[i]->get_pos()));
 	}
 	
 	vector<string>	imputed_seqs;

@@ -42,7 +42,7 @@ double ParentProgenyImputer::emission_probability(std::size_t i, int h, int op,
 	const int	hp1 = hp % NH();
 	const int	hp2 = hp / NH();
 	const int	non_phased_parent_gt = ref_haps[hp1][i] |
-										ref_haps[hp2][1] << 1;
+										ref_haps[hp2][i] << 1;
 	const int	mat_gt = is_mat_imputed ? phased_parent_gt :
 												non_phased_parent_gt;
 	const int	pat_gt = is_mat_imputed ? non_phased_parent_gt :
@@ -50,7 +50,7 @@ double ParentProgenyImputer::emission_probability(std::size_t i, int h, int op,
 	const double	Ep = E[non_phased_parent_gt][op];
 	double	Ec = 0.0;
 	for(size_t j = 0; j < N; ++j) {
-		const int	hc = h >> (j * 2);
+		const int	hc = (h >> (j * 2)) & 3;
 		const int	hc1 = hc & 1;
 		const int	hc2 = hc >> 1;
 		const int	gtc = gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt);
@@ -94,15 +94,16 @@ double ParentProgenyImputer::transition_probability(size_t i,
 }
 
 vector<ParentProgenyImputer::DP> ParentProgenyImputer::initialize_dp() const {
-	const size_t	L = NH() * NH();
+	const size_t	L = NH() * NH() << (2*num_progenies());
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
 	const VCFFamilyRecord	*record = ref_records[0];
-	const string&	phased_gt = record->get_gt(is_mat_imputed ? 0 : 1);
-	const int	phased_parent_gt = Genotype::phased_gt_to_int(phased_gt);
-	const int	op = record->get_int_gt(is_mat_imputed ? 1 : 0);
+	const size_t	phased_index = is_mat_imputed ? 0 : 1;
+	const size_t	non_phased_index = is_mat_imputed ? 1 : 0;
+	const int	phased_parent_gt = record->get_geno()[phased_index] & 3;
+	const int	op = record->unphased(non_phased_index);
 	vector<int>	ocs;	// observed progenies' genotypes
 	for(size_t ic = 0; ic != num_progenies(); ++ic) {
-		ocs.push_back(record->get_int_gt(ic+2));
+		ocs.push_back(record->unphased(ic+2));
 	}
 	for(int h = 0; h < (int)L; ++h) {	// hidden state
 		const double	E_all = emission_probability(0, h, op, ocs,
@@ -115,36 +116,72 @@ vector<ParentProgenyImputer::DP> ParentProgenyImputer::initialize_dp() const {
 // Collect possible previous hidden states for the hidden state.
 vector<vector<int>>
 ParentProgenyImputer::collect_possible_previous_hidden_states() const {
-	const size_t	L = NH() * NH();
+	const size_t	N = num_progenies();
+	const size_t	L = NH() * NH() << (2*N);
+	const size_t	Lc = 1 << (2*N);	// number of children states
 	vector<vector<int>>	prev_h_table(L, vector<int>());
 	for(int h = 0; h < (int)L; ++h) {	// hidden state
-		const int	hp1 = h % NH();
-		const int	hp2 = h / NH();
+		const int	hc = h & (Lc - 1);
+		const int	hp = h >> (N*2);
+		const int	hp1 = hp % NH();
+		const int	hp2 = hp / NH();
 		// Neither side will crossover
+		vector<int>	prev_hps;
 		for(int h1 = 0; h1 < (int)NH(); ++h1) {
 			const int	prev_h1 = h1 + hp2 * NH();
-			prev_h_table[h].push_back(prev_h1);
+			prev_hps.push_back(prev_h1);
 		}
 		for(int h2 = 0; h2 < (int)NH(); ++h2) {
 			if(h2 == hp2)	// for duplication
 				continue;
 			const int	prev_h1 = hp1 + h2 * NH();
-			prev_h_table[h].push_back(prev_h1);
+			prev_hps.push_back(prev_h1);
+		}
+		
+		vector<int>	prev_hcs;
+		for(int hc1 = 0; hc1 < 1 << (N*2); ++hc1) {
+			const int	t = hc ^ hc1;	// each bit means whether crossover
+			int	num_crossovers = 0;
+			for(int k = 0; k < (int)N*2; ++k) {
+				if(((t >> k) & 1) == 1)
+					num_crossovers += 1;
+			}
+			if(num_crossovers <= 1)
+				prev_hcs.push_back(hc1);
+		}
+		
+		for(auto p = prev_hps.begin(); p != prev_hps.end(); ++p) {
+			for(auto q = prev_hcs.begin(); q != prev_hcs.end(); ++q) {
+				if(*p == hp || *q == hc) {
+					const int	prev_h = (*p << (N*2)) | *q;
+					prev_h_table[h].push_back(prev_h);
+				}
+			}
 		}
 	}
 	
 	return prev_h_table;
 }
 
+int ParentProgenyImputer::compute_non_phased_parent_gt(int h, size_t i) {
+	const size_t	N = this->num_progenies();
+	const int	hp = h >> (N*2);
+	const int	hp1 = hp % this->NH();
+	const int	hp2 = hp / this->NH();
+	return this->ref_haps[hp1][i] | (this->ref_haps[hp2][i] << 1);
+}
+
 void ParentProgenyImputer::update_dp(size_t i, vector<DP>& dp) const {
-	const size_t	L = NH() * NH();
+	const size_t	N = num_progenies();
+	const size_t	L = NH() * NH() << (2*N);
 	const VCFFamilyRecord	*record = ref_records[i];
-	const string&	phased_gt = record->get_gt(is_mat_imputed ? 0 : 1);
-	const int	phased_parent_gt = Genotype::phased_gt_to_int(phased_gt);
-	const int	op = record->get_int_gt(is_mat_imputed ? 1 : 0);
+	const size_t	phased_index = is_mat_imputed ? 0 : 1;
+	const size_t	non_phased_index = is_mat_imputed ? 1 : 0;
+	const int	phased_parent_gt = record->get_geno()[phased_index] & 3;
+	const int	op = record->unphased(non_phased_index);
 	vector<int>	ocs;	// observed progenies' genotypes
 	for(size_t ic = 0; ic != num_progenies(); ++ic) {
-		ocs.push_back(record->get_int_gt(ic+2));
+		ocs.push_back(record->unphased(ic+2));
 	}
 	
 	for(int h = 0; h < (int)L; ++h) {
@@ -154,6 +191,7 @@ void ParentProgenyImputer::update_dp(size_t i, vector<DP>& dp) const {
 		const auto&	prev_hs = prev_h_table[h];
 		for(auto p = prev_hs.begin(); p != prev_hs.end(); ++p) {
 			const int	prev_h = *p;
+			
 			const double	T = transition_probability(i, prev_h, h);
 			const double	prob = dp[i-1][prev_h].first + (T + E_all);
 			dp[i][h] = max(dp[i][h], make_pair(prob, prev_h));
@@ -163,23 +201,26 @@ void ParentProgenyImputer::update_dp(size_t i, vector<DP>& dp) const {
 
 void ParentProgenyImputer::update_genotypes(const vector<int>& hs) {
 	const size_t	N = num_progenies();
-	const int	j1 = is_mat_imputed ? 0 : 1;	// phased index
-	const int	j2 = is_mat_imputed ? 1 : 0;	// non-phased index
 	for(size_t i = 0; i < this->M(); ++i) {
-		const int	hp = hs[i] >> (N*2);
-		const string	phased_gt = ref_records[i]->get_gt(j1);
-		const int	int_gt1 = Genotype::phased_gt_to_int(phased_gt);
-		const int	int_gt2 = compute_phased_gt_by_refhaps(hp, i);
-		const string	non_phased_gt = Genotype::int_to_phased_gt(int_gt2);
-		ref_records[i]->set_GT(j2, non_phased_gt);
-		const int	mat_gt = is_mat_imputed ? int_gt1 : int_gt2;
-		const int	pat_gt = is_mat_imputed ? int_gt2 : int_gt1;
-		for(size_t ic = 0; ic < N; ++ic) {
-			const int	hc = hs[i] >> (ic * 2);
+		VCFFamilyRecord	*record = records[i];
+		int	mat_gt = 0;
+		int	pat_gt = 0;
+		if(this->is_mat_imputed) {
+			pat_gt = this->compute_non_phased_parent_gt(hs[i], i);
+			record->set_geno(1, pat_gt | 4);
+			mat_gt = record->get_geno()[0] & 3;
+		}
+		else {
+			mat_gt = this->compute_non_phased_parent_gt(hs[i], i);
+			record->set_geno(0, mat_gt | 4);
+			pat_gt = record->get_geno()[1] & 3;
+		}
+		for(size_t j = 0; j < N; ++j) {		// each progeny
+			const int	hc = hs[i] >> (j * 2);
 			const int	hc1 = hc & 1;
-			const int	hc2 = hc >> 1;
-			const int	int_gtc = gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt);
-			ref_records[i]->set_GT(ic+2, Genotype::int_to_phased_gt(int_gtc));
+			const int	hc2 = (hc >> 1) & 1;
+			const int	gtc_int = gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt);
+			record->set_geno(j+2, gtc_int | 4);
 		}
 	}
 }

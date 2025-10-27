@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include "../include/VCFGeno.h"
 #include "../include/BothImputedFamily.h"
 #include "../include/VCFBothParentImputed.h"
 #include "../include/Pedigree.h"
@@ -42,8 +43,8 @@ void BothImputedFamily::impute_VCFs(vector<VCFBothParentImputed *>& v, int T) {
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
-									const VCFSmall *imputed_vcf,
+VCFGeno *BothImputedFamily::impute(const VCFSmall *orig_vcf,
+									const VCFGenoBase *imputed_vcf,
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
 	const size_t	N = families.size();
@@ -52,10 +53,9 @@ VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
-		auto	*vcf1 = new VCFBothParentImputed(vcf->get_header(),
-												   family->get_samples(),
+		auto	*vcf1 = new VCFBothParentImputed(family->get_samples(),
 												   vcf->get_family_records(),
-												   op.map, 0.01);
+												   op.map, 0.01, orig_vcf);
 		vcfs1.push_back(vcf1);
 		vcf->clear_records();
 		delete vcf;
@@ -66,8 +66,8 @@ VCFSmallBase *BothImputedFamily::impute(const VCFSmall *orig_vcf,
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
 	impute_VCFs(vcfs1, op.num_threads);
-	vector<const VCFSmallBase *>	vcfs(vcfs1.begin(), vcfs1.end());
-	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+	vector<const VCFGenoBase *>	vcfs(vcfs1.begin(), vcfs1.end());
+	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
 	cout << vcfs.size()
 			<< " both parent imputed families have been imputed." << endl;
 	Common::delete_all(vcfs);

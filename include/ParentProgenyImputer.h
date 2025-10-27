@@ -24,9 +24,9 @@ private:
 	
 public:
 	ParentProgenyImputer(const std::vector<VCFFamilyRecord *>& rs,
-						bool is_mat_imputed,
-						const std::vector<std::vector<int>>& ref_haps,
-						const Map& map_, double w);
+							bool is_mat_imputed,
+							const std::vector<std::vector<int>>& ref_haps,
+							const Map& map_, double w);
 	~ParentProgenyImputer() { }
 	
 	void impute();
@@ -65,6 +65,7 @@ private:
 	// hidden stateに対して、可能な前のhidden stateを集めておく
 	std::vector<std::vector<int>>
 				collect_possible_previous_hidden_states() const;
+	int compute_non_phased_parent_gt(int h, std::size_t i);
 	
 	void update_dp(std::size_t i, std::vector<DP>& dp) const;
 	void update_genotypes(const std::vector<int>& hs);

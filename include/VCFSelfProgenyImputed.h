@@ -3,38 +3,33 @@
 
 #include <vector>
 #include "VCF.h"
+#include "SelfParentImputer.h"
 
 class Map;
-class SelfParentImputer;
 class SelfProgenyImputer;
 
 
 //////////////////// VCFSelfProgenyImputed ////////////////////
 
-class VCFSelfProgenyImputed : public VCFBase, public VCFSmallBase {
-	const std::vector<VCFRecord *>	records;
+class VCFSelfProgenyImputed : public VCFGenoBase {
+	const std::vector<GenoRecord *>	records;
 	std::size_t	ic;
-	SelfParentImputer	*imputer;
+	SelfParentImputer	imputer;
 	std::vector<SelfProgenyImputer *>	imputers;
 	
 public:
-	VCFSelfProgenyImputed(const std::vector<STRVEC>& header, const STRVEC& s,
-								const std::vector<VCFRecord *>& records,
-								const std::vector<std::vector<int>>& ref_hs,
-								std::size_t ic_, const Map& map_, double w);
+	VCFSelfProgenyImputed(const STRVEC& s,
+							const std::vector<GenoRecord *>& records,
+							const std::vector<std::vector<int>>& ref_hs,
+							std::size_t ic_, const Map& map_, double w,
+							const VCFSmall *vcf);
 	VCFSelfProgenyImputed(const VCFSelfProgenyImputed&) = delete;
 	VCFSelfProgenyImputed& operator=(const VCFSelfProgenyImputed&) = delete;
 	~VCFSelfProgenyImputed();
 	
-	///// virtual methods for VCFSmallBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
-	}
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
 	

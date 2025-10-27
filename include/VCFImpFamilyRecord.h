@@ -1,5 +1,5 @@
-#ifndef __VCFIMPFAMILY
-#define __VCFIMPFAMILY
+#ifndef __VCFIMPFAMILYRECORD
+#define __VCFIMPFAMILYRECORD
 
 // Abstract VCFFamily class that can be imputed
 
@@ -12,7 +12,7 @@
 //////////////////// FillType ////////////////////
 
 enum class FillType {
-	MAT, PAT, FILLED, IMPUTABLE, UNABLE
+	MAT = 0, PAT, FILLED, IMPUTABLE, UNABLE
 };
 
 
@@ -20,7 +20,7 @@ enum class FillType {
 
 class VCFImpFamilyRecord : public VCFFamilyRecord {
 public:
-	typedef std::pair<VCFImpFamilyRecord *, int>	RecordWithPos;
+	typedef std::pair<VCFImpFamilyRecord *, std::size_t>	RecordWithPos;
 	
 protected:
 	const int	index;
@@ -28,10 +28,10 @@ protected:
 	const ParentComb	comb;
 	
 public:
-	VCFImpFamilyRecord(const STRVEC& v, const STRVEC& samples,
+	VCFImpFamilyRecord(ll pos, const std::vector<int>& geno,
 							int i, WrongType type, ParentComb c) :
-									VCFFamilyRecord(v, samples), index(i),
-									wrong_type(type), comb(c) { }
+									VCFFamilyRecord(pos, geno),
+									index(i), wrong_type(type), comb(c) { }
 	virtual ~VCFImpFamilyRecord() { }
 	
 	int get_index() const { return index; }
@@ -43,8 +43,7 @@ public:
 	bool is_fixed() const {
 		return (this->comb == ParentComb::P00x00 ||
 					this->comb == ParentComb::P11x11) ||
-				((this->comb == ParentComb::P00x01 ||
-					this->comb == ParentComb::P01x11) && is_right());
+				(is_heterohomo(this->comb) && is_right());
 	}
 	bool is_fillable() const {
 		return wrong_type != WrongType::MIX &&
@@ -60,14 +59,15 @@ public:
 	void enable_modification() {
 		this->wrong_type = WrongType::MODIFIABLE;
 	}
-	void set_00x11_parents(int i, int gt);
+	void set_00x11_parents(std::size_t i, int gt);
 	
-public:
 	static int get_records_type(const std::vector<RecordWithPos>& records);
 	static std::size_t find_fixed_index(
 		const std::vector<std::pair<int, std::vector<RecordWithPos>>>& items);
+	
+public:
 	static std::pair<int, std::vector<RecordWithPos>>
 	which_is_fixed(const std::vector<RecordWithPos>& v);
-	static void modify_00x11(const std::vector<VCFImpFamilyRecord *>& records);
+	static void modify_00x11(const std::vector<RecordWithPos> & v);
 };
 #endif

@@ -8,8 +8,6 @@
 #include "../include/SmallFamily.h"
 #include "../include/impute_prog_only.h"
 #include "../include/VCFHeteroHomoPP.h"
-#include "../include/VCFOneParentPhased.h"
-#include "../include/VCFProgenyPhased.h"
 #include "../include/VCFIsolated.h"
 #include "../include/materials.h"
 #include "../include/option.h"
@@ -30,7 +28,7 @@ void display_chromosome_info(const VCFSmall *orig_vcf) {
 	}
 }
 
-VCFSmall *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
+VCFGeno *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 									const Map& geno_map, const Option *option) {
 	display_chromosome_info(orig_vcf);
 	
@@ -73,8 +71,7 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 	bool	first_chromosome = true;
 	for(int	chrom_index = 0; ; ++chrom_index) {
 		// chrom_index is required only for because they can skip chromosomes
-		VCFSmall	*vcf_chrom;
-		vcf_chrom = divisor.next();
+		const VCFSmall	*vcf_chrom = divisor.next();
 		if(vcf_chrom == NULL)
 			break;
 		try {
@@ -91,9 +88,8 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 		}
 		
 		const Map	*gmap = materials->get_chr_map(chrom_index);
-		const VCFSmall	*vcf_imputed = impute_vcf_chr(vcf_chrom,
+		const VCFGeno	*vcf_imputed = impute_vcf_chr(vcf_chrom,
 													sample_man, *gmap, option);
-		delete vcf_chrom;
 		if(first_chromosome) {
 			ofstream	ofs(option->path_out);
 			vcf_imputed->write(ofs, true);	// write header
@@ -104,6 +100,7 @@ void impute_all(VCFHuge *vcf, const Materials *materials,
 		}
 		first_chromosome = false;
 		delete vcf_imputed;
+		delete vcf_chrom;
 	}
 	
 	delete sample_man;
@@ -128,8 +125,8 @@ void impute_progenies(VCFHuge *vcf, const Materials *materials,
 		}
 		
 		const Map	*gmap = materials->get_chr_map(chrom_index);
-		const VCFSmallBase	*vcf_imputed = ImputeProgOnly::impute_prog_vcf_chr(
-													vcf_ref_chrom,
+		const VCFGenoBase	*vcf_imputed =
+				ImputeProgOnly::impute_prog_vcf_chr(vcf_ref_chrom,
 													vcf_chrom, *gmap, option);
 		delete vcf_chrom;
 		delete vcf_ref_chrom;

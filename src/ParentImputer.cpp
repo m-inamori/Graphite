@@ -45,7 +45,7 @@ double ParentImputer::progs_emission_probability(std::size_t i,
 	const auto	*record = ref_records[i];
 	double	Ec = 0.0;
 	for(size_t j = 0; j < num_progenies(); ++j) {
-		const int	oc = Genotype::gt_to_int(record->get_gt(j+2));
+		const int	oc = record->unphased(j+2);
 		Ec += Epc[mat_gt][pat_gt][oc];
 	}
 	return Ec;
@@ -96,8 +96,8 @@ vector<ParentImputer::DP> ParentImputer::initialize_dp() const {
 	const size_t	L = NH() * NH();
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
 	const VCFFamilyRecord	*record = ref_records[0];
-	const int	mat_gt = Genotype::gt_to_int(record->get_gt(0));
-	const int	pat_gt = Genotype::gt_to_int(record->get_gt(1));
+	const int	mat_gt = record->unphased_mat();
+	const int	pat_gt = record->unphased_pat();
 	for(int h = 0; h < (int)L; ++h) {	// hidden state
 		const double	E_all = emission_probability(0, h, mat_gt, pat_gt);
 		dp[0][h] = make_pair(E_all, h);
@@ -134,8 +134,8 @@ void ParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const VCFFamilyRecord	*record = ref_records[i];
 	
 	// observed parent
-	const int	mat_gt = Genotype::gt_to_int(record->get_gt(0));
-	const int	pat_gt = Genotype::gt_to_int(record->get_gt(1));
+	const int	mat_gt = record->unphased_mat();
+	const int	pat_gt = record->unphased_pat();
 	
 	for(int h = 0; h < (int)L; ++h) {
 		const double	E_all = emission_probability(i, h, mat_gt, pat_gt);
@@ -151,10 +151,10 @@ void ParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 }
 
 void ParentImputer::update_genotypes(const vector<int>& hs) {
-	const size_t	c = phased_col();
+	const size_t	j = phased_index();
 	for(size_t i = 0; i < this->M(); ++i) {
 		const int	phased_gt = compute_phased_gt_by_refhaps(hs[i], i);
-		ref_records[i]->set_GT(c-9, Genotype::int_to_phased_gt(phased_gt));
+		ref_records[i]->set_geno(j, phased_gt | 4);
 	}
 }
 

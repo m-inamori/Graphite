@@ -1,6 +1,7 @@
 #ifndef __VCFSELFFILLABLE
 #define __VCFSELFFILLABLE
 
+#include "VCFGeno.h"
 #include "SelfRecordSet.h"
 
 class VCFSelfHetero;
@@ -9,7 +10,7 @@ class Option;
 
 //////////////////// VCFSelfFillable ////////////////////
 
-class VCFSelfFillable : public VCFBase, public VCFSmallBase {
+class VCFSelfFillable : public VCFGenoBase {
 	using PosWithChr = std::tuple<int,ll,std::string>;
 	
 public:
@@ -33,22 +34,15 @@ private:
 	std::vector<VCFSelfFillableRecord *>	records;
 	
 public:
-	VCFSelfFillable(const std::vector<STRVEC>& h, const STRVEC& s,
-							const std::vector<VCFSelfFillableRecord *>& rs);
+	VCFSelfFillable(const STRVEC& s,
+					const std::vector<VCFSelfFillableRecord *>& rs,
+					const VCFSmall *vcf);
 	virtual ~VCFSelfFillable();
 	
-	///// virtual methods for VCFSmallBase /////
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
-	}
-	
-	///// virtual methods for VCFFamilyBase /////
-	const std::vector<STRVEC>& get_header() const override {
-		return VCFBase::get_header();
-	}
-	const STRVEC& get_samples() const override {
-		return VCFBase::get_samples();
 	}
 	
 	///// non-virtual methods /////
@@ -65,15 +59,6 @@ public:
 	}
 	void clear_records() { records.clear(); }
 	
-protected:
-	template<typename Iter>
-	VCFSelfFillableRecord *find_neighbor_same_type_record(
-					std::size_t i, std::size_t c, Iter first, Iter last) const;
-	VCFSelfFillableRecord *find_prev_same_type_record(std::size_t i,
-													std::size_t c) const;
-	VCFSelfFillableRecord *find_next_same_type_record(std::size_t i,
-													std::size_t c) const;
-	
 public:
 	static VCFSmall *merge(const std::vector<VCFSelfFillable *>& vcfs,
 											const STRVEC& orig_samples);
@@ -82,9 +67,8 @@ public:
 	static std::vector<VCFSelfFillableRecord *> merge_records(
 							const std::vector<VCFSelfHetero *>& vcfs,
 							const std::vector<VCFImpSelfRecord *>& records);
-	
-protected:
-	static std::vector<std::vector<VCFSelfFillableRecord *>>
-				collect_records(const std::vector<VCFSelfFillable *>& vcfs);
+	static std::vector<std::vector<VCFRecord::Probs>> calc_probs(
+								const std::vector<VCFImpSelfRecord *>& records,
+								const VCFGenoBase *vcf);
 };
 #endif

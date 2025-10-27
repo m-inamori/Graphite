@@ -7,53 +7,54 @@ from __future__ import annotations
 from collections import defaultdict, Counter
 from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
+from VCF import VCFRecord, VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
+from GenoRecord import GenoRecord
 from VCFFamily import *
 from VCFFillableRecord import *
 from VCFFillable import *
 from group import Groups
 from RecordSet import RecordSet
-from VCFImpFamily import FillType
+from VCFImpFamilyRecord import FillType
 from Map import *
 from TypeDeterminer import ParentComb, TypeDeterminer
 import ClassifyRecord
 import Imputer
+from Genotype import Genotype
 from option import *
 
 
 #################### VCFHeteroHomoPP ####################
 
-class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
-	def __init__(self, header: list[list[str]],
-						records: list[VCFFillableRecord], map_: Map):
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
-		VCFFamilyBase.__init__(self)
+class VCFHeteroHomoPP(VCFFamilyBase, VCFMeasurable):
+	def __init__(self, samples: list[str],
+						records: list[VCFFillableRecord],
+						map_: Map, vcf: VCFSmall):
+		VCFFamilyBase.__init__(self, samples, vcf)
 		VCFMeasurable.__init__(self, map_)
 		self.records: list[VCFFillableRecord] = records
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
 	def make_seq(self, i: int) -> str:
-		cs = []
+		cs: list[str] = []
 		for record in self.records:
-			mat_GT = record.get_GT(0)
-			pat_GT = record.get_GT(1)
-			prog_gt = record.get_int_gt(i+2)
-			if prog_gt == -1:
+			if record.is_NA(i+2):
 				cs.append('N')
 				continue
 			
-			mat1 = int(mat_GT[0])
-			mat2 = int(mat_GT[2])
-			pat1 = int(pat_GT[0])
-			pat2 = int(pat_GT[2])
+			mat1 = record.get_allele(0, 0)
+			mat2 = record.get_allele(0, 1)
+			pat1 = record.get_allele(1, 0)
+			pat2 = record.get_allele(1, 1)
+			prog_gt = record.unphased(i+2)
 			if pat1 == pat2:	# mat hetero
 				diff = prog_gt - pat1
 				if diff == -1 or diff == 2:
@@ -101,22 +102,26 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		painted_seq = Imputer.paint(hidden_seq, cMs, min_c)
 		return painted_seq
 	
-	def update_each(self, i: int, j: int, c: str) -> str:
-		v = self.records[i].v
-		k = int(c) * 2
-		if v[9][0] != v[9][2]:		# mat hetero
-			return v[9][k] + v[10][1:]
+	def update_each(self, i: int, c: str) -> int:
+		record = self.records[i]
+		k = int(c)
+		if record.is_mat_hetero():
+			a1 = record.get_allele(0, k)
+			a2 = record.get_allele(1, 1)
+			return a1 | (a2 << 1) | 4
 		else:
-			return v[9][:2] + v[10][k]
+			a1 = record.get_allele(0, 0)
+			a2 = record.get_allele(1, k)
+			return a1 | (a2 << 1) | 4
 	
 	def update(self, i: int, seqs: list[str]) -> None:
 		for j in range(2, len(self.samples)):
-			self.records[i].v[j+9] = self.update_each(i, j, seqs[j-2][i])
+			self.records[i].geno[j] = self.update_each(i, seqs[j-2][i])
 	
 	def impute(self) -> None:
 		if not self.records:
 			return
-		cMs = [ self.cM(record.pos()) for record in self.records ]
+		cMs = [ self.cM(record.pos) for record in self.records ]
 		imputed_seqs = [
 				self.impute_sample_seq(i, cMs, 1.0)
 								for i in range(self.num_samples() - 2) ]
@@ -133,45 +138,49 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 		record = record_set.record
 		if record is None:
 			return
-		for i in range(2, len(record.samples)):
+		for i in range(2, len(record.geno)):
 			mat_from = record_set.determine_mat_from(i)
 			pat_from = record_set.determine_pat_from(i)
-			v = record.v
-			record.set_GT(i, v[9][mat_from*2-2] + '|' + v[10][pat_from*2-2])
+			a1 = record.get_allele(0, mat_from - 1)
+			a2 = record.get_allele(1, pat_from - 1)
+			record.geno[i] = a1 | (a2 << 1) | 4
 	
 	@staticmethod
-	def classify_record(record: VCFRecord) -> tuple[ParentComb, FillType]:
-		i = 0 if record.v[9][0] != record.v[9][2] else 1
-		j = 0 if record.v[10][0] != record.v[10][2] else 1
+	def classify_record(record: VCFFamilyRecord) -> tuple[ParentComb, FillType]:
+		i = 0 if record.is_mat_hetero() else 1
+		j = 0 if record.is_pat_hetero() else 1
 		if (i, j) == (0, 0):		# 0/1 x 0/1
 			return (ParentComb.P01x01, FillType.IMPUTABLE)
 		elif (i, j) == (1, 0):		# 0/0 x 0/1 or 1/1 x 0/1
-			if record.v[9][0] == '0':
+			if record.is_00(0):
 				return (ParentComb.P00x01, FillType.PAT)
 			else:
 				return (ParentComb.P01x11, FillType.PAT)
 		elif (i, j) == (0, 1):		# 0/1 x 0/0 or 0/1 x 1/1
-			if record.v[10][0] == '0':
+			if record.is_00(1):
 				return (ParentComb.P00x01, FillType.MAT)
 			else:
 				return (ParentComb.P01x11, FillType.MAT)
 		else:
-			if record.v[9][0] == '0' and record.v[10][0] == '0':	# 0/0 x 0/0
+			if record.is_00(0) and record.is_00(1):
 				return (ParentComb.P00x00, FillType.FILLED)
-			elif record.v[9][0] == '1' and record.v[10][0] == '1':	# 1/1 x 1/1
+			elif record.is_11(0) and record.is_11(1):
 				return (ParentComb.P11x11, FillType.FILLED)
 			else:													# 0/0 x 1/1
 				return (ParentComb.P00x11, FillType.FILLED)
 	
 	@staticmethod
-	def classify_records(records: Sequence[VCFFamilyRecord]
-									) -> list[list[VCFFillableRecord]]:
+	def classify_records(samples: list[str],
+							records: Sequence[VCFFamilyRecord],
+							ref_vcf: VCFSmall) -> list[list[VCFFillableRecord]]:
+		cols = ref_vcf.extract_columns(samples)
 		# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
 		rss: list[list[VCFFillableRecord]] = [ [] for _ in range(4) ]
 		for index, record in enumerate(records):
 			pair, type = VCFHeteroHomoPP.classify_record(record)
-			probs = record.parse_PL()
-			rss[type.value].append(VCFFillableRecord(record.v, record.samples,
+			ref_record = ref_vcf.records[index]
+			probs = ref_record.parse_PL(record.geno, cols)
+			rss[type.value].append(VCFFillableRecord(record.pos, record.geno,
 													index, type, pair, probs))
 		return rss
 	
@@ -181,23 +190,27 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 					heterohetero_records: list[VCFFillableRecord]
 														) -> VCFFillable:
 		for record in homohomo_records:
-			GT = record.v[9][0] + '|' + record.v[10][0]
-			for j in range(2, len(record.samples)):
-				record.v[j+9] = GT
+			a1 = record.get_allele(0, 0)
+			a2 = record.get_allele(1, 0)
+			gt = a1 | (a2 << 1) | 4
+			for j in range(2, len(record.geno)):
+				record.geno[j] = gt
 		
 		records = sorted(mat_vcf.records + pat_vcf.records +
 									homohomo_records + heterohetero_records,
-														key=lambda r: r.pos())
-		return VCFFillable(mat_vcf.header, records)
+														key=lambda r: r.pos)
+		return VCFFillable(mat_vcf.samples, records, mat_vcf.vcf)
 	
 	@staticmethod
-	def impute_by_parents(orig_vcf: VCFSmall, imputed_vcf: VCFSmallBase,
+	def impute_by_parents(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 								samples: list[str], gmap: Map) -> VCFFillable:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
 		# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
-		rss = VCFHeteroHomoPP.classify_records(vcf.records)
-		mat_vcf = VCFHeteroHomoPP(vcf.header, rss[FillType.MAT.value], gmap)
-		pat_vcf = VCFHeteroHomoPP(vcf.header, rss[FillType.PAT.value], gmap)
+		rss = VCFHeteroHomoPP.classify_records(samples, vcf.records, orig_vcf)
+		mat_vcf = VCFHeteroHomoPP(samples, rss[FillType.MAT.value],
+															gmap, orig_vcf)
+		pat_vcf = VCFHeteroHomoPP(samples, rss[FillType.PAT.value],
+															gmap, orig_vcf)
 		mat_vcf.impute()
 		pat_vcf.impute()
 		new_vcf = VCFHeteroHomoPP.merge_vcf(mat_vcf, pat_vcf,
@@ -210,43 +223,47 @@ class VCFHeteroHomoPP(VCFBase, VCFSmallBase, VCFFamilyBase, VCFMeasurable):
 	def merge_record(record1: VCFRecord, record2: VCFRecord,
 						samples: list[str],
 						i: int, td: TypeDeterminer) -> VCFFillableRecord:
-		v = record1.v + record2.v[9:]
-		record = VCFFamilyRecord(v, samples)
+		# tdがclassifyに使われていないのがおかしい
+		pos = int(record1.v[1])
+		geno = [ Genotype.all_gt_to_int(gt)
+							for gt in record1.v[9:] + record2.v[9:] ]
+		record = VCFFamilyRecord(pos, geno)
 		pair, type = VCFHeteroHomoPP.classify_record(record)
-		probs1 = record1.parse_PL()
-		probs2 = record2.parse_PL()
-		return VCFFillableRecord(v, samples, i, type, pair, probs1 + probs2)
+		probs = [ VCFRecord.decide_PL_by_genotype(gt) for gt in geno ]
+		return VCFFillableRecord(pos, geno, i, type, pair, probs)
 	
 	@staticmethod
-	def fill_NA(record1: VCFRecord,
-						samples: list[str], i: int) -> VCFFillableRecord:
+	def fill_NA(record1: VCFRecord, samples: list[str],
+												i: int) -> VCFFillableRecord:
+		pos = int(record1.v[1])
 		NA_len = len(samples) - len(record1.samples)
-		v = record1.v + ['./.'] * NA_len
-		probs = record1.parse_PL()
-		probs.extend((1/3, 1/3, 1/3) for _ in range(NA_len))
-		return VCFFillableRecord(v, samples, i, FillType.UNABLE,
+		geno = ([ Genotype.all_gt_to_int(gt) for gt in record1.v[9:] ] +
+														[Genotype.NA] * NA_len)
+		probs = [ VCFRecord.decide_PL_by_genotype(gt) for gt in geno ]
+		return VCFFillableRecord(pos, geno, i, FillType.UNABLE,
 												ParentComb.PNA, probs)
 	
 	@staticmethod
 	def merge(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,
-				samples: list[str], m: Map, option: Option) -> VCFHeteroHomoPP:
+						orig_vcf: VCFSmall, samples: list[str],
+						m: Map, option: Option) -> VCFHeteroHomoPP:
 		# 後代で無いポジションはN/Aで埋める
 		td = ClassifyRecord.get_typedeterminer(len(samples)-2, option.ratio)
-		header = vcf_parents.trim_header(samples)
 		records: list[VCFFillableRecord] = []
 		j = 0
 		for i, record1 in enumerate(vcf_parents.records):
+			ref_record = orig_vcf.records[i]
 			if j == len(vcf_progenies):
 				record = VCFHeteroHomoPP.fill_NA(record1, samples, i)
 			else:
 				record2 = vcf_progenies.records[j]
-				if record1.pos() == record2.pos():
+				if record1.pos == record2.pos:
 					record = VCFHeteroHomoPP.merge_record(record1, record2,
 																samples, i, td)
 					j += 1
 				else:
 					record = VCFHeteroHomoPP.fill_NA(record1, samples, i);
 			records.append(record)
-		return VCFHeteroHomoPP(header, records, m)
+		return VCFHeteroHomoPP(samples, records, m, orig_vcf)
 
 __all__ = ['VCFHeteroHomoPP']

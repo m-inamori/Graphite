@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from VCFFamily import *
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
 from Map import *
 from KnownFamily import *
 from VCFSelfParentImputed import VCFSelfParentImputed
@@ -14,11 +15,11 @@ from VCFSelfProgenyImputed import VCFSelfProgenyImputed
 from OptionSmall import OptionSmall
 
 
-def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
-									families: list[KnownFamily],
-									imputed_samples: list[str],
-									op: OptionSmall) -> Optional[VCFSmallBase]:
-	vcfs: list[VCFSmallBase] = []
+def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
+										families: list[KnownFamily],
+										imputed_samples: list[str],
+										op: OptionSmall) -> Optional[VCFGeno]:
+	vcfs: list[VCFGenoBase] = []
 	set_imputed_samples = set(imputed_samples)
 	for family in families:
 		# imputedな後代のindex
@@ -28,8 +29,8 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 			# 親がimputedならimputedな後代はVCFに含めない
 			samples = [family.mat] + [ s for s in family.progenies
 											if s not in set_imputed_samples ]
-			vcf = VCFSmall.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
-			vcf1 = VCFSelfParentImputed(vcf.header, vcf.records, op.map)
+			vcf = VCFGeno.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
+			vcf1 = VCFSelfParentImputed(samples, vcf.records, op.map, orig_vcf)
 			vcf1.impute()
 			vcfs.append(vcf1)
 		elif prog_indices:
@@ -37,9 +38,9 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 			samples = ([family.mat, family.progenies[prog_indices[0]]] +
 									[ s for s in family.progenies
 											if s not in set_imputed_samples ])
-			vcf = VCFSmall.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
-			vcf2 = VCFSelfProgenyImputed(vcf.header, vcf.records,
-													ref_haps, 0, op.map)
+			vcf = VCFGeno.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
+			vcf2 = VCFSelfProgenyImputed(samples, vcf.records,
+												ref_haps, 0, op.map, orig_vcf)
 			vcf2.impute()
 			vcfs.append(vcf2)
 	
@@ -47,7 +48,7 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFSmall, ref_haps: list[list[int]],
 		return None
 	
 	print("%d self families have been imputed." % len(families))
-	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
+	new_vcf = VCFGeno.join(vcfs, orig_vcf.samples)
 	return new_vcf
 
 __all__ = ['impute']

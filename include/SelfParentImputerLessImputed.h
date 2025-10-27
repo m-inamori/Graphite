@@ -8,21 +8,21 @@
 
 //////////////////// SelfParentImputerLessImputed ////////////////////
 
-class SelfParentImputerLessImputed : public VCFHMM<VCFRecord> {
+class SelfParentImputerLessImputed : public VCFHMM<GenoRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFRecord *>&	records;
+	const std::vector<GenoRecord *>&	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const std::vector<double>	Cp;
 	const double	Epc[4][4];
 	
 public:
-	SelfParentImputerLessImputed(const std::vector<VCFRecord *>& rs,
+	SelfParentImputerLessImputed(const std::vector<GenoRecord *>& rs,
 								 const std::vector<std::vector<int>>& ref_hs,
 								 const Map& map_, double w);
 	~SelfParentImputerLessImputed() { }
@@ -30,7 +30,7 @@ public:
 	void impute();
 	
 private:
-	std::vector<double> calc_Cp(const std::vector<VCFRecord *>& rs) const;
+	std::vector<double> calc_Cp(const std::vector<GenoRecord *>& rs) const;
 	std::vector<std::vector<int>> collect_possible_previous_hidden_states();
 	
 	std::size_t NH() const { return ref_haps.size(); }

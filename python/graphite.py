@@ -9,6 +9,7 @@ import sys
 from typing import Iterator
 
 from VCF import *
+from VCFGeno import VCFGeno
 from pedigree import PedigreeTable, Family
 import LargeFamily
 import LargeSelfFamily
@@ -26,7 +27,7 @@ from exception_with_code import *
 #################### process ####################
 
 def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
-						geno_map: Map, option: Option) -> VCFSmall:
+									geno_map: Map, option: Option) -> VCFGeno:
 	print('chr: %s %d records' % (orig_vcf.records[0].chrom(), len(orig_vcf)))
 	sys.stdout.flush()
 	merged_vcf = LargeFamily.impute(orig_vcf, sample_man.large_families,
@@ -34,7 +35,7 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 	sample_man.set(merged_vcf.samples)
 	
 	self_families = sample_man.extract_self_parent_non_imputed_families()
-	imputed_vcf = LargeSelfFamily.impute(orig_vcf, merged_vcf, self_families,
+	imputed_vcf = LargeSelfFamily.impute(self_families, orig_vcf, merged_vcf,
 															geno_map, option)
 	if imputed_vcf:
 		merged_vcf = imputed_vcf

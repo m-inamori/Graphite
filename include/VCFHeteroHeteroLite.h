@@ -1,16 +1,16 @@
 #ifndef __VCFHETEROHETEROLITE
 #define __VCFHETEROHETEROLITE
 
-#include "VCFImpFamily.h"
+#include "VCFImpFamilyRecord.h"
 
 
 //////////////////// VCFHeteroHeteroLiteRecord ////////////////////
 
 class VCFHeteroHeteroLiteRecord : public VCFImpFamilyRecord {
 public:
-	VCFHeteroHeteroLiteRecord(const STRVEC& v, const STRVEC& samples,
+	VCFHeteroHeteroLiteRecord(ll pos, const std::vector<int>& geno,
 									int i, WrongType type, ParentComb c) :
-								VCFImpFamilyRecord(v, samples, i, type, c) { }
+								VCFImpFamilyRecord(pos, geno, i, type, c) { }
 	~VCFHeteroHeteroLiteRecord() { }
 	
 	bool is_homohomo() const override { return false; }
@@ -21,20 +21,22 @@ public:
 
 //////////////////// VCFHeteroHeteroLite ////////////////////
 
-class VCFHeteroHeteroLite: public VCFBase, public VCFSmallBase,
-											public VCFFamilyBase {
+class VCFHeteroHeteroLite: public VCFFamilyBase {
 	const std::vector<VCFHeteroHeteroLiteRecord *>	records;
 	
 public:
-	VCFHeteroHeteroLite(const std::vector<STRVEC>& h, const STRVEC& s,
-						const std::vector<VCFHeteroHeteroLiteRecord *>& rs);
+	VCFHeteroHeteroLite(const STRVEC& s,
+						const std::vector<VCFHeteroHeteroLiteRecord *>& rs,
+						const VCFSmall *vcf);
 	~VCFHeteroHeteroLite() { }
 	
-	///// virtual methods /////
+	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }
-	VCFRecord *get_record(std::size_t i) const override {
+	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
+	
+	///// virtual methods for VCFFamilyBase /////
 	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}

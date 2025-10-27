@@ -8,14 +8,14 @@
 
 //////////////////// ParentImputerByProgeny ////////////////////
 
-class ParentImputerByProgeny : public VCFHMM<VCFRecord> {
+class ParentImputerByProgeny : public VCFHMM<VCFFamilyRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFRecord *>&	ref_records;
+	const std::vector<VCFFamilyRecord *>&	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const bool is_mat_known;
@@ -23,7 +23,7 @@ private:
 	const std::vector<double>	Cp;
 	
 public:
-	ParentImputerByProgeny(const std::vector<VCFRecord *>& rs,
+	ParentImputerByProgeny(const std::vector<VCFFamilyRecord *>& rs,
 							const std::vector<std::vector<int>>& ref_haps,
 							bool is_mat_known_, const Map& map_, double w);
 	~ParentImputerByProgeny() { }
@@ -31,8 +31,8 @@ public:
 	void impute();
 	
 private:
-	std::vector<double> calc_Cc(const std::vector<VCFRecord *>& rs) const;
-	std::vector<double> calc_Cp(const std::vector<VCFRecord *>& rs) const;
+	std::vector<double> calc_Cc(const std::vector<VCFFamilyRecord *>& rs) const;
+	std::vector<double> calc_Cp(const std::vector<VCFFamilyRecord *>& rs) const;
 	std::size_t NH() const { return ref_haps.size(); }
 	std::size_t M() const { return ref_haps[0].size(); }
 	

@@ -8,6 +8,9 @@ from collections import defaultdict, Counter
 from math import log
 from typing import List, Tuple
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
+from GenoRecord import GenoRecord
 from VCFFamily import *
 from ProgenyImputer import *
 from Genotype import Genotype
@@ -15,18 +18,17 @@ from Genotype import Genotype
 
 #################### VCFBothParentImputed ####################
 
-class VCFBothParentImputed(VCFBase, VCFSmallBase):
-	def __init__(self, header: list[list[str]],
-						records: list[VCFFamilyRecord], map_: Map):
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
+class VCFBothParentImputed(VCFFamily):
+	def __init__(self, samples: list[str],
+					records: list[VCFFamilyRecord], map_: Map, vcf: VCFSmall):
+		VCFFamily.__init__(self, samples, records, vcf)
 		self.prog_imputer = ProgenyImputer(records, map_, 0.01)
 		self.records: list[VCFFamilyRecord] = records
 	
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_family_record(self, i: int) -> VCFFamilyRecord:

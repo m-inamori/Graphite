@@ -11,7 +11,7 @@ enum class WrongType {
 	RIGHT, MODIFIABLE, UNMODIFIABLE, MIX, UNSPECIFIED
 };
 
-class VCFRecord;
+class GenoRecord;
 class VCFFamilyRecord;
 
 
@@ -41,7 +41,7 @@ public:
 													const TypeDeterminer *td,
 													bool one_parent);
 	std::pair<ParentComb, WrongType> classify_self_record(
-												const VCFRecord *record,
+												const GenoRecord *record,
 												const TypeDeterminer *td);
 	
 private:

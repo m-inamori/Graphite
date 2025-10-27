@@ -8,6 +8,7 @@ from __future__ import annotations
 from math import log
 from typing import List, Tuple
 
+from VCFFamily import VCFFamilyRecord
 from VCFHMM import *
 from Genotype import Genotype
 
@@ -16,13 +17,14 @@ from Genotype import Genotype
 
 MIN_PROB = -1e300
 
-class ParentImputerByProgeny(VCFHMM[VCFRecord]):
+class ParentImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[VCFRecord], ref_haps: list[list[int]],
+	def __init__(self, records: list[VCFFamilyRecord],
+							ref_haps: list[list[int]],
 							is_mat_known: bool, map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[VCFFamily] = records
+		self.records: list[VCFFamilyRecord] = records
 		self.ref_haps = ref_haps
 		self.is_mat_known = is_mat_known
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
@@ -40,18 +42,22 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 	def NH(self) -> int:
 		return len(self.ref_haps)
 	
+	def num_progenies(self) -> int:
+		return 1
+	
 	# ハプロタイプを決めたときのGenotype
 	def gt_by_haplotypes(self, hc1: int, hc2: int,
 								mat_gt: int, pat_gt: int) -> int:
 		return ((mat_gt >> hc1) & 1) | (((pat_gt >> hc2) & 1) << 1)
 	
 	def compute_progeny_gt(self, i: int, h: int) -> int:
+		record = self.records[i]
 		hc1 = h & 1			# imputedの親のどちらが後代に渡ったか
 		hc2 = (h >> 1) & 1	# imputedな後代とref_hapsのどちらが後代に渡ったか
 		hp = h >> 2			# ref_hapsからどれが来たか
-		a1 = int(self.records[i].v[9][hc1*2])	# imputedな親から渡ったアレル
+		a1 = record.get_allele(0, hc1)	# imputedな親から渡ったアレル
 		k = 2 if self.is_mat_known else 0	# unknownな親から渡った側
-		a2 = int(self.records[i].v[10][k]) if hc2 == 0 else ref_haps[i][hp]
+		a2 = record.get_allele(1, k) if hc2 == 0 else self.ref_haps[i][hp]
 		return a1 | (a2 << 1) if self.is_mat_known else a2 | (a1 << 1)
 	
 	# i: record index
@@ -59,8 +65,8 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 		hc1 = h & 1			# imputedの親のどちらが後代に渡ったか
 		hc2 = (h >> 1) & 1	# imputedな後代とref_hapsのどちらが後代に渡ったか
 		hp = h >> 2			# ref_hapsからどれが来たか
-		progeny_phased_gt = compute_parent_gt(i, h)
-		progeny_gt = Genotype.gt_to_int(self.records[i].v[11])
+		parent_phased_gt = self.compute_parent_gt(i, h)
+		parent_gt = self.records[i].unphased(self.non_phased_col())
 		return self.E[parent_phased_gt][parent_gt]	# parent emission
 	
 	def transition_probability(self, i: int, prev_h: int, h: int) -> float:
@@ -79,15 +85,21 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 				log(cc2 if prev_hc2 != hc2 else 1.0 - cc2) +
 				log(cp if prev_hp != hp else 1.0 - cp))
 	
+	def phased_col(self) -> int:
+		return 0 if self.is_mat_known else 1
+	
+	def non_phased_col(self) -> int:
+		return 1 if self.is_mat_known else 0
+	
 	def initialize_dp(self) -> list[DP]:
 		M = len(self.records)	# マーカー数
 		L = self.NH() << 2
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
 		record = self.records[0]
-		phased_parent_gt = Genotype.phased_gt_to_int(record.v[11])
-		op = Genotype.gt_to_int(record.v[non_phased_col])	# observed parent
+		phased_parent_gt = record.geno[2] & 3
+		op = record.unphased(self.non_phased_col())		# observed parent
 		# observed progs
-		ocs = [ Genotype.gt_to_int(gt) for gt in record.v[11:] ]
+		ocs = [ record.unphased(k) for k in range(2, len(record.geno)) ]
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(0, h)
 			dp[0][h] = (E_all, h)
@@ -124,13 +136,13 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 		record = self.records[i]
 		cc = self.Cc[i-1]	# 遷移確率
 		cp = self.Cp[i-1]	# 親の遷移確率
-		phased_parent_gt = Genotype.phased_gt_to_int(record.v[phased_col])
-		op = Genotype.gt_to_int(record.v[non_phased_col])	# observed parent
+		phased_parent_gt = record.geno[self.phased_col()] & 3
+		op = record.unphased(self.non_phased_col())		# observed parent
 		
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(i, h)
 			for prev_h in self.prev_h_table[h]:
-				T_all = transition_probability(i, prev_h, h)
+				T_all = self.transition_probability(i, prev_h, h)
 				prob = dp[i-1][prev_h][0] + (T_all + E_all)
 				dp[i][h] = max(dp[i][h], (prob, prev_h))
 	
@@ -141,10 +153,10 @@ class ParentImputerByProgeny(VCFHMM[VCFRecord]):
 		for i in range(M):
 			record = self.records[i]
 			parent_gt = self.compute_parent_gt(i, hs[i])
-			record.v[9] = Genotype.int_to_phased_gt(parent_gt)
+			record.geno[0] = parent_gt | 4
 			if is_swapped:
-				gt = record.v[10]
-				record.v[10] = gt[2] + '|' + gt[0] + gt[3:]
+				gt = record.geno[1]
+				record.geno[1] = Genotype.inverse(gt)
 	
 	def impute(self) -> None:
 		# DP

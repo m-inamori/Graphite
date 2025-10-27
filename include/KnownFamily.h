@@ -2,7 +2,7 @@
 #define __KNOWNFAMILY__
 
 // KnownFamily.h
-#include "Pedigree.h"
+#include "pedigree.h"
 
 // Remember if the parent is in samples
 class KnownFamily : public Family {
@@ -20,6 +20,8 @@ public:
 	
 	bool is_mat_known() const { return mat_known; }
 	bool is_pat_known() const { return pat_known; }
+	
+	bool is_both_known() const { return mat_known && pat_known; }
 	
 	bool is_any_known() const {
 		return mat_known || pat_known;

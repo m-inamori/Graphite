@@ -4,14 +4,10 @@ from __future__ import annotations
 # ClassifyRecord.py
 
 from functools import reduce
-from collections import defaultdict
 
-from VCFImpFamily import *
-from VCFHomoHomo import *
-from VCFHeteroHomo import *
-from VCFHeteroHeteroLite import *
-from pedigree import *
+from GenoRecord import GenoRecord
 from TypeDeterminer import *
+from Genotype import Genotype
 from common import *
 
 
@@ -22,21 +18,21 @@ memo_tds: dict[tuple[int, float], TypeDeterminer] = { }
 def count_int_gts(gts: list[int]) -> tuple[int,int,int]:
 	ns = [0, 0, 0]
 	for gt in gts:
-		if gt != -1:
+		if gt != Genotype.NA:
 			ns[gt] += 1
 	return (ns[0], ns[1], ns[2])
 
-def classify_record(record: VCFRecord, td: TypeDeterminer,
+def classify_record(record: GenoRecord, td: TypeDeterminer,
 								one_parent: bool) -> tuple[str, ParentComb]:
-	gts = record.get_int_gts()
+	gts = record.unphased_gts()
 	counter = count_int_gts(gts[2:])
 	pairs = td.determine(counter)
 	pair, wrong_type = classify_record_core(pairs, gts[0], gts[1], one_parent)
 	return (wrong_type, pair)
 
-def classify_self_record(record: VCFRecord,
+def classify_self_record(record: GenoRecord,
 								td: TypeDeterminer) -> tuple[str, ParentComb]:
-	gts = record.get_int_gts()
+	gts = record.unphased_gts()
 	counter = count_int_gts(gts[1:])
 	pairs = td.determine(counter)
 	if not pairs:
@@ -44,11 +40,11 @@ def classify_self_record(record: VCFRecord,
 	
 	parent_gt = gts[0]
 	comb, prob = pairs[0]
-	if comb == ParentComb.P01x01 and parent_gt in (1, -1):
+	if comb == ParentComb.P01x01 and parent_gt in (1, Genotype.NA):
 		return ('Right', ParentComb.P01x01)
-	elif comb == ParentComb.P00x00 and parent_gt in (0, -1):
+	elif comb == ParentComb.P00x00 and parent_gt in (0, Genotype.NA):
 		return ('Right', ParentComb.P00x00)
-	elif comb == ParentComb.P11x11 and parent_gt in (2, -1):
+	elif comb == ParentComb.P11x11 and parent_gt in (2, Genotype.NA):
 		return ('Right', ParentComb.P11x11)
 	else:
 		return ('Unspecified', ParentComb.PNA)
@@ -86,12 +82,14 @@ def classify_record_core(pairs: list[tuple[ParentComb, float]],
 			avoiding_gt = (5 - pair.value) >> 1
 			if mat_gt == pat_gt:
 				return (pair, 'Unmodifiable')
-			elif mat_gt == -1 and pat_gt not in (-1, avoiding_gt):
+			elif (mat_gt == Genotype.NA and
+						pat_gt not in (Genotype.NA, avoiding_gt)):
 				if one_parent:
 					return (pair, 'Right')
 				else:
 					return (pair, 'Modifiable')
-			elif pat_gt == -1 and mat_gt not in (-1, avoiding_gt):
+			elif (pat_gt == Genotype.NA and
+						mat_gt not in (Genotype.NA, avoiding_gt)):
 				if one_parent:
 					return (pair, 'Right')
 				else:

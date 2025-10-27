@@ -2,12 +2,13 @@
 #define __ONEKNOWNFAMILY
 
 #include <vector>
-#include "VCF.h"
 
+class VCFSmall;
+class VCFGenoBase;
+class VCFGeno;
 class VCFOneParentKnown;
 class Family;
 class KnownFamily;
-class Map;
 class OptionSmall;
 
 
@@ -29,7 +30,7 @@ namespace OneKnownFamily {
 										std::size_t L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFOneParentKnown *>& vcfs, int T);
-	VCFSmallBase *impute(const VCFSmall *orig_vcf, const VCFSmall *imputed_vcf,
+	VCFGenoBase *impute(const VCFSmall *orig_vcf, const VCFGeno *imputed_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
 							const std::vector<const KnownFamily *>& families,
 							const OptionSmall& op);

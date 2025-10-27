@@ -4,7 +4,9 @@ from __future__ import annotations
 # VCFSelfNoImputedRough.py
 # 自殖でimputedなサンプルが一つもない
 
-from VCFFamily import *
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase
+from GenoRecord import GenoRecord
 from SelfParentImputerLessImputed import *
 from SelfProgenyImputer import *
 from Map import *
@@ -12,13 +14,14 @@ from Map import *
 
 #################### VCFSelfNoImputedRough ####################
 
-class VCFSelfNoImputedRough(VCFBase, VCFSmallBase):
-	def __init__(self, header: list[list[str]],
-						records: list[VCFRecord],
-						ref_haps: list[list[int]], map_: Map) -> None:
-		VCFBase.__init__(self, header)
-		VCFSmallBase.__init__(self)
-		self.records: list[VCFRecord] = records
+class VCFSelfNoImputedRough(VCFGenoBase, VCFMeasurable):
+	def __init__(self, samples: list[str],
+						records: list[GenoRecord],
+						ref_haps: list[list[int]],
+						map_: Map, vcf: VCFSmall) -> None:
+		VCFGenoBase.__init__(self, samples, vcf)
+		VCFMeasurable.__init__(self, map_)
+		self.records: list[GenoRecord] = records
 		self.parent_imputer = SelfParentImputerLessImputed(records, ref_haps,
 																	map_, 0.01)
 		self.imputers = [ SelfProgenyImputer(records, i, map_, 0.01)
@@ -27,7 +30,7 @@ class VCFSelfNoImputedRough(VCFBase, VCFSmallBase):
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def get_record(self, i: int) -> VCFRecord:
+	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
 	def get_samples(self) -> list[str]:

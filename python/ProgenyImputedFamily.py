@@ -6,24 +6,26 @@ from __future__ import annotations
 
 from typing import Optional
 
+from VCF import VCFSmall
+from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
 from VCFProgenyImputed import *
 from Map import *
 from KnownFamily import KnownFamily
 from OptionSmall import OptionSmall
 
-def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
+def impute(orig_vcf: VCFSmall, merged_vcf: VCFGenoBase,
 			families: list[KnownFamily], imputed_progenies: list[list[str]],
-			ref_haps: list[list[int]], op: OptionSmall) -> Optional[VCFSmall]:
-	vcfs: list[VCFSmallBase] = []
+			ref_haps: list[list[int]], op: OptionSmall) -> Optional[VCFGeno]:
+	vcfs: list[VCFGenoBase] = []
 	for i in range(len(families)):
 		family = families[i]
 		parent = family.mat if family.mat_known else family.pat
 		progeny = imputed_progenies[i][0]
 		samples = [parent, progeny]
-		vcf = VCFSmall.create_by_two_vcfs(merged_vcf, orig_vcf, samples)
-		vcf1 = VCFProgenyImputed(vcf.header, vcf.records, ref_haps,
-													family.mat_known, op.map)
+		vcf = VCFFamily.create_by_two_vcfs(merged_vcf, orig_vcf, samples)
+		vcf1 = VCFProgenyImputed(samples, vcf.records, ref_haps,
+											family.mat_known, op.map, orig_vcf)
 		vcf1.impute()
 		vcfs.append(vcf1)
 	
@@ -32,7 +34,7 @@ def impute(orig_vcf: VCFSmall, merged_vcf: VCFSmallBase,
 	
 	print("%d families whose progeny is imputed have been imputed." %
 															len(families))
-	new_vcf = VCFSmall.join(vcfs, orig_vcf.samples)
+	new_vcf = VCFGeno.join(vcfs, orig_vcf.samples)
 	return new_vcf
 
 __all__ = ['impute']

@@ -43,8 +43,8 @@ void ProgenyImputedFamily::impute_small_VCFs(vector<VCFProgenyImputed *>& vcfs,
 	Common::delete_all(configs);
 }
 
-VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
-								const VCFSmall *imputed_vcf,
+VCFGeno *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
+								const VCFGenoBase *imputed_vcf,
 								const vector<const KnownFamily *>& families,
 								const vector<vector<string>>& imputed_progenies,
 								const vector<vector<int>>& ref_haps,
@@ -66,13 +66,12 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 	vector<VCFProgenyImputed *>	small_vcfs;
 	for(size_t i = 0; i < L; ++i) {
 		const KnownFamily	*family = families[i];
-		auto	*vcf = VCFSmall::create_by_two_vcfs(imputed_vcf, orig_vcf,
+		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf, orig_vcf,
 															sample_table[i]);
-		auto	*vcf1 = new VCFProgenyImputed(vcf->get_header(),
-											  sample_table[i],
-											  vcf->get_records(),
+		auto	*vcf1 = new VCFProgenyImputed(sample_table[i],
+											  vcf->get_family_records(),
 											  ref_haps, family->is_mat_known(),
-											  op.map, 0.01);
+											  op.map, 0.01, orig_vcf);
 		small_vcfs.push_back(vcf1);
 		vcf->clear_records();
 		delete vcf;
@@ -86,8 +85,8 @@ VCFSmallBase *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 	cout << small_vcfs.size()
 			<< " families whose progeny is imputed have been imputed." << endl;
 	
-	vector<const VCFSmallBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
-	auto	*new_vcf = VCFSmall::join(vcfs, orig_vcf->get_samples());
+	vector<const VCFGenoBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
+	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(small_vcfs);
 	return new_vcf;
 }
