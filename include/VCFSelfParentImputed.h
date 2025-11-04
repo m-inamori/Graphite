@@ -2,17 +2,16 @@
 #define __VCFSELFPARENTIMPUTED
 
 #include <vector>
-#include "VCF.h"
+#include "SelfProgenyImputer.h"
 
 class Map;
-class SelfProgenyImputer;
 
 
 //////////////////// VCFSelfParentImputed ////////////////////
 
 class VCFSelfParentImputed : public VCFGenoBase {
 	const std::vector<GenoRecord *>	records;
-	std::vector<SelfProgenyImputer *>	imputers;
+	SelfProgenyImputer	prog_imputer;
 	
 public:
 	VCFSelfParentImputed(const STRVEC& s,
@@ -33,7 +32,5 @@ public:
 	
 private:
 	std::size_t num_progenies() const { return get_samples().size() - 1; }
-	std::vector<SelfProgenyImputer *> create_imputers(
-												const Map& map_, double w);
 };
 #endif

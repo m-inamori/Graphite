@@ -16,15 +16,14 @@ public:
 	
 private:
 	const std::vector<GenoRecord *>&	records;
-	const std::size_t	ic;
 	const std::vector<double>	Cc;
 	
 public:
 	SelfProgenyImputer(const std::vector<GenoRecord *>& rs,
-						std::size_t iprog, const Map& map_, double w);
+										const Map& map_, double w);
 	~SelfProgenyImputer() { }
 	
-	void impute();
+	void impute(std::size_t iprog);
 	
 private:
 	std::vector<double> calc_Cc(const std::vector<GenoRecord *>& rs) const;
@@ -43,9 +42,9 @@ private:
 	
 	double transition_probability(std::size_t i, int prev_h, int h) const;
 	
-	std::vector<DP> initialize_dp() const;
+	std::vector<DP> initialize_dp(std::size_t iprog) const;
 	
-	void update_dp(std::size_t i, std::vector<DP>& dp) const;
-	void update_genotypes(const std::vector<int>& hs);
+	void update_dp(std::size_t i, std::size_t iprog, std::vector<DP>& dp) const;
+	void update_genotypes(const std::vector<int>& hs, std::size_t iprog);
 };
 #endif

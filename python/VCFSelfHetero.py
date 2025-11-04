@@ -33,6 +33,7 @@ class VCFSelfHetero(VCFGenoBase, VCFMeasurable):
 		VCFGenoBase.__init__(self, samples, vcf)
 		VCFMeasurable.__init__(self, map_)
 		self.records = records
+		self.prog_imputer = SelfProgenyImputer(records, map_, 0.01)
 	
 	def __len__(self) -> int:
 		return len(self.records)
@@ -170,55 +171,9 @@ class VCFSelfHetero(VCFGenoBase, VCFMeasurable):
 		subvcfs = list(map(self.make_subvcf, gs))
 		return (subvcfs, unused_records)
 	
-	def make_seq(self, i: int) -> str:
-		q, r = divmod(i, 2)
-		hs = ['N'] * len(self)
-		for j, record in enumerate(self.records):
-			prog_gt = record.geno[q+1]
-			# DPで計算すべきなのでは？
-			if r == 0:
-				a = (1 if prog_gt == Genotype.UN_11 else
-					 -1 if prog_gt == Genotype.NA else 0)
-			else:
-				a = (0 if prog_gt == Genotype.UN_00 else
-					 -1 if prog_gt == Genotype.NA else 1)
-			if record.geno[0] == Genotype.PH_01:
-				if a == 0:
-					hs[j] = '0'
-				elif Genotype.is_NA(prog_gt):
-					hs[j] = 'N'
-				else:
-					hs[j] = '1'
-			else:					# 1|0
-				if a == 1:
-					hs[j] = '0'
-				elif Genotype.is_NA(prog_gt):
-					hs[j] = 'N'
-				else:
-					hs[j] = '1'
-		
-		return ''.join(hs)
-	
-	def impute_each_sample_seq(self, i: int, cMs: list[float],
-													min_c: float) -> str:
-		seq = self.make_seq(i)
-		if Imputer.is_all_same_without_N(seq):
-			return Imputer.create_same_color_string(seq, '0')
-		
-		hidden_states = ['0', '1']
-		states = ['0', '1', 'N']
-		hidden_seq = Imputer.impute(seq, hidden_states, states, cMs)
-		painted_seq = Imputer.paint(hidden_seq, cMs, min_c)
-		return painted_seq
-	
-	def impute_each(self, option: OptionImpute) -> None:
-		cMs = [ self.cM(record.pos) for record in self.records ]
-		imputed_seqs = [
-				self.impute_each_sample_seq(i, cMs, option.min_crossover)
-									for i in range(self.num_progenies() * 2) ]
-		for k, record in enumerate(self.records):
-			ws = [ int(seq[k]) for seq in imputed_seqs ]
-			record.set_int_gt_by_which_comes_from(ws)
+	def impute_progenies(self, option: OptionImpute) -> None:
+		for iprog in range(self.num_progenies()):
+			self.prog_imputer.impute(iprog)
 	
 	def create_option(self) -> OptionImpute:
 		num = max(2, len(self))
@@ -233,7 +188,7 @@ class VCFSelfHetero(VCFGenoBase, VCFMeasurable):
 		option: OptionImpute = self.create_option()
 		vcfs, unused_records = self.determine_haplotype(option)
 		for vcf in vcfs:
-			vcf.impute_each(option)
+			vcf.impute_progenies(option)
 		for record in unused_records:
 			record.enable_modification()
 		return (vcfs, unused_records)

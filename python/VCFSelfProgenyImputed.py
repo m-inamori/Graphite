@@ -25,8 +25,7 @@ class VCFSelfProgenyImputed(VCFGenoBase, VCFMeasurable):
 		self.ic: int = ic	# index of imputed progeny
 		self.parent_imputer = SelfParentImputer(records, ref_haps,
 															ic, map_, 0.01)
-		self.imputers = [ SelfProgenyImputer(records, i, map_, 0.01)
-							for i in range(self.num_progenies()) if i != ic ]
+		self.prog_imputer = SelfProgenyImputer(records, map_, 0.01)
 	
 	def __len__(self) -> int:
 		return len(self.records)
@@ -42,5 +41,6 @@ class VCFSelfProgenyImputed(VCFGenoBase, VCFMeasurable):
 	
 	def impute(self) -> None:
 		self.parent_imputer.impute()
-		for imputer in self.imputers:
-			imputer.impute()
+		for iprog in range(self.num_progenies()):
+			if iprog != self.ic:
+				self.prog_imputer.impute(iprog)

@@ -4,19 +4,19 @@
 #include <vector>
 #include "VCFGeno.h"
 #include "SelfParentImputerLessImputed.h"
+#include "SelfProgenyImputer.h"
 
 class VCFSmall;
 class GenoRecord;
 class Map;
-class SelfProgenyImputer;
 
 
 //////////////////// VCFSelfNoImputedRough ////////////////////
 
 class VCFSelfNoImputedRough : public VCFGenoBase, VCFMeasurable {
 	const std::vector<GenoRecord *>	records;
-	SelfParentImputerLessImputed	imputer;
-	std::vector<SelfProgenyImputer *>	imputers;
+	SelfParentImputerLessImputed	parent_imputer;
+	SelfProgenyImputer				prog_imputer;
 	
 public:
 	VCFSelfNoImputedRough(const STRVEC& s,
@@ -38,7 +38,5 @@ public:
 	
 private:
 	std::size_t num_progenies() const { return get_samples().size() - 1; }
-	std::vector<SelfProgenyImputer *> create_imputers(
-												const Map& map_, double w);
 };
 #endif

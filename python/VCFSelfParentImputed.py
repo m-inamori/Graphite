@@ -18,8 +18,7 @@ class VCFSelfParentImputed(VCFGenoBase):
 											map_: Map, vcf: VCFSmall) -> None:
 		VCFGenoBase.__init__(self, samples, vcf)
 		self.records = records
-		self.imputers = [ SelfProgenyImputer(records, i, map_, 0.01)
-										for i in range(self.num_progenies()) ]
+		self.imputer = SelfProgenyImputer(records, map_, 0.01)
 	
 	def __len__(self) -> int:
 		return len(self.records)
@@ -34,5 +33,5 @@ class VCFSelfParentImputed(VCFGenoBase):
 		return len(self.samples) - 1
 	
 	def impute(self) -> None:
-		for imputer in self.imputers:
-			imputer.impute()
+		for iprog in range(self.num_progenies()):
+			self.imputer.impute(iprog)

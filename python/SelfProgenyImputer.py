@@ -19,11 +19,9 @@ MIN_PROB = -1e300
 class SelfProgenyImputer(VCFHMM[GenoRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[GenoRecord],
-							iprog: int, map_: Map, w: float) -> None:
+	def __init__(self, records: list[GenoRecord], map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
 		self.records: list[GenoRecord] = records
-		self.ic = iprog		# 何番目の後代か
 		# crossover values
 		# 後代
 		self.Cc = [ Map.Kosambi(self.dist(r1, r2))
@@ -41,13 +39,13 @@ class SelfProgenyImputer(VCFHMM[GenoRecord]):
 		gt_prog = self.progeny_genotype(h, parent_gt)
 		return self.E[gt_prog][oc&3]
 	
-	def initialize_dp(self) -> list[DP]:
+	def initialize_dp(self, iprog: int) -> list[DP]:
 		M = len(self.records)	# マーカー数
 		dp = [ [ (MIN_PROB, 0) ] * 4 for _ in range(M) ]
 		record = self.records[0]
 		parent_gt = self.records[0].geno[0]
 		# observed progeny
-		oc = record.geno[self.ic+1]
+		oc = record.geno[iprog+1]
 		for h in range(4):		# hidden state
 			E_all = self.emission_probability(h, parent_gt, oc)
 			dp[0][h] = (E_all, h)
@@ -60,12 +58,12 @@ class SelfProgenyImputer(VCFHMM[GenoRecord]):
 		return (log(cc if h1 != prev_h1 else 1.0 - cc) +
 				log(cc if h2 != prev_h2 else 1.0 - cc))
 	
-	def update_dp(self, i: int, dp: list[DP]) -> None:
+	def update_dp(self, i: int, iprog: int, dp: list[DP]) -> None:
 		record = self.records[i]
 		cc = self.Cc[i-1]	# 遷移確率
 		parent_gt = self.records[i].geno[0]
 		# observed progs
-		oc = record.unphased(self.ic+1)
+		oc = record.unphased(iprog+1)
 		
 		for h in range(4):		# hidden state
 			E_all = self.emission_probability(h, parent_gt, oc)
@@ -76,22 +74,22 @@ class SelfProgenyImputer(VCFHMM[GenoRecord]):
 				prob = dp[i-1][prev_h][0] + (T_all + E_all)
 				dp[i][h] = max(dp[i][h], (prob, prev_h))
 	
-	def update_genotypes(self, hs: list[int]) -> None:
+	def update_genotypes(self, hs: list[int], iprog: int) -> None:
 		M = len(self.records)
 		N = self.num_progenies()
 		for i in range(M):
 			record = self.records[i]
 			parent_gt = record.geno[0]
 			prog_gt = self.progeny_genotype(hs[i], parent_gt)
-			record.geno[self.ic+1] = prog_gt | 4
+			record.geno[iprog+1] = prog_gt | 4
 	
-	def impute(self) -> None:
+	def impute(self, iprog: int) -> None:
 		# DP
 		# 外側から、マーカー、ハプロタイプの状態
 		M = len(self.records)
-		dp = self.initialize_dp()
+		dp = self.initialize_dp(iprog)
 		for i in range(1, M):
-			self.update_dp(i, dp)
+			self.update_dp(i, iprog, dp)
 		
 		hs = self.trace_back(dp)
-		self.update_genotypes(hs)
+		self.update_genotypes(hs, iprog)

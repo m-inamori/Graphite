@@ -4,9 +4,9 @@
 #include <vector>
 #include "VCF.h"
 #include "SelfParentImputer.h"
+#include "SelfProgenyImputer.h"
 
 class Map;
-class SelfProgenyImputer;
 
 
 //////////////////// VCFSelfProgenyImputed ////////////////////
@@ -14,8 +14,8 @@ class SelfProgenyImputer;
 class VCFSelfProgenyImputed : public VCFGenoBase {
 	const std::vector<GenoRecord *>	records;
 	std::size_t	ic;
-	SelfParentImputer	imputer;
-	std::vector<SelfProgenyImputer *>	imputers;
+	SelfParentImputer	parent_imputer;
+	SelfProgenyImputer	prog_imputer;
 	
 public:
 	VCFSelfProgenyImputed(const STRVEC& s,
@@ -38,7 +38,5 @@ public:
 	
 private:
 	std::size_t num_progenies() const { return get_samples().size() - 1; }
-	std::vector<SelfProgenyImputer *> create_imputers(
-												const Map& map_, double w);
 };
 #endif

@@ -24,8 +24,7 @@ class VCFSelfNoImputedRough(VCFGenoBase, VCFMeasurable):
 		self.records: list[GenoRecord] = records
 		self.parent_imputer = SelfParentImputerLessImputed(records, ref_haps,
 																	map_, 0.01)
-		self.imputers = [ SelfProgenyImputer(records, i, map_, 0.01)
-										for i in range(self.num_progenies()) ]
+		self.prog_imputer = SelfProgenyImputer(records, map_, 0.01)
 	
 	def __len__(self) -> int:
 		return len(self.records)
@@ -41,5 +40,5 @@ class VCFSelfNoImputedRough(VCFGenoBase, VCFMeasurable):
 	
 	def impute(self) -> None:
 		self.parent_imputer.impute()
-		for imputer in self.imputers:
-			imputer.impute()
+		for iprog in range(self.num_progenies()):
+			self.prog_imputer.impute(iprog)
