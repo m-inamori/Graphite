@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from itertools import *
 import sys
-from typing import Iterator
+from typing import Iterator, Optional
 
 from VCF import *
 from VCFGeno import VCFGeno
@@ -27,12 +27,13 @@ from exception_with_code import *
 #################### process ####################
 
 def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
-									geno_map: Map, option: Option) -> VCFGeno:
+							geno_map: Map, option: Option) -> Optional[VCFGeno]:
 	print('chr: %s %d records' % (orig_vcf.records[0].chrom(), len(orig_vcf)))
 	sys.stdout.flush()
 	merged_vcf = LargeFamily.impute(orig_vcf, sample_man.large_families,
-														geno_map, option)
-	sample_man.set(merged_vcf.samples)
+															geno_map, option)
+	if merged_vcf is not None:
+		sample_man.set(merged_vcf.samples)
 	
 	self_families = sample_man.extract_self_parent_non_imputed_families()
 	imputed_vcf = LargeSelfFamily.impute(self_families, orig_vcf, merged_vcf,
@@ -46,9 +47,10 @@ def impute_vcf_chr(orig_vcf: VCFSmall, sample_man: SampleManager,
 											option.outputs_unimputed_samples)
 	
 	# 補完できる家系がなくなるまで繰り返す
-	sample_man.set(merged_vcf.samples)
-	
-	merged_vcf = SmallFamily.impute(orig_vcf, merged_vcf, op_small, sample_man,
+	if merged_vcf:
+		sample_man.set(merged_vcf.samples)
+		merged_vcf = SmallFamily.impute(orig_vcf, merged_vcf,
+												op_small, sample_man,
 												option.imputes_isolated_samples)
 	
 	sample_man.clear()
@@ -80,6 +82,8 @@ def impute_all(vcf: VCFHuge, materials: Materials, option: Option) -> None:
 			continue
 		vcf_chr.check_records()
 		vcf_imputed = impute_vcf_chr(vcf_chr, sample_man, gmap, option)
+		if vcf_imputed is None:
+			continue
 		with open(option.path_out, 'w' if first else 'a') as out:
 			vcf_imputed.write(out, with_header=first)
 		first = False

@@ -18,10 +18,11 @@ using namespace std;
 //////////////////// VCFSelfHetero ////////////////////
 
 VCFSelfHetero::VCFSelfHetero(const STRVEC& s,
-								const vector<VCFSelfHeteroRecord *>& rs,
-								const Map& m, const VCFSmall *vcf) :
-							VCFGenoBase(s, vcf),
-							VCFMeasurable(m), records(rs) { }
+							 const vector<VCFSelfHeteroRecord *>& rs,
+							 const Map& m, double w_, const VCFSmall *vcf) :
+			VCFGenoBase(s, vcf), VCFMeasurable(m), records(rs), w(w_),
+			prog_imputer(vector<GenoRecord *>(records.begin(),
+												records.end()), m, w_) { }
 
 VCFSelfHetero::~VCFSelfHetero() {
 	for(auto p = records.begin(); p != records.end(); ++p)
@@ -157,7 +158,7 @@ VCFSelfHetero *VCFSelfHetero::make_subvcf(const InvGraph& graph) const {
 		records.push_back(record);
 	}
 	return new VCFSelfHetero(this->samples, records,
-								this->get_map(), this->get_ref_vcf());
+								this->get_map(), w, this->get_ref_vcf());
 }
 
 pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
@@ -202,81 +203,9 @@ pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
 	return make_pair(subvcfs, unused_records);
 }
 
-string VCFSelfHetero::make_seq(size_t i) const {
-	stringstream	ss;
-	const size_t	q = i >> 1;
-	const size_t	r = i & 1;
-	for(size_t j = 0; j < this->size(); ++j) {
-		const VCFSelfHeteroRecord	*record = records[j];
-		const int	prog_gt = record->get_geno()[q+1];
-		int	a;
-		if(r == 0) {
-			switch(prog_gt) {
-				case Genotype::UN_11:	a =  1; break;
-				case Genotype::NA:		a = -1; break;
-				default:				a =  0; break;
-			}
-		}
-		else {
-			switch(prog_gt) {
-				case Genotype::UN_00:	a =  0; break;
-				case Genotype::NA:		a = -1; break;
-				default:				a =  1; break;
-			}
-		}
-		if(record->get_geno()[0] == Genotype::PH_01) {
-			if(a == 0)
-				ss << '0';
-			else if(Genotype::is_NA(prog_gt))
-				ss << 'N';
-			else
-				ss << '1';
-		}
-		else {
-			if(a == 1)
-				ss << '0';
-			else if(Genotype::is_NA(prog_gt))
-				ss << 'N';
-			else
-				ss << '1';
-		}
-	}
-	return ss.str();
-}
-
-string VCFSelfHetero::impute_each_sample_seq(size_t i,
-								const vector<double>& cMs, double min_c) {
-	const string	seq = this->make_seq(i);
-	if(Imputer::is_all_same_without_N(seq))
-		return Imputer::create_same_color_string(seq, '0');
-	
-	const string	hidden_seq = Imputer::impute(seq, cMs);
-	const string	painted_seq = Imputer::paint(hidden_seq, cMs, min_c);
-	return painted_seq;
-}
-
-void VCFSelfHetero::impute_each_sample(size_t i, const vector<double>& cMs,
-																double min_c) {
-	const string	imputed_seq1 = impute_each_sample_seq(i*2, cMs, min_c);
-	const string	imputed_seq2 = impute_each_sample_seq(i*2+1, cMs, min_c);
-	for(size_t k = 0; k < this->size(); ++k) {
-		VCFSelfHeteroRecord	*record = this->records[k];
-		const int	w1 = imputed_seq1.c_str()[k] - '0';
-		const int	w2 = imputed_seq2.c_str()[k] - '0';
-		record->set_int_gt_by_which_comes_from(w1, w2, i);
-	}
-}
-
-void VCFSelfHetero::impute_each(const OptionImpute *option) {
-	vector<double>	cMs;
-	const size_t	L = this->size();
-	for(size_t k = 0; k < L; ++k) {
-		cMs.push_back(this->record_cM(k));
-	}
-	
-	const double	min_c = option->min_crossover;
-	for(size_t i = 0; i < num_progenies(); ++i) {
-		impute_each_sample(i, cMs, min_c);
+void VCFSelfHetero::impute_progenies(const OptionImpute *option) {
+	for(size_t iprog = 0; iprog < num_progenies(); ++iprog) {
+		prog_imputer.impute(iprog);
 	}
 }
 
@@ -296,7 +225,7 @@ pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
 		// it will delete the VCF that cannot be deleted.
 		VCFSelfHetero	*empty_vcf = new VCFSelfHetero(samples,
 												vector<VCFSelfHeteroRecord *>(),
-												get_map(), get_ref_vcf());
+												get_map(), w, get_ref_vcf());
 		return make_pair(vector<VCFSelfHetero *>(1, empty_vcf),
 									vector<VCFSelfHeteroRecord *>());
 	}
@@ -308,7 +237,7 @@ pair<vector<VCFSelfHetero *>, vector<VCFSelfHeteroRecord *>>
 	std::for_each(unused_records.begin(), unused_records.end(),
 					std::mem_fun(&VCFImpSelfRecord::enable_modification));
 	for(auto q = vcfs.begin(); q != vcfs.end(); ++q)
-		(*q)->impute_each(option);
+		(*q)->impute_progenies(option);
 	delete option;
 	return make_pair(vcfs, unused_records);
 }

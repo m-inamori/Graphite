@@ -410,7 +410,6 @@ int RecordSet::determine_mat_from(size_t i) const {
 	const int	mat_gt2 = gt_each(i, next_mat_record);
 	const int	prev_mat_from = from_which_chrom_prev_mat(mat_gt1);
 	const int	next_mat_from = from_which_chrom_next_mat(mat_gt2);
-	// とりあえず、両側Noneはないと仮定する
 	if(prev_mat_from == 0)
 		return next_mat_from;
 	else if(next_mat_from == 0)
@@ -428,7 +427,6 @@ int RecordSet::determine_pat_from(size_t i) const {
 	const int	pat_gt2 = gt_each(i, next_pat_record);
 	const int	prev_pat_from = from_which_chrom_prev_pat(pat_gt1);
 	const int	next_pat_from = from_which_chrom_next_pat(pat_gt2);
-	// とりあえず、両側Noneはないと仮定する
 	if(prev_pat_from == 0)
 		return next_pat_from;
 	else if(next_pat_from == 0)

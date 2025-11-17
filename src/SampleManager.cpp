@@ -423,7 +423,7 @@ SampleManager *SampleManager::create(const PedigreeTable *ped,
 			small_families.push_back(family);
 	}
 	
-	if(large_families.empty())
+	if(large_families.empty() && large_self_families.empty())
 		throw SampleException();
 	
 	return new SampleManager(ped, large_families, large_self_families,

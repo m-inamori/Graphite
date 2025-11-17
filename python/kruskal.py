@@ -18,7 +18,8 @@ Weight = Union[int, float]	# weight of edge of graph
 def Kruskal(graph: WeightedGraphBase) -> dict[Node, list[Node]]:
 	nodes = list(graph.generate_nodes())
 	tree = UnionFind(nodes)
-	edges = sorted(graph.generate_weighted_edges(), key=lambda v: v[2])
+	edges = sorted(graph.generate_weighted_edges(),
+									key=lambda v: (v[2], v[0], v[1]))
 	
 	new_graph: dict[Node, list[Node]] = defaultdict(list)
 	counter = 0

@@ -339,6 +339,9 @@ VCFGeno *LargeFamily::correct_large_family_VCFs(
 									const VCFSmall *orig_vcf,
 									const vector<const KnownFamily *>& families,
 									const Map& geno_map, const Option *option) {
+	if(families.empty())
+		return NULL;
+	
 	const int	num_threads = option->num_threads;
 	// create a VCF for each large family
 	const auto	family_vcfs = create_family_vcfs(orig_vcf,

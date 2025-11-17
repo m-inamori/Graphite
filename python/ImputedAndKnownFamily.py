@@ -13,7 +13,6 @@ from VCFSmallFillable import *
 from group import Groups
 from RecordSet import RecordSet
 from VCFImpFamilyRecord import FillType
-from VCFHeteroHomoPP import *
 from VCFImpHeteroHomo import *
 from VCFHeteroImpHomo import *
 from Map import *

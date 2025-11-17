@@ -3,6 +3,7 @@
 
 #include "VCFGeno.h"
 #include "VCFSelfHeteroRecord.h"
+#include "SelfProgenyImputer.h"
 #include "Map.h"
 #include "invgraph.h"
 
@@ -25,11 +26,13 @@ typedef std::pair<std::vector<VCFSelfHetero *>,
 class VCFSelfHetero : public VCFGenoBase, public VCFMeasurable {
 protected:
 	std::vector<VCFSelfHeteroRecord *>	records;
+	const double	w;
+	SelfProgenyImputer	prog_imputer;
 	
 public:
 	VCFSelfHetero(const STRVEC& s,
 					const std::vector<VCFSelfHeteroRecord *>& rs,
-					const Map& m, const VCFSmall *vcf);
+					const Map& m, double w, const VCFSmall *vcf);
 	~VCFSelfHetero();
 	
 	///// virtual methods for VCFGenoBase /////
@@ -64,12 +67,7 @@ public:
 private:
 	double record_cM(std::size_t i) const { return cM(records[i]->get_pos()); }
 	InvGraph make_graph(double max_dist) const;
-	std::string make_seq(std::size_t i) const;
-	std::string impute_each_sample_seq(std::size_t i,
-								const std::vector<double>& cMs, double min_c);
-	void impute_each_sample(std::size_t i,
-								const std::vector<double>& cMs, double min_c);
-	void impute_each(const OptionImpute *option);
+	void impute_progenies(const OptionImpute *option);
 	const OptionImpute *create_option(int num_threads) const;
 	
 private:

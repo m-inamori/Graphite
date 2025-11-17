@@ -77,7 +77,7 @@ VCFGeno *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
 									const vector<const KnownFamily *>& families,
 									const Map& geno_map, const Option *op) {
 	if(families.empty())
-		return merged_vcf;
+		return NULL;
 	
 	vector<VCFSelfFillable *>	vcfs;
 	for(auto p = families.begin(); p != families.end(); ++p) {
@@ -89,7 +89,7 @@ VCFGeno *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
 		const vector<VCFSelfHeteroRecord *>&	he_records = pair1.first;
 		vector<VCFImpSelfRecord *>	other_records = pair1.second;
 		auto	*vcf_hetero = new VCFSelfHetero(samples, he_records,
-														geno_map, orig_vcf);
+													geno_map, 0.01, orig_vcf);
 		
 		auto	pair2 = vcf_hetero->impute(op->num_threads);
 		const vector<VCFSelfHetero *>&	vcf_heteros = pair2.first;
@@ -106,8 +106,15 @@ VCFGeno *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
 	
 	const VCFGeno	*vcf_parents = extract_parents(vcfs);
 	Common::delete_all(vcfs);
-	auto	*new_merged_vcf = VCFGeno::join(merged_vcf, vcf_parents,
+	VCFGeno	*new_merged_vcf;
+	if(merged_vcf != NULL) {
+		new_merged_vcf = VCFGeno::join(merged_vcf, vcf_parents,
 													orig_vcf->get_samples());
+	}
+	else {
+		vector<const VCFGenoBase *>	vcfs { vcf_parents };
+		new_merged_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
+	}
 	delete vcf_parents;
 	delete merged_vcf;
 	return new_merged_vcf;

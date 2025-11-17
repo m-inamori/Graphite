@@ -15,7 +15,7 @@ public:
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<GenoRecord *>&	records;
+	const std::vector<GenoRecord *>	records;
 	const std::vector<double>	Cc;
 	
 public:

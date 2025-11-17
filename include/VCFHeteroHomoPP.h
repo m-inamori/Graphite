@@ -90,8 +90,7 @@ public:
 	
 	static VCFFillableRecord *merge_record(const VCFRecord *record1,
 											const VCFRecord *record2,
-											const STRVEC& samples, int i,
-											const TypeDeterminer *td);
+											const STRVEC& samples, int i);
 	static VCFFillableRecord *fill_NA(VCFRecord *record1,
 											const STRVEC& samples, int i);
 	static VCFHeteroHomoPP *merge(const VCFSmall *vcf_parents,

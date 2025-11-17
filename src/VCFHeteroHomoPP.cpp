@@ -219,8 +219,7 @@ VCFFillable *VCFHeteroHomoPP::merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 
 VCFFillableRecord *VCFHeteroHomoPP::merge_record(const VCFRecord *record1,
 												 const VCFRecord *record2,
-												 const STRVEC& samples, int i,
-												 const TypeDeterminer *td) {
+												 const STRVEC& samples, int i) {
 	const int	pos = record1->pos();
 	vector<int>	geno;
 	const auto&	v1 = record1->get_v();
@@ -263,9 +262,6 @@ VCFHeteroHomoPP *VCFHeteroHomoPP::merge(const VCFSmall *vcf_parents,
 										const VCFSmall *orig_vcf,
 										const STRVEC& samples,
 										const Map& m, const Option *option) {
-	ClassifyRecord	*CR = ClassifyRecord::get_instance();
-	const TypeDeterminer	*td = CR->get_TypeDeterminer(samples.size()-2,
-																option->ratio);
 	const auto	header = vcf_parents->trim_header(samples);
 	vector<VCFFillableRecord *>	records;
 	size_t	j = 0;
@@ -278,9 +274,8 @@ VCFHeteroHomoPP *VCFHeteroHomoPP::merge(const VCFSmall *vcf_parents,
 		else {
 			auto	*prog_record = vcf_progenies->get_record(j);
 			if(record1->pos() == prog_record->pos()) {
-				record = VCFHeteroHomoPP::merge_record(record1,
-															prog_record,
-															samples, i, td);
+				record = VCFHeteroHomoPP::merge_record(record1, prog_record,
+																	samples, i);
 				++j;
 			}
 			else {

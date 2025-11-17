@@ -65,7 +65,8 @@ def extract_parents(vcfs: list[VCFSelfFillable]) -> VCFGeno:
 	return VCFGeno(samples, records, vcfs[0].vcf)
 
 def impute(families: list[KnownFamily], orig_vcf: VCFSmall,
-		   merged_vcf: VCFGeno, geno_map: Map, op: Option) -> Optional[VCFGeno]:
+								merged_vcf: Optional[VCFGeno],
+								geno_map: Map, op: Option) -> Optional[VCFGeno]:
 	if not families:
 		return None
 	
@@ -81,7 +82,10 @@ def impute(families: list[KnownFamily], orig_vcf: VCFSmall,
 		vcfs.append(vcf_filled)
 	
 	vcf_parents = extract_parents(vcfs)
-	merged_vcf = VCFGeno.join([merged_vcf, vcf_parents], orig_vcf.samples)
+	if merged_vcf is not None:
+		merged_vcf = VCFGeno.join([merged_vcf, vcf_parents], orig_vcf.samples)
+	else:
+		merged_vcf = VCFGeno.join([vcf_parents], orig_vcf.samples)
 	return merged_vcf
 
 __all__ = ['impute_large_self_families']

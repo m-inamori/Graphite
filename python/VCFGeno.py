@@ -11,6 +11,7 @@ from typing import TextIO
 from GenoRecord import GenoRecord
 from VCF import VCFSmall, VCFRecord
 from Genotype import Genotype
+from common import write_tsv
 
 
 #################### VCFGenoBase ####################
@@ -51,7 +52,9 @@ class VCFGenoBase(ABC):
 	
 	def write(self, out: TextIO, with_header: bool=True) -> None:
 		if with_header:
-			self.vcf.write_header(out)
+			header = self.vcf.trim_header(self.samples)
+			for v in header:
+				write_tsv(v, out)
 		for i in range(len(self)):
 			self.get_record(i).write(self.vcf.records[i], out)
 	
@@ -80,6 +83,17 @@ class VCFGeno(VCFGenoBase):
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
+	
+	@staticmethod
+	def convert(vcf: VCFSmall) -> VCFGeno:
+		new_records: list[GenoRecord] = []
+		for i in range(len(vcf)):
+			record = vcf.get_record(i)
+			pos = int(record.v[1])
+			new_v = [ Genotype.all_gt_to_int(gt) for gt in record.v[9:] ]
+			new_record = GenoRecord(pos, new_v)
+			new_records.append(new_record)
+		return VCFGeno(vcf.samples, new_records, vcf)
 	
 	@staticmethod
 	def extract_samples(samples: list[str], vcf: VCFSmall) -> VCFGeno:

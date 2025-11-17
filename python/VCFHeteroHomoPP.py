@@ -221,8 +221,7 @@ class VCFHeteroHomoPP(VCFFamilyBase, VCFMeasurable):
 	
 	@staticmethod
 	def merge_record(record1: VCFRecord, record2: VCFRecord,
-						samples: list[str],
-						i: int, td: TypeDeterminer) -> VCFFillableRecord:
+							samples: list[str], i: int) -> VCFFillableRecord:
 		# tdがclassifyに使われていないのがおかしい
 		pos = int(record1.v[1])
 		geno = [ Genotype.all_gt_to_int(gt)
@@ -248,7 +247,6 @@ class VCFHeteroHomoPP(VCFFamilyBase, VCFMeasurable):
 						orig_vcf: VCFSmall, samples: list[str],
 						m: Map, option: Option) -> VCFHeteroHomoPP:
 		# 後代で無いポジションはN/Aで埋める
-		td = ClassifyRecord.get_typedeterminer(len(samples)-2, option.ratio)
 		records: list[VCFFillableRecord] = []
 		j = 0
 		for i, record1 in enumerate(vcf_parents.records):
@@ -257,9 +255,9 @@ class VCFHeteroHomoPP(VCFFamilyBase, VCFMeasurable):
 				record = VCFHeteroHomoPP.fill_NA(record1, samples, i)
 			else:
 				record2 = vcf_progenies.records[j]
-				if record1.pos == record2.pos:
+				if record1.pos() == record2.pos():
 					record = VCFHeteroHomoPP.merge_record(record1, record2,
-																samples, i, td)
+																	samples, i)
 					j += 1
 				else:
 					record = VCFHeteroHomoPP.fill_NA(record1, samples, i);

@@ -15,6 +15,7 @@ from VCFGeno import VCFGenoBase, VCFGeno
 from GenoRecord import GenoRecord
 from VCFImpSelfRecord import SelfFillType, VCFImpSelfRecord
 from VCFSelfHeteroRecord import VCFSelfHeteroRecord
+from SelfProgenyImputer import SelfProgenyImputer
 from TypeDeterminer import ParentComb
 from Map import *
 import Imputer

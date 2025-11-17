@@ -7,7 +7,8 @@ import sys
 from typing import Optional
 
 from VCF import *
-from VCFGeno import VCFGenoBase
+from VCFGeno import VCFGenoBase, VCFGeno
+from VCFBothParentImputed import VCFBothParentImputed
 from VCFFamily import VCFFamily, VCFFamilyRecord
 from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
 from VCFHeteroHomo import VCFHeteroHomoRecord
@@ -85,7 +86,6 @@ def merge_record(record1: VCFRecord, record2: VCFRecord,
 def merge_parents_progenies(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,
 												samples: list[str]) -> VCFSmall:
 	# 後代で無いポジションはN/Aで埋める
-	# GTのみにする
 	header = vcf_parents.trim_header(samples)
 	records: list[VCFRecord] = []
 	j = 0
@@ -94,7 +94,7 @@ def merge_parents_progenies(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,
 			record = fill_NA(record1, samples)
 		else:
 			record2 = vcf_progenies.records[j]
-			if record1.pos == record2.pos:
+			if record1.pos() == record2.pos():
 				record = merge_record(record1, record2, samples)
 				j += 1
 			else:
@@ -116,16 +116,11 @@ def impute_prog_vcf_chr(parent_vcf: VCFSmall, prog_vcf: VCFSmall,
 	# parent_vcfは両親のみ、prog_vcfは後代のみという前提
 	samples = parent_vcf.samples + prog_vcf.samples
 	orig_vcf = merge_parents_progenies(parent_vcf, prog_vcf, samples)
-	merged_vcf = VCFHeteroHomoPP.merge(parent_vcf, prog_vcf, orig_vcf,
-														samples, gmap, option)
-	rss = VCFHeteroHomoPP.classify_records(samples, merged_vcf.records,
-																orig_vcf)
-	mat_vcf = VCFHeteroHomoPP(samples, rss[FillType.MAT.value], gmap, orig_vcf)
-	pat_vcf = VCFHeteroHomoPP(samples, rss[FillType.PAT.value], gmap, orig_vcf)
-	mat_vcf.impute()
-	pat_vcf.impute()
-	merged_vcf = merge_vcf(rss, samples, gmap, orig_vcf)
-	merged_vcf.fill()
-	return merged_vcf
+	merged_vcf = VCFGeno.convert(orig_vcf)
+	records = [ VCFFamilyRecord(r.pos, r.geno) for r in merged_vcf.records ]
+	vcf = VCFBothParentImputed(merged_vcf.samples, records, gmap, orig_vcf)
+	vcf.impute(1.0, 1)
+	imputed_prog_vcf = vcf.extract_by_samples(prog_vcf.samples)
+	return imputed_prog_vcf
 
 __all__ = ['impute_prog_vcf_chr']

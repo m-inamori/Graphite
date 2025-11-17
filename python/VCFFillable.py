@@ -147,18 +147,21 @@ class VCFFillable(VCFFamilyBase):
 		def is_near(gts1: list[int], gts2: list[int]) -> bool:
 			num = sum(1 for gt2 in gts2 if gt2 != Genotype.UN_01)
 			dist = sum(1 for gt1, gt2 in zip(gts1, gts2)
-												if not is_same_gts(gt1, gt2))
+											if not is_same_gts(gt1, gt2))
 			return dist < max(1, num // 2)
+		
+		def distance(gts1: list[int], gts2: list[int]) -> int:
+			return sum(1 for gt1, gt2 in zip(gts1, gts2)
+											if not is_same_gts(gt1, gt2))
 		
 		def inverse_gt(gt: int, inv_mat: bool, inv_pat: bool) -> int:
 			def inverse(a: int) -> int:
 				return 1 if a == 0 else 0
 			
-			# ここおかしい あとで直す
+			# phasingされているはずなので、ここは適当
 			if Genotype.is_NA(gt):
 				return Genotype.NA
 			
-			# ここもおかしい
 			if gt == 0:
 				gt = 4
 			elif gt == 1:
@@ -192,6 +195,28 @@ class VCFFillable(VCFFamilyBase):
 				return
 			
 			orig_gts = record.geno[2:]
+			# 元のGenotypeに最も近いinverseの組合せを使う
+			min_dist = distance(gts, orig_gts)
+			min_gts = gts
+			min_i = 0
+			# gtsがnon-phasedのときがあるから、適当にphasingしてinverseする
+			for i in range(4):
+				inv_mat = (i & 2) == 2
+				inv_pat = (i & 1) == 1
+				new_gts = inverse_gts(gts, inv_mat, inv_pat)
+				dist = distance(new_gts, orig_gts)
+				if dist < min_dist:
+					min_dist = dist
+					min_gts = new_gts
+					min_i = i
+			
+			inv_mat = (min_i & 2) == 2
+			inv_pat = (min_i & 1) == 1
+			inverse_parents_gts(record, inv_mat, inv_pat)
+			for i in range(2, len(record.geno)):
+				record.geno[i] = min_gts[i-2]
+			
+			"""
 			for inv_mat, inv_pat in product((False, True), repeat=2):
 				new_gts = inverse_gts(gts, inv_mat, inv_pat)
 				if is_near(new_gts, orig_gts):
@@ -203,6 +228,7 @@ class VCFFillable(VCFFamilyBase):
 				new_gts = gts
 			for i in range(2, len(record.geno)):
 				record.geno[i] = new_gts[i-2]
+			"""
 		
 		# どちらから来たか決める
 		def select_from(froms: list[int], record1: Optional[GenoRecord],

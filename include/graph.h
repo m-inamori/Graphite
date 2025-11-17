@@ -52,7 +52,11 @@ public:
 	
 	struct LessWeight {
 		bool operator ()(const Edge& e1, const Edge& e2) const {
-			return std::get<2>(e1) < std::get<2>(e2);
+			if(std::get<2>(e1) != std::get<2>(e2))
+				return std::get<2>(e1) < std::get<2>(e2);
+			if(std::get<0>(e1) != std::get<0>(e2))
+				return std::get<0>(e1) < std::get<0>(e2);
+			return std::get<1>(e1) < std::get<1>(e2);
 		}
 	};
 	

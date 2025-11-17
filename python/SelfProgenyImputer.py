@@ -5,7 +5,7 @@ from __future__ import annotations
 # 親が自殖で親がimputedなとき後代をimputeする
 
 from math import log
-from typing import List, Tuple
+from typing import List, Tuple, TypeVar
 
 from GenoRecord import GenoRecord
 from VCFHMM import *
@@ -14,14 +14,16 @@ from Genotype import Genotype
 
 #################### SelfProgenyImputer ####################
 
+GR = TypeVar('GR', bound=GenoRecord)
+
 MIN_PROB = -1e300
 
-class SelfProgenyImputer(VCFHMM[GenoRecord]):
+class SelfProgenyImputer(VCFHMM[GR]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: list[GenoRecord], map_: Map, w: float) -> None:
+	def __init__(self, records: list[GR], map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
-		self.records: list[GenoRecord] = records
+		self.records: list[GR] = records
 		# crossover values
 		# 後代
 		self.Cc = [ Map.Kosambi(self.dist(r1, r2))

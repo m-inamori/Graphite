@@ -44,11 +44,3 @@ class VCFSelfHeteroRecord(VCFImpSelfRecord):
 	
 	def set_haplo(self, h: int) -> None:
 		self.geno[0] = Genotype.PH_01 if h == 0 else Genotype.PH_10
-	
-	def set_int_gt_by_which_comes_from(self, ws: list[int]) -> None:
-		parent_gt = self.geno[0]
-		for i in range(self.num_progenies()):
-			w1 = ws[i*2]
-			w2 = ws[i*2+1]
-			gt = ((parent_gt >> w1) & 1) | (((parent_gt >> w2) & 1) << 1) | 4
-			self.geno[i+1] = gt

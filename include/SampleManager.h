@@ -9,15 +9,16 @@
 
 class SampleException : public ExceptionWithCode {
 private:
-    std::string	message;
+	const std::string	message;
 	
 public:
-    SampleException() : message("error : large family not found") { }
-    
-    ErrorCode::Type get_error_code() const override {
+	SampleException() :
+			message("error : large family and large self family not found") { }
+	
+	ErrorCode::Type get_error_code() const override {
 		return ErrorCode::LARGE_FAMILY_NOT_FOUND;
 	}
-    const char *what() const noexcept override;
+	const char *what() const noexcept override;
 };
 
 

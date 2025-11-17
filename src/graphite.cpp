@@ -35,7 +35,8 @@ VCFGeno *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	const auto	large_families = sample_man->get_large_families();
 	auto	merged_vcf = LargeFamily::correct_large_family_VCFs(
 									orig_vcf, large_families, geno_map, option);
-	sample_man->add_imputed_samples(merged_vcf->get_samples());
+	if(merged_vcf != NULL)
+		sample_man->add_imputed_samples(merged_vcf->get_samples());
 	
 	const auto	self_families =
 						sample_man->extract_self_parent_non_imputed_families();

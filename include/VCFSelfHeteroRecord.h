@@ -24,7 +24,6 @@ public:
 	std::vector<int> progeny_gts() const;
 	
 	void set_haplo(int h);
-	void set_int_gt_by_which_comes_from(int w1, int w2, std::size_t i);
 };
 
 #endif

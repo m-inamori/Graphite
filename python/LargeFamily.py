@@ -19,7 +19,6 @@ from VCFHomoHomo import VCFHomoHomoRecord
 from VCFHeteroHeteroLiteRecord import VCFHeteroHeteroLiteRecord
 from VCFJunkRecord import *
 from VCFFillable import *
-from VCFHeteroHomoPP import *
 from VCFImpFamilyRecord import VCFImpFamilyRecord
 from Map import *
 import ClassifyRecord as CR
@@ -220,7 +219,10 @@ def impute_hetero_homo(orig_vcf: VCFSmall, families: list[KnownFamily],
 	return (vcfss, other_recordss)
 
 def impute(orig_vcf: VCFSmall, families: list[KnownFamily],
-							  geno_map: Map, option: Option) -> VCFGeno:
+						  geno_map: Map, option: Option) -> Optional[VCFGeno]:
+	if not families:
+		return None
+	
 	vcfss, other_recordss = impute_hetero_homo(orig_vcf, families,
 															geno_map, option)
 	
