@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "GenoRecord.h"
+#include "SelfImputer.h"
 #include "VCFGeno.h"
 #include "Map.h"
 
@@ -14,7 +15,7 @@ class SelfImputer;
 
 class VCFSelfNoImputed : public VCFGenoBase, public VCFMeasurable {
 	const std::vector<GenoRecord *>	records;
-	SelfImputer	*imputer;
+	SelfImputer	imputer;
 	
 public:
 	VCFSelfNoImputed(const STRVEC& s, const std::vector<GenoRecord *>& records,

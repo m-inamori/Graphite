@@ -4,6 +4,7 @@
 #include "../include/OneImputedFamily.h"
 #include "../include/VCFOneParentImputed.h"
 #include "../include/VCFOneParentImputedRough.h"
+#include "../include/VCFImputedAndUnknown.h"
 #include "../include/KnownFamily.h"
 #include "../include/OptionSmall.h"
 #include "../include/common.h"
@@ -40,14 +41,13 @@ void OneImputedFamily::impute_small_in_thread(void *config) {
 	}
 }
 
-void OneImputedFamily::impute_small_VCFs(vector<VCFOneParentImputedBase *>& v,
-																		int T) {
-	vector<VCFOneParentImputedBase *>	vcfs(v.begin(), v.end());
+void OneImputedFamily::impute_small_VCFs(vector<VCFImputable *>& v, int T) {
+	vector<VCFImputable *>	vcfs(v.begin(), v.end());
 	std::sort(vcfs.begin(), vcfs.end(),
-				[](const VCFOneParentImputedBase * a,
-				   const VCFOneParentImputedBase * b) {
+				[](const VCFImputable * a, const VCFImputable * b) {
 						return a->amount() > b->amount();
-	});
+				}
+	);
 	
 	vector<ConfigThread *>	configs(T);
 	for(int i = 0; i < T; ++i)
@@ -75,7 +75,8 @@ VCFGenoBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
 	const size_t	L = families.size();
-	vector<VCFOneParentImputedBase *>	small_vcfs;
+	vector<VCFImputable *>	small_vcfs;
+	vector<VCFFamily *>	vcf_garbage;
 	for(auto p = families.begin(); p != families.end(); ++p) {
 		const KnownFamily	*family = *p;
 		const bool		is_mat_known = family->is_mat_known();
@@ -88,17 +89,24 @@ VCFGenoBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 													ref_haps, is_mat_known,
 													op.map, 0.01, orig_vcf);
 			small_vcfs.push_back(vcf1);
-			vcf->clear_records();
 		}
 		else if(is_small_ref(ref_haps, L, op)) {
-			auto	*vcf1 = new VCFOneParentImputedRough(samples,
+			auto	*vcf2 = new VCFOneParentImputedRough(samples,
 													vcf->get_family_records(),
 													ref_haps, is_mat_known,
 													op.map, 0.01, orig_vcf);
-			small_vcfs.push_back(vcf1);
-			vcf->clear_records();
+			small_vcfs.push_back(vcf2);
 		}
-		delete vcf;
+		else {
+			// The HMM used here requires little computational amount
+			auto	*vcf3 = new VCFImputedAndUnknown(samples,
+													vcf->get_family_records(),
+													ref_haps, is_mat_known,
+													op.map, 0.01, orig_vcf);
+			small_vcfs.push_back(vcf3);
+		}
+		vcf->clear_records();
+		vcf_garbage.push_back(vcf);
 	}
 	
 	if(small_vcfs.empty())
@@ -110,6 +118,7 @@ VCFGenoBase *OneImputedFamily::impute(const VCFSmall *orig_vcf,
 				<< " the other parent is unknown have been imputed." << endl;
 	vector<const VCFGenoBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
 	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
+	Common::delete_all(vcf_garbage);
 	Common::delete_all(small_vcfs);
 	return new_vcf;
 }

@@ -8,7 +8,9 @@ SelfImputer::SelfImputer(const vector<GenoRecord *>& rs,
 							const vector<vector<int>>& ref_hs,
 							const Map& map_, double w) :
 					VCFHMM(rs, map_, w), records(rs),
-					ref_haps(ref_hs), Cc(calc_Cc(rs))
+					ref_haps(ref_hs),
+					prev_h_table(collect_possible_previous_hidden_states()),
+					Cc(calc_Cc(rs)), Cp(calc_Cp(rs))
 					{ }
 
 vector<double> SelfImputer::calc_Cc(
@@ -19,6 +21,17 @@ vector<double> SelfImputer::calc_Cc(
 		Cc[i] = Map::Kosambi(dist(rs[i], rs[i+1]));
 	}
 	return Cc;
+}
+
+vector<double> SelfImputer::calc_Cp(
+							const vector<GenoRecord *>& rs) const {
+	const double	K = 5.0;
+	const size_t	M = rs.size();
+	vector<double>	Cp(M-1);
+	for(size_t i = 0; i < M - 1; ++i) {
+		Cp[i] = Map::Kosambi(dist(rs[i], rs[i+1]) * K);
+	}
+	return Cp;
 }
 
 bool SelfImputer::is_only_one_or_zero_crossover(int hp1, int hp2,
@@ -66,12 +79,13 @@ SelfImputer::collect_possible_previous_hidden_states() const {
 	return prev_h_table;
 }
 
-tuple<int, int, int> SelfImputer::decode_state(int h) const {
-	const int	hc = h & ((1 << num_states()) - 1);
-	const int	hp = h >> num_states();
+array<int, 3> SelfImputer::decode_state(int h) const {
+	const size_t	PH = num_progenies() * 2;
+	const int	hc = h & ((1 << PH) - 1);
+	const int	hp = h >> PH;
 	const int	hp1 = hp % NH();
 	const int	hp2 = hp / NH();
-	return make_tuple(hp1, hp2, hc);
+	return array<int, 3> {hp1, hp2, hc};
 }
 
 vector<int> SelfImputer::compute_progeny_phased_gts(int hc,
@@ -168,12 +182,13 @@ void SelfImputer::update_dp(size_t i, vector<DP>& dp) const {
 	// observed progs
 	vector<int>	ocs;
 	for(size_t j = 0; j != num_progenies(); ++j) {
-		ocs.push_back(record->unphased(i+1));
+		ocs.push_back(record->unphased(j+1));
 	}
 	for(int h = 0; h < (int)L; ++h) {
 		const double	E_all = emission_probability(i, h, op, ocs);
 		
-		for(int prev_h = 0; prev_h < (int)L; ++prev_h) {
+		for(auto p = prev_h_table[h].begin(); p != prev_h_table[h].end(); ++p) {
+			const int	prev_h = *p;
 			const double	T_all = transition_probability(i, prev_h, h);
 			const double	prob = dp[i-1][prev_h].first + (T_all + E_all);
 			dp[i][h] = max(dp[i][h], make_pair(prob, prev_h));

@@ -48,8 +48,9 @@ class SelfImputer(VCFHMM[GenoRecord]):
 		return len(self.records[0].geno) - 1
 	
 	def decode_state(self, h: int) -> tuple[int, int, int]:
-		hc = h & ((1 << self.num_states()) - 1)
-		hp = h >> self.num_states()
+		PH = self.num_progenies() * 2	
+		hc = h & ((1 << PH) - 1)
+		hp = h >> PH
 		hp2, hp1 = divmod(hp, self.NH())
 		return (hp1, hp2, hc)
 	

@@ -136,6 +136,26 @@ class SampleManager:
 		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
 									f.progenies) for f in families ]
 	
+	def extract_small_self_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+						if family.is_self() and
+								any(self.is_imputed(s)
+									for s in family.samples()) and
+								any(not self.is_imputed(s)
+									for s in family.samples()) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
+									f.progenies) for f in families ]
+	
+	def extract_self_non_imputed_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+						if family.is_self() and
+								all(not self.is_imputed(s)
+									for s in family.samples()) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
+									f.progenies) for f in families ]
+	
 	def extract_self_parent_imputed_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.large_self_families
 						if family.is_self() and self.is_imputed(family.mat) ]

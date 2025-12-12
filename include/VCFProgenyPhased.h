@@ -2,7 +2,7 @@
 #define __VCFPROGENYPHASED
 
 #include "VCFFamily.h"
-#include "VCFImputable.h"
+#include "VCFClippable.h"
 
 class Family;
 class KnownFamily;
@@ -11,7 +11,7 @@ class KnownFamily;
 //////////////////// VCFOneParentPhased ////////////////////
 
 class VCFProgenyPhased : public VCFBase,
-							public VCFFamilyBase, public VCFImputable {
+							public VCFFamilyBase, public VCFClippable {
 public:
 	typedef std::pair<const KnownFamily *, std::size_t>	PAIR;
 	
@@ -65,7 +65,7 @@ public:
 		return records[i];
 	}
 	
-	///// virtual methods for VCFImputable /////
+	///// virtual methods for VCFClippable /////
 	std::vector<Haplotype> collect_haplotypes_mat(
 									std::size_t sample_index) const override;
 	std::vector<Haplotype> collect_haplotypes_pat(

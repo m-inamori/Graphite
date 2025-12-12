@@ -67,10 +67,6 @@ namespace SmallFamily {
 						const std::vector<std::vector<int>>& ref_haps,
 						SampleManager *sample_man, const OptionSmall& op_small);
 	
-	std::vector<std::vector<int>> extract_haplotypes(
-										const VCFGeno *phased_vcf,
-										const SampleManager *sample_man);
-	
 	VCFGeno *impute_vcf_by_progenies(
 						const VCFSmall *orig_vcf, const VCFGeno *merged_vcf,
 						SampleManager *sample_man, const OptionSmall& op_small);

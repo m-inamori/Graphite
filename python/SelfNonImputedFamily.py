@@ -13,6 +13,7 @@ from Map import *
 from KnownFamily import *
 from VCFSelfNoImputed import VCFSelfNoImputed
 from VCFSelfNoImputedRough import VCFSelfNoImputedRough
+from ReferenceHaplotype import filter_haplotypes
 from OptionSmall import OptionSmall
 
 
@@ -31,6 +32,14 @@ def is_small_ref(ref_haps: list[list[int]], L: int, op: OptionSmall) -> bool:
 	R = NH**2 * (2*NH - 1) / op.precision_ratio
 	return R * M < 10**8 and R < 10**5 and L * R * M < 10**9
 
+# is_smallが通るギリギリのNHを求める
+def compute_upper_NH(family: Family, M: int, L: int, op: OptionSmall) -> int:
+	for NH in count(2):
+		R = NH**2 * (2*NH - 1) / op.precision_ratio
+		if not (R * M < 10**8 and R < 10**5 and L * R * M < 10**9):
+			break
+	return NH - 1
+
 def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 										families: list[KnownFamily],
 										op: OptionSmall) -> Optional[VCFGeno]:
@@ -38,6 +47,7 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 	for family in families:
 		samples = [family.mat] + family.progenies
 		vcf = VCFGeno.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
+		NH = compute_upper_NH(family, len(vcf), len(families), op)
 		if is_small(family, ref_haps, len(families), op):
 			vcf1 = VCFSelfNoImputed(samples, vcf.records, ref_haps,
 														op.map, orig_vcf)
@@ -48,6 +58,14 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 												ref_haps, op.map, orig_vcf)
 			vcf2.impute()
 			vcfs.append(vcf2)
+		elif NH >= 10:
+			NH3 = min(20, NH)
+			gts = [ r.geno[0] for r in vcf.records ]
+			filtered_ref_haps = filter_haplotypes(ref_haps, gts, NH3)
+			vcf3 = VCFSelfNoImputedRough(samples, vcf.records,
+											filtered_ref_haps, op.map, orig_vcf)
+			vcf3.impute()
+			vcfs.append(vcf3)
 	
 	if not vcfs:
 		return None

@@ -23,14 +23,15 @@ from Genotype import Genotype
 
 class VCFOneParentKnown(VCFFamilyBase):
 	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
-					ref_haps: list[list[int]], is_mat_known: bool,
-					map_: Map, vcf: VCFSmall):
+					ref_haps_mat: list[list[int]],
+					ref_haps_pat: list[list[int]],
+					is_mat_known: bool, map_: Map, vcf: VCFSmall):
 		VCFFamilyBase.__init__(self, samples, vcf)
 		self.records = records
 		self.parent1_imputer = ParentImputer(records, is_mat_known,
-														ref_haps, map_, 0.01)
+													ref_haps_mat, map_, 0.01)
 		self.parent2_imputer = ParentImputer(records, not is_mat_known,
-														ref_haps, map_, 0.01)
+													ref_haps_mat, map_, 0.01)
 		self.prog_imputer = ProgenyImputer(records, map_, 0.01)
 	
 	def __len__(self) -> int:

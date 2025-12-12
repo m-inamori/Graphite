@@ -25,10 +25,11 @@ MIN_PROB = -1e300
 
 class VCFBothKnown(VCFFamilyBase):
 	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
-						ref_haps: list[list[int]], map_: Map, vcf: VCFSmall):
+						ref_haps1: list[list[int]], ref_haps2: list[list[int]],
+						map_: Map, vcf: VCFSmall):
 		VCFFamilyBase.__init__(self, samples, vcf)
-		self.mat_imputer = ParentImputer(records, True, ref_haps, map_, 0.01)
-		self.pat_imputer = ParentImputer(records, False, ref_haps, map_, 0.01)
+		self.mat_imputer = ParentImputer(records, True, ref_haps1, map_, 0.01)
+		self.pat_imputer = ParentImputer(records, False, ref_haps2, map_, 0.01)
 		self.prog_imputer = ProgenyImputer(records, map_, 0.01)
 		self.records: list[VCFFamilyRecord] = records
 	

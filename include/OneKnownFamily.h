@@ -28,6 +28,8 @@ namespace OneKnownFamily {
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const std::vector<std::vector<int>>& ref_haps,
 										std::size_t L, const OptionSmall& op);
+	std::size_t compute_upper_NH(const Family *family, std::size_t M,
+										std::size_t L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
 	void impute_small_VCFs(std::vector<VCFOneParentKnown *>& vcfs, int T);
 	VCFGenoBase *impute(const VCFSmall *orig_vcf, const VCFGeno *imputed_vcf,

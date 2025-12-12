@@ -119,13 +119,13 @@ def impute_vcf(option: Option) -> None:
 #################### main ####################
 
 option = Option.create(sys.argv)
-if option is None:
-	Option.usage()
-	exit(1)
-
 try:
-	impute_vcf(option)
-	exit(0)
+	if option is None:
+		Option.usage()
+		exit(1)
+	else:
+		impute_vcf(option)
+		exit(0)
 except ExceptionWithCode as e:
 	print(str(e), file=sys.stderr)
 	exit(e.get_error_code().value)

@@ -22,6 +22,16 @@ vector<size_t> VCFGenoBase::extract_columns(const STRVEC& samples) const {
 	return columns;
 }
 
+vector<int> VCFGenoBase::extract_sample_genotypes(size_t sample_index) const {
+	vector<int>	gts;
+	for(size_t j = 0; j < size(); ++j) {
+		const GenoRecord	*record = get_record(j);
+		const int	gt = record->get_geno()[sample_index];
+		gts.push_back(gt);
+	}
+	return gts;
+}
+
 vector<int> VCFGenoBase::clip_raw_haplotype(size_t sample_index,
 														int side) const {
 	vector<int>	hap;
@@ -64,6 +74,21 @@ VCFGeno *VCFGenoBase::extract_by_samples(const STRVEC& samples) const {
 
 VCFGeno::~VCFGeno() {
 	Common::delete_all(records);
+}
+
+VCFGeno *VCFGeno::convert(const VCFSmall *vcf) {
+	vector<GenoRecord *>	new_records;
+	for(size_t i = 0; i < vcf->size(); ++i) {
+		const VCFRecord	*record = vcf->get_record(i);
+		const auto&	v = record->get_v();
+		const ll	pos = record->pos();
+		vector<int>	new_geno;
+		for(auto p = v.begin()+9; p != v.end(); ++p)
+			new_geno.push_back(Genotype::all_gt_to_int(*p));
+		auto	*new_record = new GenoRecord(pos, new_geno);
+		new_records.push_back(new_record);
+	}
+	return new VCFGeno(vcf->get_samples(), new_records, vcf);
 }
 
 VCFGeno *VCFGeno::extract_samples(const STRVEC& samples, const VCFSmall *vcf) {

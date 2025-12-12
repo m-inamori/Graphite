@@ -12,6 +12,7 @@ from VCFFamily import *
 from Map import *
 from VCFOneParentImputed import VCFOneParentImputed
 from VCFOneParentImputedRough import VCFOneParentImputedRough
+from VCFImputedAndUnknown import VCFImputedAndUnknown
 from KnownFamily import *
 from OptionSmall import OptionSmall
 
@@ -37,19 +38,24 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 									op: OptionSmall) -> Optional[VCFGenoBase]:
 	vcfs: list[VCFGenoBase] = []
 	for family in families:
-		for prog in family.progenies:
-			samples = [family.mat, family.pat, prog]
-			vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
-			if is_small(family, ref_haps, len(families), op):
-				vcf1 = VCFOneParentImputed(samples, vcf.records, ref_haps,
-											family.mat_known, op.map, orig_vcf)
-				vcf1.impute()
-				vcfs.append(vcf1)
-			elif is_small_ref(ref_haps, len(families), op):
-				vcf2 = VCFOneParentImputedRough(samples, vcf.records, ref_haps,
-											family.mat_known, op.map, orig_vcf)
-				vcf2.impute()
-				vcfs.append(vcf2)
+		samples = [family.mat, family.pat] + family.progenies
+		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf, orig_vcf, samples)
+		if is_small(family, ref_haps, len(families), op):
+			vcf1 = VCFOneParentImputed(samples, vcf.records, ref_haps,
+										family.mat_known, op.map, orig_vcf)
+			vcf1.impute()
+			vcfs.append(vcf1)
+		elif is_small_ref(ref_haps, len(families), op):
+			vcf2 = VCFOneParentImputedRough(samples, vcf.records, ref_haps,
+										family.mat_known, op.map, orig_vcf)
+			vcf2.impute()
+			vcfs.append(vcf2)
+		else:
+			# ここで使うHMMは計算量が小さい
+			vcf3 = VCFImputedAndUnknown(samples, vcf.records, ref_haps,
+										family.mat_known, op.map, orig_vcf)
+			vcf3.impute()
+			vcfs.append(vcf3)
 	
 	if not vcfs:
 		return None

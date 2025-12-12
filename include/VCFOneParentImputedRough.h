@@ -2,7 +2,7 @@
 #define __VCFONEPARENTIMPUTEDROUGH
 
 #include "VCFFamily.h"
-#include "VCFOneParentImputedBase.h"
+#include "VCFImputable.h"
 #include "ParentImputer.h"
 #include "ProgenyImputer.h"
 
@@ -11,7 +11,7 @@ class Map;
 
 //////////////////// VCFOneParentImputedRough ////////////////////
 
-class VCFOneParentImputedRough : public VCFOneParentImputedBase {
+class VCFOneParentImputedRough : public VCFImputable {
 	const std::vector<VCFFamilyRecord *>	records;
 	ParentImputer	parent_imputer;
 	ProgenyImputer	prog_imputer;
@@ -38,7 +38,7 @@ public:
 	}
 	
 	///// non-virtual methods /////
-	std::size_t amount() const;
-	void impute();
+	std::size_t amount() const override;
+	void impute() override;
 };
 #endif

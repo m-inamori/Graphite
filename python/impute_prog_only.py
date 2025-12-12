@@ -10,64 +10,14 @@ from VCF import *
 from VCFGeno import VCFGenoBase, VCFGeno
 from VCFBothParentImputed import VCFBothParentImputed
 from VCFFamily import VCFFamily, VCFFamilyRecord
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
-from VCFHeteroHomo import VCFHeteroHomoRecord
-from VCFHeteroHomoPP import *
-from VCFHomoHomo import VCFHomoHomoRecord
-from VCFHeteroHeteroLiteRecord import VCFHeteroHeteroLiteRecord
-from VCFJunkRecord import VCFJunkRecord
-from VCFFillableRecord import VCFFillableRecord
-from VCFFillable import VCFFillable
 import SmallFamily
 from pedigree import PedigreeTable, Family
-from SampleManager import SampleManager
-import ClassifyRecord as CR
-from TypeDeterminer import ParentComb, TypeDeterminer
 from Map import *
 from option import *
 from common import *
 
 
 #################### process ####################
-
-def classify_record(i: int, record: VCFFamilyRecord,
-					samples: list[str], td: TypeDeterminer,
-					heho_records: list[Optional[VCFHeteroHomoRecord]],
-					other_records: list[Optional[VCFImpFamilyRecord]]) -> None:
-	wrong_type, pair = CR.classify_record(record, td, False)
-	pos = record.pos
-	geno = record.geno
-	if pair.is_homohomo():
-		record_ = VCFHomoHomoRecord(pos, geno, i, wrong_type, pair)
-		other_records[i] = record_.impute()
-	elif pair.is_heterohomo():
-		heho_records[i] = VCFHeteroHomoRecord(pos, geno, i, wrong_type, pair)
-	elif pair == ParentComb.P01x01:
-		other_records[i] = VCFHeteroHeteroLiteRecord(pos, geno, i, wrong_type)
-	else:		# 候補が無い
-		other_records[i] = VCFJunkRecord(pos, geno, i, wrong_type)
-
-def classify_records(vcf: VCFFamily, option: Option
-									) -> tuple[list[VCFHeteroHomoRecord],
-												 list[VCFImpFamilyRecord]]:
-	td = CR.get_typedeterminer(vcf.num_samples()-2, option.ratio)
-	# 整理したい
-	records1: list[Optional[VCFHeteroHomoRecord]] = [None] * len(vcf)
-	records2: list[Optional[VCFImpFamilyRecord]] = [None] * len(vcf)
-	for i, record in enumerate(vcf.records):
-		classify_record(i, record, vcf.samples, td, records1, records2)
-	
-	heho_records: list[VCFHeteroHomoRecord] = []
-	other_records: list[VCFImpFamilyRecord] = []
-	for i in range(len(vcf)):
-		r1 = records1[i]
-		r2 = records2[i]
-		if r1 is not None:
-			heho_records.append(r1)
-		elif r2 is not None:
-			other_records.append(r2)
-	
-	return (heho_records, other_records)
 
 def fill_NA(record1: VCFRecord, samples: list[str]) -> VCFRecord:
 	NA_len = len(samples) - len(record1.samples)
@@ -101,12 +51,6 @@ def merge_parents_progenies(vcf_parents: VCFSmall, vcf_progenies: VCFSmall,
 				record = fill_NA(record1, samples);
 		records.append(record)
 	return VCFSmall(header, records)
-
-def merge_vcf(rss: list[list[VCFFillableRecord]], samples: list[str],
-								gmap: Map, vcf: VCFSmall) -> VCFHeteroHomoPP:
-	rs = rss[0] + rss[1] + rss[2] + rss[3]
-	rs.sort(key=lambda r: r.pos)
-	return VCFHeteroHomoPP(samples, rs, gmap, vcf)
 
 def impute_prog_vcf_chr(parent_vcf: VCFSmall, prog_vcf: VCFSmall,
 									gmap: Map, option: Option) -> VCFGenoBase:

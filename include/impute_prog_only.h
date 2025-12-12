@@ -34,11 +34,7 @@ namespace ImputeProgOnly {
 	VCFSmall *merge_parents_progenies(const VCFSmall *vcf_parents,
 										const VCFSmall *vcf_progenies,
 										const STRVEC& samples);
-	VCFHeteroHomoPP *merge_vcf(
-					std::array<std::vector<VCFFillableRecord *>, 4>& rss,
-					const STRVEC& samples, const Map& gmap,
-					const VCFSmall *vcf);
-	VCFHeteroHomoPP *impute_prog_vcf_chr(const VCFSmall *parent_vcf,
+	VCFGenoBase *impute_prog_vcf_chr(const VCFSmall *parent_vcf,
 										const VCFSmall *prog_vcf,
 										const Map& gmap, const Option *Option);
 }

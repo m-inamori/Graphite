@@ -2,7 +2,9 @@
 #include <cassert>
 #include "../include/Orphan.h"
 #include "../include/VCFOrphan.h"
+#include "../include/VCFOrphanRough.h"
 #include "../include/Pedigree.h"
+#include "../include/ReferenceHaplotype.h"
 #include "../include/OptionSmall.h"
 #include "../include/common.h"
 
@@ -18,6 +20,16 @@ bool Orphan::is_small(const vector<vector<int>>& ref_haps,
 	const size_t	NH = ref_haps.size();
 	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
+}
+
+// upper NH which passes is_small
+size_t Orphan::compute_upper_NH(size_t M, const OptionSmall& op) {
+	for(size_t NH = 2; ; ++NH) {
+		const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
+		if(!(R * M < 100000000 && R < 100000))		// 10^8 & 10^5
+			return NH - 1;
+	}
+	return 0;	// dummy
 }
 
 void Orphan::impute_small_in_thread(void *config) {
@@ -50,11 +62,45 @@ void Orphan::impute_small_VCF(VCFOrphan *vcf, int T) {
 	Common::delete_all(configs);
 }
 
+void Orphan::impute_small_in_thread_rough(void *config) {
+	auto	*c = static_cast<const ConfigThreadRough *>(config);
+	auto	*vcf = c->vcf;
+	const size_t	n = vcf->num_samples();
+	for(size_t i = c->first; i < n; i += c->num_threads) {
+		vcf->impute(i);
+	}
+}
+
+void Orphan::impute_small_VCF_rough(VCFOrphanRough *vcf, int T) {
+	vector<ConfigThreadRough *>	configs(T);
+	for(int i = 0; i < T; ++i)
+		configs[i] = new ConfigThreadRough(i, T, vcf);
+	
+#ifndef DEBUG
+	vector<pthread_t>	threads_t(T);
+	for(int i = 0; i < T; ++i)
+		pthread_create(&threads_t[i], NULL,
+			(void *(*)(void *))&impute_small_in_thread_rough,
+												(void *)configs[i]);
+	
+	for(int i = 0; i < T; ++i)
+		pthread_join(threads_t[i], NULL);
+#else
+	for(int i = 0; i < T; ++i)
+		impute_small_in_thread_rough(configs[i]);
+#endif
+	
+	Common::delete_all(configs);
+}
+
 VCFGenoBase *Orphan::impute(const vector<string>& samples,
 								const VCFSmall *orig_vcf,
 								const vector<vector<int>>& ref_haps,
 								const OptionSmall& op) {
 	auto	*vcf = VCFGeno::extract_samples(samples, orig_vcf);
+	const size_t	lower_NH = 10;
+	const size_t	upper_NH = 20;
+	const size_t	NH = compute_upper_NH(vcf->size(), op);
 	if(is_small(ref_haps, op)) {
 		auto	*vcf1 = new VCFOrphan(samples, vcf->get_records(),
 										ref_haps, op.map, 0.01, orig_vcf);
@@ -63,6 +109,23 @@ VCFGenoBase *Orphan::impute(const vector<string>& samples,
 		vcf->clear_records();
 		delete vcf;
 		return vcf1;
+	}
+	else if(NH >= lower_NH) {
+		const size_t	NH2 = min(upper_NH, NH);
+		const size_t	N = samples.size();
+		vector<vector<vector<int>>>	ref_haps_table(N);
+		for(size_t i = 0; i < N; ++i) {
+			const auto	gts = vcf->extract_sample_genotypes(i);
+			ref_haps_table[i] =
+					ReferenceHaplotype::filter_haplotypes(ref_haps, gts, NH2);
+		}
+		auto	*vcf2 = new VCFOrphanRough(samples, vcf->get_records(),
+										ref_haps_table, op.map, 0.01, orig_vcf);
+		impute_small_VCF_rough(vcf2, op.num_threads);
+		cout << samples.size() << " orphan samples have been imputed." << endl;
+		vcf->clear_records();
+		delete vcf;
+		return vcf2;
 	}
 	else {
 		delete vcf;

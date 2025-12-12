@@ -166,24 +166,38 @@ bool VCFFillableRecord::is_near_prog_gts(const vector<int>& gts) const {
 	return dist < max(1, num / 2);
 }
 
+int VCFFillableRecord::distance(const vector<int>& gts1,
+								const vector<int>& gts2) {
+	int	dist = 0;
+	for(size_t i = 0; i < gts1.size(); ++i) {
+		if(!Genotype::is_same_gts(gts1[i], gts2[i]))
+			dist += 1;
+	}
+	return dist;
+}
+
 void VCFFillableRecord::modify_gts(const vector<int>& new_prog_gts) {
-	for(int k = 0; k < 4; ++k) {
-		const bool	inv_mat = (k & 2) == 2;
-		const bool	inv_pat = (k & 1) == 1;
+	vector<int>	orig_gts(geno.begin() + 2, geno.end());
+	int	min_dist = distance(new_prog_gts, orig_gts);
+	vector<int>	min_gts = new_prog_gts;
+	int	min_i = 0;
+	for(int i = 1; i < 4; ++i) {
+		const bool	inv_mat = (i & 2) == 2;
+		const bool	inv_pat = (i & 1) == 1;
 		const vector<int>	inv_prog_gts = inverse_prog_gts(new_prog_gts,
 															inv_mat, inv_pat);
-		if(this->is_near_prog_gts(inv_prog_gts)) {
-			this->inverse_parents_gts(inv_mat, inv_pat);
-			for(size_t i = 2; i < this->geno.size(); ++i) {
-				this->geno[i] = inv_prog_gts[i-2];
-			}
-			return;
+		const int	dist = distance(inv_prog_gts, orig_gts);
+		if(dist < min_dist) {
+			min_dist = dist;
+			min_gts = inv_prog_gts;
+			min_i = i;
 		}
 	}
 	
-	for(size_t i = 2; i < this->geno.size(); ++i) {
-		this->geno[i] = new_prog_gts[i-2];
-	}
+	const bool	inv_mat = (min_i & 2) == 2;
+	const bool	inv_pat = (min_i & 1) == 1;
+	this->inverse_parents_gts(inv_mat, inv_pat);
+	std::copy(min_gts.begin(), min_gts.end(), this->geno.begin() + 2);
 }
 
 int VCFFillableRecord::inverse_prog_gt(int gt,
@@ -211,18 +225,6 @@ vector<int> VCFFillableRecord::inverse_prog_gts(const vector<int>& prog_gts,
 		inv_prog_gts.push_back(inverse_prog_gt(*p, inv_mat, inv_pat));
 	}
 	return inv_prog_gts;
-}
-
-bool VCFFillableRecord::is_same_gts(const string& gt1,
-									const string& gt2) const {
-	if(gt2 == "0/1")
-		return gt1 == "0|1" || gt1 == "1|0";
-	else if(gt2 == "0/0")
-		return gt1 == "0|0";
-	else if(gt2 == "1/1")
-		return gt1 == "1|1";
-	else
-		return false;
 }
 
 void VCFFillableRecord::modify_parents_type() {

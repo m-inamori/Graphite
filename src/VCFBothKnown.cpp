@@ -6,11 +6,12 @@ using namespace std;
 
 VCFBothKnown::VCFBothKnown(const STRVEC& s,
 						   const std::vector<VCFFamilyRecord *>& rs,
-						   const std::vector<std::vector<int>>& ref_hs,
+						   const std::vector<std::vector<int>>& ref_haps1,
+						   const std::vector<std::vector<int>>& ref_haps2,
 						   const Map& map_, double w, const VCFSmall *vcf) :
 								VCFFamilyBase(s, vcf), records(rs),
-								mat_imputer(records, true, ref_hs, map_, w),
-								pat_imputer(records, false, ref_hs, map_, w),
+								mat_imputer(records, true, ref_haps1, map_, w),
+								pat_imputer(records, false, ref_haps2, map_, w),
 								prog_imputer(records, map_, w) { }
 
 VCFBothKnown::~VCFBothKnown() {

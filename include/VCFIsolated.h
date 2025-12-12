@@ -3,7 +3,7 @@
 
 #include "VCF.h"
 #include "Map.h"
-#include "VCFImputable.h"
+#include "VCFClippable.h"
 
 class OptionSmall;
 
@@ -11,7 +11,7 @@ class OptionSmall;
 //////////////////// VCFIsolated ////////////////////
 
 // imputed samples at the beginning, followed by reference samples
-class VCFIsolated : public VCFImputable {
+class VCFIsolated : public VCFClippable {
 public:
 	struct ConfigThread {
 		const std::vector<VCFIsolated *>&	vcfs;
@@ -41,7 +41,7 @@ public:
 		return records[i];
 	}
 	
-	///// virtual methods for VCFImputable /////
+	///// virtual methods for VCFClippable /////
 	std::vector<Haplotype> collect_haplotypes_mat(
 									std::size_t sample_index) const override;
 	std::vector<Haplotype> collect_haplotypes_pat(

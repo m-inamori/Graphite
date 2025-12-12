@@ -10,9 +10,10 @@ VCFOneParentImputed::VCFOneParentImputed(const STRVEC& s,
 							const std::vector<std::vector<int>>& ref_hs,
 							bool is_mat_imputed, const Map& map_,
 							double w, const VCFSmall *vcf) :
-					VCFOneParentImputedBase(s, rs, vcf),
+					VCFImputable(s, vcf),
+					records(rs),
 					ref_haps(ref_hs),
-					imputer(records, is_mat_imputed, ref_hs, map_, w) { }
+					imputer(rs, is_mat_imputed, ref_hs, map_, w) { }
 
 VCFOneParentImputed::~VCFOneParentImputed() {
 	Common::delete_all(records);

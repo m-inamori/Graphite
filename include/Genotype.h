@@ -55,6 +55,10 @@ public:
 		else				return 2;
 	}
 	
+	static bool is_same_gts(int gt1, int gt2) {
+		return unphased(gt1) == unphased(gt2);
+	}
+	
 	static std::string int_to_gt(int n);
 	static bool is_valid(int gt, int mat_gt, int pat_gt);
 	static std::vector<int> possible_gts(int gt);

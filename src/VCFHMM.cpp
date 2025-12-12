@@ -29,10 +29,12 @@ vector<int> VCFHMM<R>::trace_back(const vector<DP>& dps) const {
 	}
 	hs[M-1] = max_h;
 	int	prev_h = dps.back()[max_h].second;
-	hs[M-2] = prev_h;
-	for(int i = (int)M - 2; i > 0; --i) {
-		prev_h = dps[i][prev_h].second;
-		hs[i-1] = prev_h;
+	if(M >= 2) {
+		hs[M-2] = prev_h;
+		for(int i = (int)M - 2; i > 0; --i) {
+			prev_h = dps[i][prev_h].second;
+			hs[i-1] = prev_h;
+		}
 	}
 	return hs;
 }

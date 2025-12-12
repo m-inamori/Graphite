@@ -9,6 +9,7 @@
 class VCFOneParentImputed;
 class VCFHeteroHomoOnePhased;
 class VCFSmallFillable;
+class VCFImputable;
 class Family;
 class KnownFamily;
 class Map;
@@ -21,10 +22,10 @@ namespace ImputedAndKnownFamily {
 	struct ConfigThread {
 		std::size_t	first;
 		std::size_t	num_threads;
-		const std::vector<VCFOneParentImputed *>&	vcfs;
+		const std::vector<VCFImputable *>&	vcfs;
 		
 		ConfigThread(std::size_t i, std::size_t n,
-						const std::vector<VCFOneParentImputed *>& vcfs_) :
+						const std::vector<VCFImputable *>& vcfs_) :
 									first(i), num_threads(n), vcfs(vcfs_) { }
 	};
 	
@@ -51,8 +52,10 @@ namespace ImputedAndKnownFamily {
 							int L, const OptionSmall& op);
 	bool is_small_ref(const std::vector<std::vector<int>>& ref_haps,
 							int L, const OptionSmall& op);
+	std::size_t compute_upper_NH(const Family *family, std::size_t M,
+										std::size_t L, const OptionSmall& op);
 	void impute_small_in_thread(void *config);
-	void impute_small_VCFs(std::vector<VCFOneParentImputed *>& vcfs, int T);
+	void impute_small_VCFs(std::vector<VCFImputable *>& vcfs, int T);
 	VCFGenoBase *impute_by_parent(
 							const VCFSmall *orig_vcf,
 							const VCFGeno *imputed_vcf,

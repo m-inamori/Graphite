@@ -102,6 +102,11 @@ vector<string> SampleManager::collect_reference() const {
 		const auto	parents = (*p)->known_parents();
 		ref_samples.insert(parents.begin(), parents.end());
 	}
+	for(auto p = large_self_families.begin();
+						p != large_self_families.end(); ++p) {
+		const string&	mat = (*p)->get_mat();
+		ref_samples.insert(mat);
+	}
 	return vector<string>(ref_samples.begin(), ref_samples.end());
 }
 
@@ -217,6 +222,15 @@ bool SampleManager::is_all_samples_imputed(const KnownFamily *family) const {
 	return true;
 }
 
+bool SampleManager::is_any_samples_imputed(const KnownFamily *family) const {
+	auto&	samples = family->get_samples();
+	for(auto p = samples.begin(); p != samples.end(); ++p) {
+		if(is_imputed(*p))
+			return true;
+	}
+	return false;
+}
+
 vector<const KnownFamily *> SampleManager::extract_self_families() const {
 	vector<const KnownFamily *>	families;
 	for(auto p = large_self_families.begin();
@@ -230,26 +244,42 @@ vector<const KnownFamily *> SampleManager::extract_self_families() const {
 }
 
 vector<const KnownFamily *>
-SampleManager::extract_self_parent_non_imputed_families() const {
+SampleManager::extract_small_self_families() const {
 	vector<const KnownFamily *>	families;
 	for(auto p = large_self_families.begin();
 							p != large_self_families.end(); ++p) {
 		const KnownFamily	*family = *p;
-		if(family->is_self() && !is_imputed(family->get_mat()) &&
-								!is_all_progenies_imputed(family)) {
+		if(family->is_self() && is_any_samples_imputed(family) &&
+								!is_all_samples_imputed(family)) {
 			families.push_back(family);
 		}
 	}
 	return families;
 }
 
-bool SampleManager::is_all_progenies_imputed(const KnownFamily *family) const {
-	const auto&	progs = family->get_progenies();
-	for(auto q = progs.begin(); q != progs.end(); ++q) {
-		if(!this->is_imputed((*q)->get_name()))
-			return false;
+vector<const KnownFamily *>
+SampleManager::extract_self_non_imputed_families() const {
+	vector<const KnownFamily *>	families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(family->is_self() && !is_any_samples_imputed(family)) {
+			families.push_back(family);
+		}
 	}
-	return true;
+	return families;
+}
+
+vector<const KnownFamily *>
+SampleManager::extract_self_parent_non_imputed_families() const {
+	vector<const KnownFamily *>	families;
+	for(auto p = large_self_families.begin();
+							p != large_self_families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(family->is_self() && !is_imputed(family->get_mat())) {
+			families.push_back(family);
+		}
+	}
+	return families;
 }
 
 vector<const KnownFamily *>

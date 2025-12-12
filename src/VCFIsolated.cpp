@@ -11,7 +11,7 @@ using namespace std;
 
 VCFIsolated::VCFIsolated(const STRVEC& s, size_t nis, vector<GenoRecord *>& rs,
 											const Map& m, const VCFSmall *vcf) :
-									VCFImputable(s, m, vcf),
+									VCFClippable(s, m, vcf),
 									records(rs), num_imputed_samples(nis) { }
 
 VCFIsolated::~VCFIsolated() {

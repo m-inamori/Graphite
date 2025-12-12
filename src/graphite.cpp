@@ -40,9 +40,12 @@ VCFGeno *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
 	
 	const auto	self_families =
 						sample_man->extract_self_parent_non_imputed_families();
-	merged_vcf = LargeSelfFamily::impute(orig_vcf, merged_vcf, self_families,
-															geno_map, option);
-	sample_man->add_imputed_samples(merged_vcf->get_samples());
+	auto	*imputed_vcf = LargeSelfFamily::impute(orig_vcf, merged_vcf,
+											self_families, geno_map, option);
+	if(imputed_vcf != NULL) {
+		merged_vcf = imputed_vcf;
+		sample_man->add_imputed_samples(merged_vcf->get_samples());
+	}
 	
 	merged_vcf = SmallFamily::impute_small_family(orig_vcf, merged_vcf,
 												geno_map, option, sample_man);

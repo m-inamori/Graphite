@@ -40,7 +40,7 @@ public:
 	std::size_t size() const override { return records.size(); }
 	GenoRecord *get_record(std::size_t i) const override { return records[i]; }
 	
-	///// virtual methods for VCFImputable /////
+	///// virtual methods for VCFClippable /////
 	VCFFamilyRecord *get_family_record(std::size_t i) const override {
 		return records[i];
 	}

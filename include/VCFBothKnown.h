@@ -6,8 +6,6 @@
 #include "../include/ProgenyImputer.h"
 
 class Map;
-class ParentImputer;
-class ProgenyImputer;
 
 
 //////////////////// VCFBothKnown ////////////////////
@@ -22,7 +20,8 @@ private:
 public:
 	VCFBothKnown(const STRVEC& s,
 					const std::vector<VCFFamilyRecord *>& records,
-					const std::vector<std::vector<int>>& ref_haps,
+					const std::vector<std::vector<int>>& ref_haps1,
+					const std::vector<std::vector<int>>& ref_haps2,
 					const Map& map_, double w, const VCFSmall *vcf);
 	VCFBothKnown(const VCFBothKnown&) = delete;
 	VCFBothKnown& operator=(const VCFBothKnown&) = delete;

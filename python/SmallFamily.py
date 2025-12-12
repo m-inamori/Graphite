@@ -27,6 +27,7 @@ import SelfNonImputedFamily
 import Orphan
 import ImputedAndKnownFamily
 from VCFIsolated import VCFIsolated
+import ReferenceHaplotype
 from SampleManager import *
 from Map import *
 from OptionSmall import OptionSmall
@@ -111,7 +112,7 @@ def impute_vcf_by_known_parent(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 def impute_self_vcf(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 							ref_haps: list[list[int]], op_small: OptionSmall,
 							sample_man: SampleManager) -> Optional[VCFGeno]:
-	families = sample_man.extract_self_families()
+	families = sample_man.extract_small_self_families()
 	imputed_samples = [ s for f in families for s in f.samples()
 												if sample_man.is_imputed(s) ]
 	vcf = SelfFamily.impute(orig_vcf, imputed_vcf, ref_haps,
@@ -126,7 +127,7 @@ def impute_self_vcf(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 def impute_self_non_imputed_vcf(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 							ref_haps: list[list[int]], op_small: OptionSmall,
 							sample_man: SampleManager) -> Optional[VCFGeno]:
-	families = sample_man.extract_self_families()
+	families = sample_man.extract_self_non_imputed_families()
 	vcf = SelfNonImputedFamily.impute(orig_vcf, imputed_vcf, ref_haps,
 														families, op_small)
 	if vcf is None:
@@ -164,83 +165,6 @@ def impute_orphan_samples(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 	sample_man.set(vcf.get_samples())
 	return merged_vcf
 
-def extract_haplotypes(phased_vcf: VCFGeno,
-						sample_man: SampleManager) -> list[list[int]]:
-	reference: list[str] = sample_man.collect_reference()
-	ref_columns = phased_vcf.extract_columns(reference)
-	
-	N = len(reference)
-	M = len(phased_vcf)
-	
-	hs = [ h for c in ref_columns for h in range(c*2, c*2+2) ]
-	gts = [ [ record.get_allele(h>>1, h&1) for record in phased_vcf.records ]
-																for h in hs ]
-	MIN_REF_NUM = 10
-	if len(gts) <= MIN_REF_NUM:
-		return gts
-	
-	K = min(10, M)
-	# ローリングハッシュ
-	a: list[list[int]] = [ [0] * (M-K+1) for _ in range(N*2) ]
-	for h in range(N*2):
-		n = 0
-		for i in range(M):
-			gt = gts[h][i]
-			if i < K - 1:
-				n = (n << 1) | gt
-			else:
-				n = ((n << 1) & ((1 << 10) - 1)) | gt
-				a[h][i-K+1] = n
-	
-	# 同じハッシュ値があったらどのハプロタイプと同じか調べる
-	b: list[list[int]] = [ [0] * (M-K+1) for _ in range(N*2) ]
-	for i in range(M-K+1):
-		for h in range(N*2):
-			for l in range(h):
-				if a[l][i] == a[h][i]:
-					b[h][i] = l
-					break
-			else:
-				b[h][i] = h
-	
-	# Genotypeに戻ってできるだけ自分以外になるようにする
-	for k in range(1, N*2):
-		i = 0
-		c: list[tuple[int, int, int]] = []	# [(index, first, last)]
-		for h, v1 in groupby(b[k]):
-			next_i = i + sum(1 for _ in v1)
-			c.append((h, i, next_i))
-			i = next_i
-		
-		# 自分以外の前後を可能なら拡張する
-		for j in range(len(c)):
-			h0, first0, last0 = c[j]
-			if h0 != k:
-				continue
-			if j != 0:
-				# 前を見る
-				h1, first1, last1 = c[j-1]
-				for i in range(first0, last0):
-					if gts[h1][i] != gts[k][i]:
-						break
-					b[k][i] = h1
-			if j != len(c) - 1:
-				# 後ろを見る
-				h2, first2, last2 = c[j+1]
-				for i in range(last0-1, first0, -1):
-					if gts[h2][i] != gts[k][i]:
-						break
-					b[k][i] = h2
-	
-	# 2つのハプロタイプが長さの1割以下しかないサンプルは捨てる
-	# ただし、MIN_REF_NUM以下にならないようにする
-	counter = Counter(g for v in b for g in v)
-	w = sorted((counter[i], i) for i in range(N*2))
-	if w[N*2-MIN_REF_NUM][0] * 10 >= M:
-		return [ gts[i] for c, i in w if c * 10 >= M ]
-	else:
-		return [ gts[i] for c, i in w[N*2-MIN_REF_NUM:] ]
-
 def impute_non_imputed_samples(orig_vcf: VCFSmall, merged_vcf: VCFGeno,
 											sample_man: SampleManager,
 											op: OptionSmall) -> VCFGeno:
@@ -261,7 +185,7 @@ def impute_non_imputed_samples(orig_vcf: VCFSmall, merged_vcf: VCFGeno,
 def impute(orig_vcf: VCFSmall, merged_vcf: VCFGeno,
 							op_small: OptionSmall, sample_man: SampleManager,
 							imputes_isolated_samples: bool) -> VCFGeno:
-	ref_haps = extract_haplotypes(merged_vcf, sample_man)
+	ref_haps = ReferenceHaplotype.extract_haplotypes(merged_vcf, sample_man)
 	while True:
 		# 両親が補完されているが子どもが少ない家系を補完する
 		new_merged_vcf1 = impute_vcf_by_both_imputed_parents(orig_vcf,

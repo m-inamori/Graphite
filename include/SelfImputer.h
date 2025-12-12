@@ -1,6 +1,7 @@
 #ifndef __SELFIMPUTER
 #define __SELFIMPUTER
 
+#include <array>
 #include "VCFHMM.h"
 #include "GenoRecord.h"
 #include "Map.h"
@@ -38,7 +39,7 @@ private:
 	std::size_t num_progenies() const {
 		return records[0]->num_samples() - 1;
 	}
-	std::tuple<int, int, int> decode_state(int h) const;
+	std::array<int, 3> decode_state(int h) const;
 	
 	bool is_only_one_or_zero_crossover(int hp1, int hp2, int hc,
 														int prev_h) const;
