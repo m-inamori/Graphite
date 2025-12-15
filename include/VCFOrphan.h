@@ -11,6 +11,16 @@ class Map;
 //////////////////// VCFOrphan ////////////////////
 
 class VCFOrphan : public VCFGenoBase {
+public:
+	struct ConfigThread {
+		std::size_t	first;
+		std::size_t	num_threads;
+		VCFOrphan	*vcf;
+		
+		ConfigThread(std::size_t i, std::size_t n, VCFOrphan *vcf_) :
+									first(i), num_threads(n), vcf(vcf_) { }
+	};
+	
 private:
 	std::vector<GenoRecord *>	records;
 	OrphanImputer	imputer;
@@ -30,6 +40,10 @@ public:
 	}
 	
 	///// non-virtual methods /////
-	void impute(std::size_t io);
+	void impute_each(std::size_t i);
+	void impute(int num_threads);
+	
+public:
+	static void impute_small_in_thread(void *config);
 };
 #endif

@@ -3,6 +3,7 @@ from __future__ import annotations
 # coding: utf-8
 # SampleManager.py
 
+from itertools import chain
 from typing import Set, TextIO, Optional
 
 from pedigree import PedigreeTable, Family
@@ -137,7 +138,8 @@ class SampleManager:
 									f.progenies) for f in families ]
 	
 	def extract_small_self_families(self) -> list[KnownFamily]:
-		families = [ family for family in self.small_families
+		families = [ family for family in chain(self.small_families,
+												self.large_self_families)
 						if family.is_self() and
 								any(self.is_imputed(s)
 									for s in family.samples()) and
@@ -186,18 +188,9 @@ class SampleManager:
 									f.mat_known, f.progenies)
 														for f in families ]
 	
-	def extract_isolated_samples(self) -> list[str]:
-		# 繋がっているサンプルがあっても、
-		# 家系の全サンプルがphasingされていないなら孤立とみなす
-		samples: set[str] = set()
-		for family in self.small_families:
-			for s in family.samples():
-				if s != '0' and s not in self.imputed_samples:
-					samples.add(s)
-		return list(samples)
-	
 	def extract_non_imputed_samples(self) -> list[str]:
-		samples = set(s for family in self.small_families
+		samples = set(s for family in chain(self.small_families,
+											self.large_self_families)
 						for s in family.samples()
 						if s != '0' and s not in self.imputed_samples)
 		return list(samples)

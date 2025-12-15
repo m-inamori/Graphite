@@ -245,16 +245,18 @@ vector<const KnownFamily *> SampleManager::extract_self_families() const {
 
 vector<const KnownFamily *>
 SampleManager::extract_small_self_families() const {
-	vector<const KnownFamily *>	families;
-	for(auto p = large_self_families.begin();
-							p != large_self_families.end(); ++p) {
+	vector<const KnownFamily *>	filtered_families;
+	vector<const KnownFamily *>	families(small_families);
+	families.insert(families.end(),
+					large_self_families.begin(), large_self_families.end());
+	for(auto p = families.begin(); p != families.end(); ++p) {
 		const KnownFamily	*family = *p;
 		if(family->is_self() && is_any_samples_imputed(family) &&
 								!is_all_samples_imputed(family)) {
-			families.push_back(family);
+			filtered_families.push_back(family);
 		}
 	}
-	return families;
+	return filtered_families;
 }
 
 vector<const KnownFamily *>
@@ -300,39 +302,15 @@ vector<const KnownFamily *>
 	return families;
 }
 
-vector<string> SampleManager::extract_isolated_samples() const {
-	// If there is a connected sample in the family
-	// but the entire sample of the pedigree is not imputed,
-	// it is considered isolated.
-	vector<string>	samples;
-	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
-		const KnownFamily	*family = *p;
-		const auto&	f_samples = family->get_samples();
-		if(!is_all_samples_imputed(family)) {
-			for(auto q = f_samples.begin(); q != f_samples.end(); ++q) {
-				if(is_known(*q) && !is_imputed(*q))
-					samples.push_back(*q);
-			}
-		}
-		else if(is_unknown(family->get_mat()) &&
-							is_unknown(family->get_pat())) {
-			const auto&	progs = family->get_progenies();
-			for(auto q = progs.begin(); q != progs.end(); ++q) {
-				if(!is_imputed((*q)->get_name()))
-					samples.push_back((*q)->get_name());
-			}
-		}
-	}
-	return samples;
-}
-
 vector<string> SampleManager::extract_non_imputed_samples() const {
 	set<string>	samples;
-	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
-		const KnownFamily	*family = *p;
-		const auto&	progs = family->get_progenies();
-		for(auto q = progs.begin(); q != progs.end(); ++q) {
-			const string&	s = (*q)->get_name();
+	vector<const KnownFamily *>	families(small_families);
+	families.insert(families.end(),
+					large_self_families.begin(), large_self_families.end());
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const auto&	samples1 = (*p)->get_samples();
+		for(auto q = samples1.begin(); q != samples1.end(); ++q) {
+			const string&	s = *q;
 			if(s != "0" && !is_imputed(s))
 				samples.insert(s);
 		}

@@ -16,30 +16,6 @@ class OptionSmall;
 //////////////////// Orphan ////////////////////
 
 namespace Orphan {
-	struct ConfigThread {
-		std::size_t	first;
-		std::size_t	num_threads;
-		VCFOrphan	*vcf;
-		
-		ConfigThread(std::size_t i, std::size_t n, VCFOrphan *vcf_) :
-									first(i), num_threads(n), vcf(vcf_) { }
-	};
-	
-	void impute_small_in_thread(void *config);
-	void impute_small_VCF(VCFOrphan *vcf, int T);
-	
-	struct ConfigThreadRough {
-		std::size_t	first;
-		std::size_t	num_threads;
-		VCFOrphanRough	*vcf;
-		
-		ConfigThreadRough(std::size_t i, std::size_t n, VCFOrphanRough *vcf_) :
-										first(i), num_threads(n), vcf(vcf_) { }
-	};
-	
-	void impute_small_in_thread_rough(void *config);
-	void impute_small_VCF_rough(VCFOrphanRough *vcf, int T);
-	
 	VCFGenoBase *impute(const std::vector<std::string>& samples,
 							const VCFSmall *orig_vcf,
 							const std::vector<std::vector<int>>& ref_haps,
