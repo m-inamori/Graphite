@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # coding: utf-8
-# VCFImputable.py
+# Haplotype.py
 
 from itertools import *
 from abc import ABC, abstractmethod

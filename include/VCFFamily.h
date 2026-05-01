@@ -38,6 +38,9 @@ public:
 	std::vector<int> get_progeny_int_gts() const;
 	std::vector<int> progeny_gts() const;
 	std::size_t num_progenies() const { return geno.size() - 2; }
+	
+	static std::vector<int> extract_sample_genotypes(std::size_t c,
+								const std::vector<VCFFamilyRecord *>& records);
 };
 
 

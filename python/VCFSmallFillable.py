@@ -12,12 +12,13 @@ from VCF import VCFSmall
 from GenoRecord import GenoRecord
 from VCFGeno import VCFGeno
 from VCFFamily import *
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from VCFFillable import *
 from VCFHeteroHomo import *
 from group import Groups
 from RecordSet import RecordSet, RecordSetSmall
+from ClassifyRecord import FillType
 from Genotype import Genotype
 from option import *
 from common import *
@@ -29,15 +30,6 @@ class VCFSmallFillable(VCFFillable):
 	def __init__(self, samples: list[str],
 							records: list[VCFFillableRecord], vcf: VCFSmall):
 		VCFFillable.__init__(self, samples, records, vcf)
-	
-	def __len__(self) -> int:
-		return len(self.records)
-	
-	def get_record(self, i: int) -> GenoRecord:
-		return self.records[i]
-	
-	def get_family_record(self, i: int) -> VCFFamilyRecord:
-		return self.records[i]
 	
 	def modify(self, is_phased_changable: bool) -> None:
 		# FillTypeでrecordを分ける

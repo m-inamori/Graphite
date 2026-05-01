@@ -7,7 +7,7 @@ VCFSelfParentImputed::VCFSelfParentImputed(const STRVEC& s,
 											const vector<GenoRecord *>& rs,
 											const Map& map_, double w,
 											const VCFSmall *vcf) :
-									VCFGenoBase(s, vcf),
+									VCFSelfImputable(s, vcf),
 									records(rs),
 									prog_imputer(records, map_, w)
 									{ }

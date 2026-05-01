@@ -17,8 +17,10 @@ public:
 	GenoRecord(ll p, const std::vector<int>& g) : pos(p), geno(g) { }
 	virtual ~GenoRecord() { }
 	
+	GenoRecord *copy() const;
 	const ll get_pos() const { return pos; }
-	const std::vector<int>& get_geno() const { return geno; }
+	const std::vector<int>& get_genos() const { return geno; }
+	int get_geno(std::size_t i) const { return geno[i]; }
 	std::size_t num_samples() const { return geno.size(); }
 	int unphased(std::size_t i) const { return Genotype::unphased(geno[i]); }
 	bool is_hetero(std::size_t i) const { return Genotype::is_hetero(geno[i]); }
@@ -43,7 +45,26 @@ public:
 	std::vector<int> unphased_gts() const;
 	
 	void set_geno(std::size_t i, int gt) { geno[i] = gt; }
+	void copy_genotypes_from(const GenoRecord *other);
 	
-	void write(const VCFRecord *record, std::ostream& os) const;
+	// Write a VCF record to the output stream.
+	//
+	// This method outputs one VCF record, including per-sample fields.
+	// For each sample, the genotype (GT) is always written based on the
+	// internally stored integer representation.
+	//
+	// For additional per-sample FORMAT fields (i.e., fields other than GT):
+	// - If the original extra information exists in the input record,
+	//   it is preserved and written.
+	// - Otherwise, default values are generated and used instead.
+	//
+	// The final record is written as a tab-separated line in standard VCF format.
+	void write(const VCFRecord *record,
+					const std::vector<std::size_t>& columns,
+					std::ostream& os) const;
+	
+public:
+	static std::vector<int> extract_sample_genotypes(std::size_t c,
+									const std::vector<GenoRecord *>& records);
 };
 #endif

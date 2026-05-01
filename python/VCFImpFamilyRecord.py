@@ -8,21 +8,11 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from collections import defaultdict
 from operator import add, xor
-from enum import Enum
 
 from VCFFamily import *
+from ClassifyRecord import FillType
 from TypeDeterminer import ParentComb
 from common import is_all_same
-
-
-#################### FillType ####################
-
-class FillType(Enum):
-	MAT = 0
-	PAT = 1
-	FILLED = 2
-	IMPUTABLE = 3
-	UNABLE = 4
 
 
 #################### VCFImpFamilyRecord ####################

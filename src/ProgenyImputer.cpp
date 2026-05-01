@@ -6,7 +6,7 @@ using namespace std;
 
 ProgenyImputer::ProgenyImputer(const vector<VCFFamilyRecord *>& rs,
 												const Map& map_, double w) :
-				VCFHMM(rs, map_, w), ref_records(rs), Cc(calc_Cc(rs)) { }
+				VCFHMM(map_, w), ref_records(rs), Cc(calc_Cc(rs)) { }
 
 vector<double> ProgenyImputer::calc_Cc(
 							const vector<VCFFamilyRecord *>& rs) const {

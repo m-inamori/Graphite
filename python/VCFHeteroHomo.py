@@ -13,7 +13,8 @@ from VCF import VCFSmall
 from VCFGeno import VCFGenoBase
 from GenoRecord import GenoRecord
 from VCFFamily import *
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
+from ClassifyRecord import FillType
 from Genotype import Genotype
 from TypeDeterminer import ParentComb
 from Map import *
@@ -100,15 +101,21 @@ class VCFHeteroHomo(VCFFamilyBase, VCFMeasurable):
 		VCFMeasurable.__init__(self, map_)
 		self.records: list[VCFHeteroHomoRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### non-virtual methods #####
 	def is_mat_hetero(self) -> bool:
 		return self.records[0].is_mat_hetero()
 	

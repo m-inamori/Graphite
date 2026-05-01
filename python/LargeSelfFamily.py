@@ -12,7 +12,7 @@ from typing import Optional
 from VCF import *
 from pedigree import PedigreeTable, Family
 from KnownFamily import KnownFamily
-from VCFGeno import VCFGeno
+from VCFGeno import VCFGenoBase, VCFGeno
 from GenoRecord import GenoRecord
 from VCFSelfHetero import *
 from VCFSelfHeteroRecord import VCFSelfHeteroRecord
@@ -53,7 +53,7 @@ def divide_records(vcf: VCFGeno, op: Option
 	
 	return (he_records, other_records)
 
-def extract_parents(vcfs: list[VCFSelfFillable]) -> VCFGeno:
+def extract_parents(vcfs: list[VCFGenoBase]) -> VCFGeno:
 	samples = [ vcf.get_samples()[0] for vcf in vcfs ]
 	M = len(vcfs[0])
 	records: list[GenoRecord] = []
@@ -70,7 +70,17 @@ def impute(families: list[KnownFamily], orig_vcf: VCFSmall,
 	if not families:
 		return None
 	
-	vcfs: list[VCFSelfFillable] = []
+	vcfs = impute_all_families(families, orig_vcf, geno_map, op)
+	vcf_parents = extract_parents(vcfs)
+	if merged_vcf is not None:
+		merged_vcf = VCFGeno.join([merged_vcf, vcf_parents], orig_vcf.samples)
+	else:
+		merged_vcf = VCFGeno.join([vcf_parents], orig_vcf.samples)
+	return merged_vcf
+
+def impute_all_families(families: list[KnownFamily], orig_vcf: VCFSmall,
+								geno_map: Map, op: Option) -> list[VCFGenoBase]:
+	vcfs: list[VCFGenoBase] = []
 	for family in families:
 		samples = [family.mat] + family.progenies
 		vcf = VCFGeno.extract_samples(samples, orig_vcf)
@@ -80,12 +90,6 @@ def impute(families: list[KnownFamily], orig_vcf: VCFSmall,
 		other_records.extend(unused)
 		vcf_filled = VCFSelfFillable.fill(vcf_heteros, other_records)
 		vcfs.append(vcf_filled)
-	
-	vcf_parents = extract_parents(vcfs)
-	if merged_vcf is not None:
-		merged_vcf = VCFGeno.join([merged_vcf, vcf_parents], orig_vcf.samples)
-	else:
-		merged_vcf = VCFGeno.join([vcf_parents], orig_vcf.samples)
-	return merged_vcf
+	return vcfs
 
 __all__ = ['impute_large_self_families']

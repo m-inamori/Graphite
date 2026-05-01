@@ -46,13 +46,6 @@ private:
 	std::vector<std::vector<int>>
 	collect_possible_previous_hidden_states() const;
 	
-	int compute_parent_phased_gt(int h, int i) const {
-		const auto	t = decode_state(h);
-		const int	hp1 = std::get<0>(t);
-		const int	hp2 = std::get<1>(t);
-		return ref_haps[hp1][i] | (ref_haps[hp2][i] << 1);
-	}
-	
 	int parent_genotype(int hp1, int hp2, int i) const {
 		return ref_haps[hp1][i] | (ref_haps[hp2][i] << 1);
 	}
@@ -61,7 +54,7 @@ private:
 	double progs_emission_probability(int hc, const std::vector<int>& ocs,
 														int parent_gt) const;
 	double emission_probability(int i, int h, int op,
-								std::vector<int>& ocs) const;
+								const std::vector<int>& ocs) const;
 	
 	double parent_transition_probability(int i, int prev_hp1, int prev_hp2,
 														int hp1, int hp2) const;

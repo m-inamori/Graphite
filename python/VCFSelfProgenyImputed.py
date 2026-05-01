@@ -7,6 +7,7 @@ from __future__ import annotations
 from VCF import VCFSmall
 from VCFGeno import VCFGenoBase
 from GenoRecord import GenoRecord
+from VCFSelfImputable import VCFSelfImputable
 from SelfParentImputer import SelfParentImputer
 from SelfProgenyImputer import SelfProgenyImputer
 from Map import *
@@ -14,12 +15,12 @@ from Map import *
 
 #################### VCFSelfProgenyImputed ####################
 
-class VCFSelfProgenyImputed(VCFGenoBase, VCFMeasurable):
+class VCFSelfProgenyImputed(VCFSelfImputable, VCFMeasurable):
 	def __init__(self, samples: list[str],
 						records: list[GenoRecord],
 						ref_haps: list[list[int]],
 						ic: int, map_: Map, vcf: VCFSmall) -> None:
-		VCFGenoBase.__init__(self, samples, vcf)
+		VCFSelfImputable.__init__(self, samples, vcf)
 		VCFMeasurable.__init__(self, map_)
 		self.records: list[GenoRecord] = records
 		self.ic: int = ic	# index of imputed progeny
@@ -27,12 +28,17 @@ class VCFSelfProgenyImputed(VCFGenoBase, VCFMeasurable):
 															ic, map_, 0.01)
 		self.prog_imputer = SelfProgenyImputer(records, map_, 0.01)
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return self.records
+	
+	##### non-virtual methods #####
 	def get_samples(self) -> list[str]:
 		return self.samples
 	

@@ -7,7 +7,7 @@ using namespace std;
 OrphanImputer::OrphanImputer(const vector<GenoRecord *>& rs,
 							 const vector<vector<int>>& ref_hs,
 							 const Map& map_, double w) :
-				VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
+				VCFHMM(map_, w), ref_records(rs), ref_haps(ref_hs),
 				prev_h_table(collect_possible_previous_hidden_states()),
 				Cp(calc_Cp(rs)) { }
 

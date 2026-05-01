@@ -9,7 +9,7 @@ VCFProgenyImputed::VCFProgenyImputed(const STRVEC& s,
 							const std::vector<std::vector<int>>& ref_haps,
 							bool is_mat_known, const Map& map_,
 							double w, const VCFSmall *vcf) :
-				VCFFamilyBase(s, vcf),
+				VCFImputable(s, vcf),
 				records(rs),
 				imputer(records, ref_haps, is_mat_known, map_, w) { }
 

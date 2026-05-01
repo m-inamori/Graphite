@@ -4,7 +4,9 @@
 #include <vector>
 
 class VCFSmall;
+class GenoRecord;
 class VCFGeno;
+class VCFSelfImputable;
 class Family;
 class KnownFamily;
 class Map;
@@ -23,6 +25,12 @@ namespace SelfNonImputedFamily {
 	// upper NH which passes is_small_ref
 	std::size_t compute_upper_NH(const Family *family, std::size_t M,
 										std::size_t L, const OptionSmall& op);
+	VCFSelfImputable *create_family_vcf(const Family *family,
+								const std::vector<GenoRecord *>& records,
+								std::size_t num_families,
+								const std::vector<std::vector<int>>& ref_haps,
+								const VCFSmall *vcf,
+								const OptionSmall& op);
 	VCFGeno *impute(const VCFSmall *orig_vcf,
 					const VCFGeno *imputed_vcf,
 					const std::vector<std::vector<int>>& ref_haps,

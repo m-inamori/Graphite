@@ -6,7 +6,7 @@ using namespace std;
 
 SelfProgenyImputer::SelfProgenyImputer(const vector<GenoRecord *>& rs,
 									 		const Map& map_, double w) :
-							VCFHMM(rs, map_, w), records(rs), Cc(calc_Cc(rs))
+							VCFHMM(map_, w), records(rs), Cc(calc_Cc(rs))
 							{ }
 
 vector<double> SelfProgenyImputer::calc_Cc(
@@ -37,8 +37,8 @@ vector<SelfProgenyImputer::DP> SelfProgenyImputer::initialize_dp(
 														size_t iprog) const {
 	vector<DP>	dp(M(), DP(4, pair<double, int>(MIN_PROB, 0)));
 	const GenoRecord	*record = records[0];
-	const int	parent_gt = record->get_geno()[0];
-	const int	oc = record->get_geno()[iprog+1];
+	const int	parent_gt = record->get_geno(0);
+	const int	oc = record->get_geno(iprog+1);
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(h, parent_gt, oc);
 		dp[0][h] = make_pair(E_all, h);
@@ -49,8 +49,8 @@ vector<SelfProgenyImputer::DP> SelfProgenyImputer::initialize_dp(
 void SelfProgenyImputer::update_dp(size_t i, size_t iprog,
 												vector<DP>& dp) const {
 	const GenoRecord	*record = records[i];
-	const int	parent_gt = record->get_geno()[0];
-	const int	oc = record->get_geno()[iprog+1];
+	const int	parent_gt = record->get_geno(0);
+	const int	oc = record->get_geno(iprog+1);
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(h, parent_gt, oc);
 		
@@ -65,7 +65,7 @@ void SelfProgenyImputer::update_dp(size_t i, size_t iprog,
 void SelfProgenyImputer::update_genotypes(const vector<int>& hs, size_t iprog) {
 	for(size_t i = 0; i < this->M(); ++i) {
 		GenoRecord	*record = records[i];
-		const int	parent_gt = record->get_geno()[0];
+		const int	parent_gt = record->get_geno(0);
 		const int	prog_gt = progeny_genotype(hs[i], parent_gt);
 		record->set_geno(iprog + 1, prog_gt | 4);
 	}

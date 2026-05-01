@@ -115,6 +115,27 @@ vector<VCFRecord::Probs> VCFRecord::parse_PL(const vector<int>& geno,
 	return probs;
 }
 
+std::vector<std::string> VCFRecord::default_info() const {
+	const vector<string>	w = Common::split(v[9], ':');
+	vector<string>	w1;
+	for(auto p = w.begin() + 1; p != w.end(); ++p) {
+		const vector<string>	t = Common::split(*p, ',');
+		vector<string>	t1(t.size(), ".");
+		const string	u1 = Common::join(t1, ',');
+		w1.push_back(u1);
+	}
+	return w1;
+}
+
+STRVEC VCFRecord::extra_info(size_t c, const STRVEC& def_info) const {
+	if(c == 0)
+		return def_info;
+	
+	auto	w = Common::split(v[c], ':');
+	w.erase(w.begin());
+	return w;
+}
+
 
 //////////////////// VCFBase ////////////////////
 

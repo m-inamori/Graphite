@@ -1,14 +1,14 @@
 #ifndef __VCFHETEROIMPHOMO
 #define __VCFHETEROIMPHOMO
 
-#include "VCFHeteroHomoOnePhased.h"
-
-class Map;
+#include "VCFImputable.h"
+#include "VCFFillableRecord.h"
+#include "Map.h"
 
 
 //////////////////// VCFHeteroImpHomo ////////////////////
 
-class VCFHeteroImpHomo : public VCFHeteroHomoOnePhased {
+class VCFHeteroImpHomo : public VCFImputable, public VCFMeasurable {
 	static const int	INF = 1000000000;
 	
 	////////// State //////////
@@ -58,12 +58,29 @@ class VCFHeteroImpHomo : public VCFHeteroHomoOnePhased {
 	
 	using DP = std::vector<Value>;
 	
+	std::vector<VCFFillableRecord *>	records;
+	bool	is_mat_hetero;
+	
 public:
 	VCFHeteroImpHomo(const STRVEC& s,
 						const std::vector<VCFFillableRecord *>& rs,
-						bool is_mat_hetero, const Map& m, const VCFSmall *vcf) :
-				VCFHeteroHomoOnePhased(s, rs, is_mat_hetero, m, vcf) { }
+						bool is_mat_het, const Map& m, const VCFSmall *vcf) :
+									VCFImputable(s, vcf),
+									VCFMeasurable(m),
+									records(rs),
+									is_mat_hetero(is_mat_het) { }
 	~VCFHeteroImpHomo() { }
+	
+	///// virtual methods for VCFGenoBase /////
+	std::size_t size() const override { return records.size(); }
+	GenoRecord *get_record(std::size_t i) const override {
+		return records[i];
+	}
+	
+	///// virtual methods for VCFFamilyBase /////
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
+		return records[i];
+	}
 	
 	///// non-virtual methods /////
 	std::size_t imputed_index() const { return is_mat_hetero ? 1 : 0; }
@@ -85,6 +102,8 @@ public:
 	DP update_dp(const DP& dp, const GenoRecord *record) const;
 	void trace_back(State state, const std::vector<DP>& dps);
 	
+	///// virtual methods for VCFImputable /////
+	std::size_t amount() const override { return 1; }
 	void impute() override;
 };
 #endif

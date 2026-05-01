@@ -134,38 +134,6 @@ void VCFFillableRecord::inverse_parents_gts(bool inv_mat, bool inv_pat) {
 		this->geno[1] = Genotype::inverse(this->geno[1]);
 }
 
-bool VCFFillableRecord::is_near_prog_gts(const vector<int>& gts) const {
-	int	num = 0;
-	int	dist = 0;
-	for(size_t i = 0; i < gts.size(); ++i) {
-		// TODO: modify
-		if(geno[i+2] != Genotype::UN_01)
-			num += 1;
-		if(geno[i+2] == Genotype::UN_01) {
-			if(!(gts[i] == Genotype::PH_01 || gts[i] == Genotype::PH_10))
-				dist += 1;
-		}
-		else if(geno[i+2] == Genotype::UN_00) {
-			if(gts[i] != Genotype::PH_00)
-				dist += 1;
-		}
-		else if(geno[i+2] == Genotype::UN_11) {
-			if(gts[i] != Genotype::PH_11)
-				dist += 1;
-		}
-		else {
-			dist += 1;
-		}
-		/*
-		if(Genotype::is_NA(geno[i+2])
-			dist += 1;
-		else if(Genotype::unphased(gts[i]) != geno[i+2])
-			dist += 1;
-		*/
-	}
-	return dist < max(1, num / 2);
-}
-
 int VCFFillableRecord::distance(const vector<int>& gts1,
 								const vector<int>& gts2) {
 	int	dist = 0;
@@ -176,12 +144,15 @@ int VCFFillableRecord::distance(const vector<int>& gts1,
 	return dist;
 }
 
+// Selects optimal parental phasing by minimizing inconsistencies
+// with original progeny genotypes, testing all phase inversions.
+// Updates both parent and progeny genotypes to best-matching phase.
 void VCFFillableRecord::modify_gts(const vector<int>& new_prog_gts) {
 	vector<int>	orig_gts(geno.begin() + 2, geno.end());
-	int	min_dist = distance(new_prog_gts, orig_gts);
+	int	min_dist = (int)orig_gts.size();
 	vector<int>	min_gts = new_prog_gts;
 	int	min_i = 0;
-	for(int i = 1; i < 4; ++i) {
+	for(int i = 0; i < 4; ++i) {
 		const bool	inv_mat = (i & 2) == 2;
 		const bool	inv_pat = (i & 1) == 1;
 		const vector<int>	inv_prog_gts = inverse_prog_gts(new_prog_gts,
@@ -352,8 +323,9 @@ vector<VCFFillableRecord *> VCFFillableRecord::convert(
 		const auto	*record = records[i];
 		const auto	type = record->get_fill_type();
 		const auto	*ref_record = ref_vcf->get_record(i);
-		const auto	probs = ref_record->parse_PL(record->get_geno(), cols);
-		auto	*r = new VCFFillableRecord(record->get_pos(), record->get_geno(),
+		const auto	probs = ref_record->parse_PL(record->get_genos(), cols);
+		auto	*r = new VCFFillableRecord(record->get_pos(),
+											record->get_genos(),
 											record->get_index(), type,
 											record->get_comb(), probs);
 		new_records.push_back(r);
@@ -366,7 +338,7 @@ GenoRecord *VCFFillableRecord::merge(const vector<VCFFillableRecord *>& records,
 	const ll	pos = records[0]->get_pos();
 	vector<int>	new_geno;
 	for(auto p = records.begin(); p != records.end(); ++p) {
-		const vector<int>&	geno = (*p)->get_geno();
+		const vector<int>&	geno = (*p)->get_genos();
 		new_geno.insert(new_geno.end(), geno.begin(), geno.end());
 	}
 	return new GenoRecord(pos, new_geno);
@@ -413,8 +385,8 @@ GenoRecord *VCFFillableRecord::integrate(
 	const ll	pos = records[0]->get_pos();
 	vector<int>	geno;
 	for(auto p = pos_samples.begin(); p != pos_samples.end(); ++p) {
-		const pair<int, int>&	pos = p->front();
-		geno.push_back(records[pos.first]->geno[pos.second]);
+		const pair<int, int>&	pos1 = p->front();
+		geno.push_back(records[pos1.first]->geno[pos1.second]);
 	}
 	return new GenoRecord(pos, geno);
 }

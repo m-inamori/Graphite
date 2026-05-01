@@ -59,7 +59,7 @@ namespace LargeFamily {
 	std::pair<std::vector<VCFHeteroHomoRecord *>,
 			  std::vector<VCFImpFamilyRecord *>>
 	classify_records(const VCFFamily *vcf,
-						const KnownFamily *family, const Option *option);
+						const KnownFamily *family, const Option& option);
 	
 	std::vector<VCFFamily *> create_family_vcfs(
 							const VCFSmall *orig_vcf,
@@ -145,15 +145,19 @@ namespace LargeFamily {
 			  std::vector<std::vector<VCFImpFamilyRecord *>>>
 	divide_vcf_into_record_types(const std::vector<VCFFamily *>& family_vcfs,
 							const std::vector<const KnownFamily *>& families,
-							const Option *option);
+							const Option& option);
 	std::vector<VCFFillable *> fill_vcf(
 			const std::map<std::string, std::vector<VCFHeteroHomo *>>& dic_vcfs,
 			const std::vector<std::vector<VCFImpFamilyRecord *>>& other_recordss,
 			const std::vector<const KnownFamily *>& families, int num_threads);
 	void compress_records(std::vector<VCFImpFamilyRecord *>& others);
-	VCFGeno *correct_large_family_VCFs(const VCFSmall *orig_vcf,
+	std::vector<VCFFillable *> impute_all_families(
+							const VCFSmall *orig_vcf,
 							const std::vector<const KnownFamily *>& families,
-							const Map& geno_map, const Option *option);
+							const Map& geno_map, const Option& option);
+	VCFGeno *impute(const VCFSmall *orig_vcf,
+							const std::vector<const KnownFamily *>& families,
+							const Map& geno_map, const Option& option);
 }
 
 #endif

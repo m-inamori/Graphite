@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "VCF.h"
+#include "VCFSelfImputable.h"
 #include "SelfParentImputer.h"
 #include "SelfProgenyImputer.h"
 
@@ -11,7 +12,7 @@ class Map;
 
 //////////////////// VCFSelfProgenyImputed ////////////////////
 
-class VCFSelfProgenyImputed : public VCFGenoBase {
+class VCFSelfProgenyImputed : public VCFSelfImputable {
 	const std::vector<GenoRecord *>	records;
 	std::size_t	ic;
 	SelfParentImputer	parent_imputer;
@@ -33,8 +34,9 @@ public:
 		return records[i];
 	}
 	
-	///// non-virtual methods /////
-	void impute();
+	///// virtual methods for VCFSelfImputable /////
+	std::size_t amount() const override { return 1; }
+	void impute() override;
 	
 private:
 	std::size_t num_progenies() const { return get_samples().size() - 1; }

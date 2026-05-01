@@ -67,7 +67,6 @@ private:
 	std::vector<int> inverse_prog_gts(const std::vector<int>& prog_gts,
 											bool inv_mat, bool inv_pat) const;
 	void inverse_parents_gts(bool inv_mat, bool inv_pat);
-	bool is_near_prog_gts(const std::vector<int>& gts) const;
 	int hash(int d) const;
 	int decide_by_majority(const std::vector<int>& GTs) const;
 	void swap_parents(std::size_t i, int GT);

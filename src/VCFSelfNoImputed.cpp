@@ -4,13 +4,15 @@
 
 using namespace std;
 
+
+//////////////////// VCFSelfNoImputed ////////////////////
+
 VCFSelfNoImputed::VCFSelfNoImputed(const STRVEC& s,
 									const std::vector<GenoRecord *>& rs,
 									const std::vector<std::vector<int>>& ref_hs,
 									const Map& map_, double w,
 									const VCFSmall *vcf) :
-										VCFGenoBase(s, vcf),
-										VCFMeasurable(map_),
+										VCFSelfImputable(s, vcf),
 										records(rs),
 										imputer(records, ref_hs, map_, w) { }
 

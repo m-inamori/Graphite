@@ -112,6 +112,7 @@ def impute_vcf_by_known_parent(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 def impute_self_vcf(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 							ref_haps: list[list[int]], op_small: OptionSmall,
 							sample_man: SampleManager) -> Optional[VCFGeno]:
+	# 自殖でどれかがimputedで全部がimputedではない家系
 	families = sample_man.extract_small_self_families()
 	imputed_samples = [ s for f in families for s in f.samples()
 												if sample_man.is_imputed(s) ]
@@ -169,7 +170,7 @@ def impute_non_imputed_samples(orig_vcf: VCFSmall, merged_vcf: VCFGeno,
 											sample_man: SampleManager,
 											op: OptionSmall) -> VCFGeno:
 	samples = sample_man.extract_non_imputed_samples()
-	if samples and op.imputes_isolated_samples:
+	if samples and not op.imputes_isolated_samples:
 		reference = sample_man.collect_reference()
 		vcf = VCFIsolated.create(orig_vcf, merged_vcf, samples, reference, op)
 		vcf.impute()

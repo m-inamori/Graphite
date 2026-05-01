@@ -9,6 +9,7 @@ from typing import Optional
 from VCF import VCFSmall
 from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
+from VCFImputable import VCFImputable
 from Map import *
 from KnownFamily import *
 from VCFOneParentKnown import VCFOneParentKnown
@@ -31,6 +32,26 @@ def compute_upper_NH(family: Family, M: int, L: int, op: OptionSmall) -> int:
 			break
 	return NH - 1
 
+def create_family_vcf(family: KnownFamily, records: list[VCFFamilyRecord],
+					num_families: int, ref_haps: list[list[int]],
+					vcf: VCFSmall, op: OptionSmall) -> Optional[VCFImputable]:
+	NH = compute_upper_NH(family, len(vcf), num_families, op)
+	if is_small(ref_haps, num_families, op):
+		return VCFOneParentKnown(family.samples(), records, ref_haps,
+											family.mat_known, op.map, vcf)
+	elif NH >= 10:
+		NH2 = min(20, NH)
+		if family.mat_known:
+			gts = [ r.geno[0] for r in records ]
+			ref_haps = filter_haplotypes(ref_haps, gts, NH2)
+		else:
+			gts = [ r.geno[1] for r in records ]
+			ref_haps = filter_haplotypes(ref_haps, gts, NH2)
+		return VCFOneParentKnown(family.samples(), records, ref_haps,
+											family.mat_known, op.map, vcf)
+	else:
+		return None
+
 def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 									families: list[KnownFamily],
 									op: OptionSmall) -> Optional[VCFGenoBase]:
@@ -38,29 +59,14 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],
 	for family in families:
 		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family.samples())
-		NH = compute_upper_NH(family, len(vcf), len(families), op)
-		parent = vcf.samples[0] if family.mat_known else vcf.samples[1]
-		if is_small(ref_haps, len(families), op):
-			vcf1 = VCFOneParentKnown(vcf.samples, vcf.records,
-										ref_haps, ref_haps,
-										family.mat_known, op.map, orig_vcf)
-			vcf1.impute_known_parent()
-			vcf1_parent = vcf1.extract_by_samples([parent])
-			vcfs.append(vcf1_parent)
-		elif NH >= 10:
-			NH2 = min(20, NH)
-			gts_mat = [ r.geno[0] for r in vcf.records ]
-			gts_pat = [ r.geno[1] for r in vcf.records ]
-			ref_haps_mat = filter_haplotypes(ref_haps, gts_mat, NH2)
-			ref_haps_pat = filter_haplotypes(ref_haps, gts_pat, NH2)
-			ref_haps1 = ref_haps_mat if family.mat_known else ref_haps_pat
-			ref_haps2 = ref_haps_pat if family.mat_known else ref_haps_mat
-			vcf2 = VCFOneParentKnown(vcf.samples, vcf.records,
-										ref_haps1, ref_haps2,
-										family.mat_known, op.map, orig_vcf)
-			vcf2.impute_known_parent()
-			vcf2_parent = vcf2.extract_by_samples([parent])
-			vcfs.append(vcf2_parent)
+		parent = vcf.mat() if family.mat_known else vcf.pat()
+		vcf1 = create_family_vcf(family, vcf.records, len(families),
+													ref_haps, orig_vcf, op)
+		if vcf1 is None:
+			continue
+		vcf1.impute()
+		vcf1_parent = vcf1.extract_by_samples([parent])
+		vcfs.append(vcf1_parent)
 	
 	if not vcfs:
 		return None

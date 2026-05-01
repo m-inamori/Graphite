@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from VCF import VCFSmall
 from VCFGeno import VCFGenoBase
+from VCFSelfImputable import VCFSelfImputable
 from GenoRecord import GenoRecord
 from SelfParentImputerLessImputed import *
 from SelfProgenyImputer import *
@@ -14,30 +15,28 @@ from Map import *
 
 #################### VCFSelfNoImputedRough ####################
 
-class VCFSelfNoImputedRough(VCFGenoBase, VCFMeasurable):
+class VCFSelfNoImputedRough(VCFSelfImputable):
 	def __init__(self, samples: list[str],
 						records: list[GenoRecord],
 						ref_haps: list[list[int]],
 						map_: Map, vcf: VCFSmall) -> None:
-		VCFGenoBase.__init__(self, samples, vcf)
-		VCFMeasurable.__init__(self, map_)
+		VCFSelfImputable.__init__(self, samples, vcf)
 		self.records: list[GenoRecord] = records
 		self.parent_imputer = SelfParentImputerLessImputed(records, ref_haps,
 																	map_, 0.01)
 		self.prog_imputer = SelfProgenyImputer(records, map_, 0.01)
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
-	def get_samples(self) -> list[str]:
-		return self.samples
+	def get_records(self) -> list[GenoRecord]:
+		return self.records
 	
-	def num_progenies(self) -> int:
-		return len(self.get_samples()) - 1
-	
+	##### virtual methods for VCFSelfImputable #####
 	def impute(self) -> None:
 		self.parent_imputer.impute()
 		for iprog in range(self.num_progenies()):

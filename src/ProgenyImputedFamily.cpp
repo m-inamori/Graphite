@@ -12,45 +12,11 @@ using namespace std;
 
 //////////////////// ProgenyImputedFamily ////////////////////
 
-void ProgenyImputedFamily::impute_small_in_thread(void *config) {
-	auto	*c = static_cast<const ConfigThread *>(config);
-	const auto&	vcfs = c->vcfs;
-	const size_t	n = vcfs.size();
-	for(size_t i = c->first; i < n; i += c->num_threads) {
-		vcfs[i]->impute();
-	}
-}
-
-void ProgenyImputedFamily::impute_small_VCFs(vector<VCFProgenyImputed *>& vcfs,
-																		int T) {
-	vector<ConfigThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(i, T, vcfs);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-			(void *(*)(void *))&impute_small_in_thread, (void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		impute_small_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
-}
-
-VCFGeno *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
-								const VCFGenoBase *imputed_vcf,
-								const vector<const KnownFamily *>& families,
-								const vector<vector<string>>& imputed_progenies,
-								const vector<vector<int>>& ref_haps,
-								const OptionSmall& op) {
-	const size_t	L = families.size();
+vector<STRVEC> ProgenyImputedFamily::collect_samples(
+									const vector<const KnownFamily *>& families,
+									const vector<STRVEC>& imputed_progenies) {
 	// samples must survive until VCFSmall::join, so create them first.
+	const size_t	L = families.size();
 	vector<vector<string>>	sample_table(L);
 	for(size_t i = 0; i < L; ++i) {
 		const KnownFamily	*family = families[i];
@@ -62,8 +28,20 @@ VCFGeno *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 		samples[1] = progeny;
 		sample_table[i] = samples;
 	}
+	return sample_table;
+}
+
+VCFGeno *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
+								const VCFGenoBase *imputed_vcf,
+								const vector<const KnownFamily *>& families,
+								const vector<vector<string>>& imputed_progenies,
+								const vector<vector<int>>& ref_haps,
+								const OptionSmall& op) {
+	const auto	sample_table = collect_samples(families, imputed_progenies);
 	
-	vector<VCFProgenyImputed *>	small_vcfs;
+	vector<VCFImputable *>	vcfs;
+	vector<VCFFamily *>	vcf_garbage;
+	const size_t	L = families.size();
 	for(size_t i = 0; i < L; ++i) {
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf, orig_vcf,
@@ -72,21 +50,24 @@ VCFGeno *ProgenyImputedFamily::impute(const VCFSmall *orig_vcf,
 											  vcf->get_family_records(),
 											  ref_haps, family->is_mat_known(),
 											  op.map, 0.01, orig_vcf);
-		small_vcfs.push_back(vcf1);
+		vcfs.push_back(vcf1);
 		vcf->clear_records();
 		delete vcf;
 	}
 	
-	if(small_vcfs.empty())
+	if(vcfs.empty()) {
+		Common::delete_all(vcf_garbage);
 		return NULL;
+	}
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_small_VCFs(small_vcfs, op.num_threads);
-	cout << small_vcfs.size()
+	VCFImputable::impute_VCFs(vcfs, op.num_threads);
+	cout << vcfs.size()
 			<< " families whose progeny is imputed have been imputed." << endl;
 	
-	vector<const VCFGenoBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
-	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
-	Common::delete_all(small_vcfs);
+	vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
+	auto	*new_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
+	Common::delete_all(vcf_garbage);
+	Common::delete_all(vcfs);
 	return new_vcf;
 }

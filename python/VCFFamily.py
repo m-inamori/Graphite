@@ -100,15 +100,21 @@ class VCFFamily(VCFFamilyBase):
 		VCFFamilyBase.__init__(self, samples, vcf)
 		self.records: list[VCFFamilyRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### non-virtual methods #####
 	@staticmethod
 	def create(vcf: VCFSmall, samples: list[str]) -> VCFFamily:
 		columns = vcf.extract_columns(samples)

@@ -21,8 +21,11 @@ public:
 	virtual std::size_t size() const = 0;
 	virtual GenoRecord *get_record(std::size_t i) const = 0;
 	
+	VCFGeno *copy() const;
+	std::vector<GenoRecord *> get_geno_records() const;
 	ll get_pos(std::size_t i) const { return get_record(i)->get_pos(); }
 	const VCFSmall *get_ref_vcf() const { return vcf; }
+	void set_ref_vcf(const VCFSmall *vcf_) { vcf = vcf_; }
 	const STRVEC& get_samples() const { return samples; }
 	std::size_t num_samples() const { return samples.size(); }
 	
@@ -32,6 +35,12 @@ public:
 														int side) const;
 	void write(std::ostream& os, bool with_header=true) const;
 	VCFGeno *extract_by_samples(const STRVEC& samples) const;
+	
+private:
+	// For each sample in this VCF, determine which column index it corresponds to
+	// in the reference VCF. If a sample does not exist in the reference,
+	// its column index is set to 0.
+	std::vector<std::size_t> map_samples_to_reference_columns() const;
 };
 
 
@@ -51,15 +60,17 @@ public:
 	GenoRecord *get_record(std::size_t i) const override {
 		return records[i];
 	}
+	const std::vector<GenoRecord *>& get_records() const {
+		return records;
+	}
 	std::size_t size() const override { return records.size(); }
 	
 	///// non-virtual methods /////
-	const std::vector<GenoRecord *>& get_records() const { return records; }
 	void clear_records() { records.clear(); }
-	const VCFSmall *get_ref_vcf() const { return vcf; }
+	
+	std::vector<std::vector<int>> create_ref_haps() const;
 	
 	static VCFGeno *convert(const VCFSmall *vcf);
-	static VCFGeno *extract_samples(const STRVEC& samples, const VCFSmall *vcf);
 	
 	// join VCFs in order of samples
 	static VCFGeno *join(const std::vector<const VCFGenoBase *>& vcfs,
@@ -72,5 +83,12 @@ public:
 	static VCFGeno *create_by_two_vcfs(const VCFGenoBase *vcf1,
 											const VCFSmall *vcf2,
 											const STRVEC& samples);
+	
+public:
+	static VCFGeno *extract_samples(const STRVEC& samples,
+										const VCFSmall *vcf);
+	
+private:
+	
 };
 #endif

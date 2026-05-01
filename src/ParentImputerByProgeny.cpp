@@ -8,7 +8,7 @@ ParentImputerByProgeny::ParentImputerByProgeny(
 							const vector<VCFFamilyRecord *>& rs,
 							const vector<vector<int>>& ref_hs,
 							bool is_mat_known_, const Map& map_, double w) :
-					VCFHMM(rs, map_, w), records(rs), ref_haps(ref_hs),
+					VCFHMM(map_, w), records(rs), ref_haps(ref_hs),
 					prev_h_table(collect_possible_previous_hidden_states()),
 					is_mat_known(is_mat_known_),
 					Cc(calc_Cc(rs)), Cp(calc_Cp(rs)) { }

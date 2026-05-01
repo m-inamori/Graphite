@@ -28,13 +28,15 @@ class SampleException(ExceptionWithCode):
 class SampleManager:
 	def __init__(self, ped: PedigreeTable, large_families: list[KnownFamily],
 							large_self_families: list[KnownFamily],
-							small_families: list[KnownFamily], lower_p: int):
-		self.ped: PedigreeTable				= ped
-		self.large_families: list[KnownFamily]	= large_families
-		self.large_self_families: list[KnownFamily]	= large_self_families
-		self.small_families: list[KnownFamily]	= small_families
-		self.lower_progs: int				= lower_p
-		self.imputed_samples: set[str]		= set()
+							small_families: list[KnownFamily],
+							ref_samples: set[str], lower_p: int):
+		self.ped: PedigreeTable = ped
+		self.large_families: list[KnownFamily] = large_families
+		self.large_self_families: list[KnownFamily] = large_self_families
+		self.small_families: list[KnownFamily] = small_families
+		self.ref_samples: set[str] = ref_samples
+		self.lower_progs: int = lower_p
+		self.imputed_samples: set[str] = set()
 	
 	def set(self, samples: list[str]) -> None:
 		self.imputed_samples.update([ s for s in samples if s != '0' ])
@@ -43,7 +45,7 @@ class SampleManager:
 		self.imputed_samples.clear()
 	
 	def is_imputed(self, sample: str) -> bool:
-		return sample in self.imputed_samples
+		return sample in self.imputed_samples or sample in self.ref_samples
 	
 	def is_known(self, sample: str) -> bool:
 		return sample != '0'
@@ -51,9 +53,10 @@ class SampleManager:
 	def collect_reference(self) -> list[str]:
 		s = set(p for f in self.large_families
 							for p in f.known_parents())
-		self_families = self.extract_self_parent_imputed_families()
-		for family in self_families:
-			s.add(family.mat)
+		if not self.ref_samples:
+			self_families = self.extract_self_parent_imputed_families()
+			for family in self_families:
+				s.add(family.mat)
 		return sorted(s)
 	
 	def extract_unimputed_progenies(self, f: Family) -> list[str]:
@@ -192,7 +195,7 @@ class SampleManager:
 		samples = set(s for family in chain(self.small_families,
 											self.large_self_families)
 						for s in family.samples()
-						if s != '0' and s not in self.imputed_samples)
+						if s != '0' and not self.is_imputed(s))
 		return list(samples)
 	
 	def display_info(self, out: TextIO) -> None:
@@ -242,8 +245,8 @@ class SampleManager:
 		return new_families
 	
 	@staticmethod
-	def create(ped: PedigreeTable, samples: list[str], lower_progs: int,
-								family_indices: list[int]) -> SampleManager:
+	def create(ped: PedigreeTable, samples: list[str], ref: list[str],
+				lower_progs: int, family_indices: list[int]) -> SampleManager:
 		families = SampleManager.make_families(ped, samples, lower_progs)
 		if family_indices:	# debug用にFamilyを絞って問題を小さくする
 			families = [ families[i] for i in family_indices ]
@@ -262,8 +265,9 @@ class SampleManager:
 			else:
 				small_families.append(f)
 		
-		if not large_families and not large_self_families:
+		if not ref and not large_families and not large_self_families:
 			raise SampleException()
 		
+		ref_samples = set(ref)
 		return SampleManager(ped, large_families, large_self_families,
-													small_families, lower_progs)
+									small_families, ref_samples, lower_progs)

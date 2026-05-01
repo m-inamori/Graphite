@@ -105,7 +105,7 @@ VCFIsolated *VCFIsolated::create(const VCFSmall *orig_vcf,
 		for(auto p = columns.begin(); p != columns.end(); ++p)
 			geno.push_back(Genotype::all_gt_to_int(record->get_v()[*p]));
 		for(auto q = ref_columns.begin(); q != ref_columns.end(); ++q)
-			geno.push_back(imputed_record->get_geno()[*q]);
+			geno.push_back(imputed_record->get_geno(*q));
 		GenoRecord	*new_record = new GenoRecord(pos, geno);
 		records.push_back(new_record);
 	}

@@ -7,7 +7,7 @@ using namespace std;
 SelfParentImputer::SelfParentImputer(const vector<GenoRecord *>& rs,
 									 const vector<vector<int>>& ref_hs,
 									 size_t iprog, const Map& map_, double w) :
-			VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
+			VCFHMM(map_, w), records(rs), ref_haps(ref_hs),
 			ic(iprog), prev_h_table(collect_possible_previous_hidden_states()),
 			Cc(calc_Cc(rs)), Cp(calc_Cp(rs)),
 			Epc{{log(1.0-w*2),  log(w/2),     log(w/2),      log(w)},
@@ -100,7 +100,7 @@ vector<SelfParentImputer::DP> SelfParentImputer::initialize_dp() const {
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
 	const GenoRecord	*record = records[0];
 	const int	op = record->unphased(0);
-	const int	prog_gt = record->get_geno()[ic+1] & 3;
+	const int	prog_gt = record->get_geno(ic+1) & 3;
 	vector<int>	ocs;
 	for(size_t j = 0; j < num_progenies(); ++j) {
 		if(j != ic) {
@@ -140,7 +140,7 @@ void SelfParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const size_t	L = num_states();
 	const GenoRecord	*record = records[i];
 	const int	op = record->unphased(0);
-	const int	prog_gt = record->get_geno()[ic+1] & 3;
+	const int	prog_gt = record->get_geno(ic+1) & 3;
 	vector<int>	ocs;
 	for(size_t j = 0; j < num_progenies(); ++j) {
 		if(j != ic) {
@@ -163,7 +163,7 @@ void SelfParentImputer::update_dp(size_t i, vector<DP>& dp) const {
 void SelfParentImputer::update_genotypes(const vector<int>& hs) {
 	for(size_t i = 0; i < this->M(); ++i) {
 		GenoRecord	*record = records[i];
-		const int	prog_gt = record->get_geno()[ic+1];
+		const int	prog_gt = record->get_geno(ic+1);
 		const int	phased_gt = parent_genotype(hs[i], i, prog_gt);
 		record->set_geno(0, phased_gt | 4);
 	}

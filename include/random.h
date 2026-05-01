@@ -45,7 +45,6 @@ public:
 	
 	template<typename T>
 	std::vector<T> shuffle(const std::vector<T>& v) {
-		// tree‚ðŽg‚¦‚Î‘¬‚­‚È‚é
 		std::vector<T>	remains = v;
 		std::vector<T>	shuffled;
 		while(shuffled.size() < v.size()) {

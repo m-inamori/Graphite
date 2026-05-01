@@ -86,6 +86,9 @@ public:
 	std::vector<std::string> collect_large_family_parents() const;
 	void display_info() const;
 	
+	void add_imputed_sample(const std::string& sample) {
+		this->imputed_samples.insert(sample);
+	}
 	void add_imputed_samples(const std::vector<std::string>& samples);
 	void clear_imputed_samples();
 	
@@ -97,6 +100,7 @@ public:
 								const std::vector<std::size_t>& family_indices);
 	static SampleManager *create(const PedigreeTable *ped,
 								const std::vector<std::string>& samples,
+								const std::vector<std::string>& ref_samples,
 								size_t lower_progs,
 								const std::vector<std::size_t>& family_indices);
 };

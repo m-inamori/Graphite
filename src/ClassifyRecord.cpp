@@ -201,3 +201,34 @@ pair<ParentComb, WrongType> ClassifyRecord::classify_record_core(
 		return select_pair(combs, mat_gt, pat_gt);
 	}
 }
+
+pair<ParentComb, FillType> ClassifyRecord::classify_family_record(
+												const VCFFamilyRecord *record) {
+	if(record->is_NA(0) || record->is_NA(1))
+		return make_pair(ParentComb::PNA, FillType::IMPUTABLE);
+	
+	if(record->is_mat_hetero()) {
+		if(record->is_pat_hetero())
+			return make_pair(ParentComb::P01x01, FillType::IMPUTABLE);
+		else if(record->is_00(1))
+			return make_pair(ParentComb::P00x01, FillType::MAT);
+		else
+			return make_pair(ParentComb::P01x11, FillType::MAT);
+	}
+	else if(record->is_00(0)) {
+		if(record->is_pat_hetero())
+			return make_pair(ParentComb::P00x01, FillType::PAT);
+		else if(record->is_00(1))
+			return make_pair(ParentComb::P00x00, FillType::FILLED);
+		else
+			return make_pair(ParentComb::P00x11, FillType::FILLED);
+	}
+	else {
+		if(record->is_pat_hetero())
+			return make_pair(ParentComb::P01x11, FillType::PAT);
+		else if(record->is_00(1))
+			return make_pair(ParentComb::P00x11, FillType::FILLED);
+		else
+			return make_pair(ParentComb::P11x11, FillType::FILLED);
+	}
+}

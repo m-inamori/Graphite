@@ -32,7 +32,7 @@ public:
 	virtual ~RecordSet() { }
 	
 	int gt_each(std::size_t i, const VCFFillableRecord *record) const {
-		return record == NULL ? Genotype::NA : record->get_geno()[i];
+		return record == NULL ? Genotype::NA : record->get_geno(i);
 	}
 	int gt(std::size_t i) const { return gt_each(i, record); }
 	int prev_mat_gt(std::size_t i) const { return gt_each(i, prev_mat_record); }
@@ -59,7 +59,7 @@ public:
 			return 0;
 		
 		const std::size_t	i = mat ? 0 : 1;
-		const int	parent_gt = record->get_geno()[i];
+		const int	parent_gt = record->get_geno(i);
 		return (parent_gt & 1) == ((gt >> i) & 1) ? 1 : 2;
 	}
 	

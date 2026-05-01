@@ -78,7 +78,7 @@ RecordSet::Pair RecordSet::select_nearest_froms(
 // Prefer pairs that do not change the genotype
 RecordSet::Pair RecordSet::select_pair(const vector<Pair>& pairs,
 												size_t i, bool selected) const {
-	const int	gt = record->get_geno()[i];
+	const int	gt = record->get_geno(i);
 	if(pairs.empty())
 		return Pair(0, 0);
 	else if(pairs.size() == 1U)
@@ -290,7 +290,7 @@ int RecordSet::modify_gt(size_t i) const {
 	const int	next_pat_from = this->next_pat_from(i);
 	if((prev_mat_from == 0 && next_mat_from == 0) ||
 							(prev_pat_from == 0 && next_pat_from == 0)) {
-		return record->get_geno()[i];
+		return record->get_geno(i);
 	}
 	
 	vector<pair<int,int>>	pairs_ = {
@@ -323,7 +323,7 @@ int RecordSet::modify_gt(size_t i) const {
 		}
 		else {
 			// if both are 0, do nothing
-			return record->get_geno()[i];
+			return record->get_geno(i);
 		}
 	}
 	else {
@@ -448,13 +448,13 @@ vector<pair<int, int>> RecordSetSmall::possible_phasings() const {
 	
 	if(this->record->is_phased(0) || this->record->is_phased(1)) {
 		for(int gt = 0; gt < 4; ++gt) {
-			if(this->record->get_geno()[0] == (gt | 4)) {
+			if(this->record->get_geno(0) == (gt | 4)) {
 				vector<pair<int, int>>	phasings;
 				for(int g = 0; g < 4; ++g)
 					phasings.push_back(make_pair(gt, g));
 				return phasings;
 			}
-			else if(this->record->get_geno()[1] == (gt | 4)) {
+			else if(this->record->get_geno(1) == (gt | 4)) {
 				vector<pair<int, int>>	phasings;
 				for(int g = 0; g < 4; ++g)
 					phasings.push_back(make_pair(g, gt));

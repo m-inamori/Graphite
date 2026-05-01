@@ -28,7 +28,7 @@ public:
 	virtual ~SelfRecordSet() { }
 	
 	int gt_each(int i, const VCFSelfFillableRecord *record) const {
-		return record == NULL ? Genotype::NA : record->get_geno()[i];
+		return record == NULL ? Genotype::NA : record->get_geno(i);
 	}
 	int gt(int i) const { return gt_each(i, record); }
 	int prev_mat_gt(int i) const { return gt_each(i, prev_record); }
@@ -53,7 +53,7 @@ public:
 			return 0;
 		
 		const std::size_t	i = mat ? 0 : 1;
-		const int	parent_gt = record->get_geno()[i];
+		const int	parent_gt = record->get_geno(i);
 		return (parent_gt & 1) == ((gt >> i) & 1) ? 1 : 2;
 	}
 	

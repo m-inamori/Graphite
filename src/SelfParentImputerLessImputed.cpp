@@ -8,7 +8,7 @@ SelfParentImputerLessImputed::SelfParentImputerLessImputed(
 										const vector<GenoRecord *>& rs,
 									 	const vector<vector<int>>& ref_hs,
 										const Map& map_, double w) :
-					VCFHMM(rs, map_, w), records(rs), ref_haps(ref_hs),
+					VCFHMM(map_, w), records(rs), ref_haps(ref_hs),
 					prev_h_table(collect_possible_previous_hidden_states()),
 					Cp(calc_Cp(rs)),
 					Epc{{log(1.0-w*2),  log(w/2),     log(w/2),      log(w)},
@@ -105,8 +105,8 @@ void SelfParentImputerLessImputed::update_dp(size_t i, vector<DP>& dp) const {
 	const GenoRecord	*record = records[i];
 	const int	op = record->unphased(0);
 	vector<int>	ocs;	// observed progenies' genotypes
-	for(size_t i = 0; i != num_progenies(); ++i) {
-		ocs.push_back(record->unphased(i+1));
+	for(size_t j = 0; j != num_progenies(); ++j) {
+		ocs.push_back(record->unphased(j+1));
 	}
 	for(int h = 0; h < (int)L; ++h) {
 		const double	E_all = emission_probability(i, h, op, ocs);

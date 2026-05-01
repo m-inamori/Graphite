@@ -2,7 +2,7 @@
 # VCF.py
 
 from __future__ import annotations
-from typing import Dict, Generator, Iterator, Optional, IO, TextIO, Tuple
+from typing import Dict, Iterator, Optional, IO, TextIO, Tuple
 from abc import ABC, abstractmethod
 from itertools import *
 from math import log
@@ -228,7 +228,7 @@ class VCFHuge(VCFBase):
 	def get_header(self) -> list[list[str]]:
 		return self.header
 	
-	def divide_into_chromosomes(self) -> Generator[VCFSmall, None, None]:
+	def divide_into_chromosomes(self) -> Iterator[VCFSmall]:
 		for chr, v in groupby(self, key=VCFRecord.chrom):
 			yield VCFSmall(self.get_header(), list(v))
 	

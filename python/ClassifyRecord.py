@@ -4,11 +4,23 @@ from __future__ import annotations
 # ClassifyRecord.py
 
 from functools import reduce
+from enum import Enum
 
 from GenoRecord import GenoRecord
+from VCFFamily import VCFFamilyRecord
 from TypeDeterminer import *
 from Genotype import Genotype
 from common import *
+
+
+#################### FillType ####################
+
+class FillType(Enum):
+	MAT = 0
+	PAT = 1
+	FILLED = 2
+	IMPUTABLE = 3
+	UNABLE = 4
 
 
 #################### classify ####################
@@ -115,6 +127,33 @@ def classify_record_core(pairs: list[tuple[ParentComb, float]],
 			return (pairs[0][0], 'Modifiable')
 		else:
 			return (ParentComb.PNA, 'Mix')
+
+def classify_family_record(record: VCFFamilyRecord
+										) -> tuple[ParentComb, FillType]:
+	if record.is_mat_NA() or record.is_pat_NA():
+		return (ParentComb.PNA, FillType.IMPUTABLE)
+	
+	i = 0 if record.is_mat_hetero() else 1
+	j = 0 if record.is_pat_hetero() else 1
+	if (i, j) == (0, 0):		# 0/1 x 0/1
+		return (ParentComb.P01x01, FillType.IMPUTABLE)
+	elif (i, j) == (1, 0):		# 0/0 x 0/1 or 1/1 x 0/1
+		if record.is_00(0):
+			return (ParentComb.P00x01, FillType.PAT)
+		else:
+			return (ParentComb.P01x11, FillType.PAT)
+	elif (i, j) == (0, 1):		# 0/1 x 0/0 or 0/1 x 1/1
+		if record.is_00(1):
+			return (ParentComb.P00x01, FillType.MAT)
+		else:
+			return (ParentComb.P01x11, FillType.MAT)
+	else:
+		if record.is_00(0) and record.is_00(1):
+			return (ParentComb.P00x00, FillType.FILLED)
+		elif record.is_11(0) and record.is_11(1):
+			return (ParentComb.P11x11, FillType.FILLED)
+		else:													# 0/0 x 1/1
+			return (ParentComb.P00x11, FillType.FILLED)
 
 def prepare(n: int, p: float) -> None:
 	if (n, p) not in memo_tds:

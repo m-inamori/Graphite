@@ -31,12 +31,17 @@ class VCFSelfFillable(VCFGenoBase):
 		VCFGenoBase.__init__(self, samples, vcf)
 		self.records: list[VCFSelfFillableRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### non-virtual methods #####
 	def modify(self) -> None:
 		# FillTypeでrecordを分ける
 		groups = SelfGroups.create(self.records)

@@ -4,6 +4,7 @@
 #include "../include/VCFImpHeteroHomo.h"
 #include "../include/VCFOneParentImputed.h"
 #include "../include/VCFOneParentImputedRough.h"
+#include "../include/VCFOneParentImputedFast.h"
 #include "../include/VCFHeteroImpHomo.h"
 #include "../include/VCFSmallFillable.h"
 #include "../include/ReferenceHaplotype.h"
@@ -58,7 +59,7 @@ ImputedAndKnownFamily::classify_records(const STRVEC& samples,
 	array<vector<VCFFillableRecord *>, 4>	rss;
 	for(size_t index = 0; index < records.size(); ++index) {
 		VCFFamilyRecord	*record = records[index];
-		const vector<int>&	geno = record->get_geno();
+		const vector<int>&	geno = record->get_genos();
 		const auto	p = classify_record(record);
 		const ParentComb	comb = p.first;
 		const FillType		type = p.second;
@@ -72,7 +73,7 @@ ImputedAndKnownFamily::classify_records(const STRVEC& samples,
 	return rss;
 }
 
-VCFHeteroHomoOnePhased *ImputedAndKnownFamily::create(
+VCFImputable *ImputedAndKnownFamily::create(
 										const STRVEC& samples,
 										const vector<VCFFillableRecord *>& rs,
 										bool is_mat_hetero, bool is_mat_imputed,
@@ -81,11 +82,6 @@ VCFHeteroHomoOnePhased *ImputedAndKnownFamily::create(
 		return new VCFImpHeteroHomo(samples, rs, is_mat_hetero, gmap, vcf);
 	else
 		return new VCFHeteroImpHomo(samples, rs, is_mat_hetero, gmap, vcf);
-}
-
-bool ImputedAndKnownFamily::compare_record(const GenoRecord *a,
-											const GenoRecord *b) {
-	return a->get_pos() < b->get_pos();
 }
 
 VCFSmallFillable *ImputedAndKnownFamily::merge_vcf(
@@ -99,32 +95,6 @@ VCFSmallFillable *ImputedAndKnownFamily::merge_vcf(
 	}
 	std::sort(rs.begin(), rs.end(), ImputedAndKnownFamily::compare_record);
 	return new VCFSmallFillable(samples, rs, vcf);
-}
-
-VCFSmallFillable *ImputedAndKnownFamily::impute(const Family& family,
-											VCFFamily *vcf,
-											const STRVEC& non_imputed_parents,
-											const Map& gmap,
-											const VCFSmall *ref_vcf) {
-	const STRVEC&	samples = family.get_samples();
-	const auto&		records = vcf->get_family_records();
-	const auto	rss = classify_records(samples, records, ref_vcf);
-	const bool	is_mat_imp = std::find(non_imputed_parents.begin(),
-										non_imputed_parents.end(),
-										family.get_pat())
-												!= non_imputed_parents.end();
-	const auto&	rs_mat = rss[static_cast<int>(FillType::MAT)];
-	auto	*mat_vcf = create(samples, rs_mat, true, is_mat_imp, gmap, ref_vcf);
-	mat_vcf->impute();
-	delete mat_vcf;
-	const auto&	rs_pat = rss[static_cast<int>(FillType::PAT)];
-	auto	*pat_vcf = create(samples, rs_pat, false,
-											is_mat_imp, gmap, ref_vcf);
-	pat_vcf->impute();
-	delete pat_vcf;
-	auto	*merged_vcf = merge_vcf(samples, rss, ref_vcf);
-	merged_vcf->modify(1);
-	return merged_vcf;
 }
 
 // Is the computational cost sufficiently small even when using ref in HMM?
@@ -160,44 +130,48 @@ size_t ImputedAndKnownFamily::compute_upper_NH(const Family *family, size_t M,
 	return NH - 1;
 }
 
-void ImputedAndKnownFamily::impute_small_in_thread(void *config) {
-	auto	*c = static_cast<const ConfigThread *>(config);
-	const auto&	vcfs = c->vcfs;
-	const size_t	n = vcfs.size();
-	for(size_t i = c->first; i < n; i += c->num_threads) {
-		vcfs[i]->impute();
+VCFImputable *ImputedAndKnownFamily::create_family_vcf(
+									const Family *family,
+									const vector<VCFFamilyRecord *>& records,
+									bool is_mat_imputed,
+									int num_families,
+									const vector<vector<int>>& ref_haps,
+									const VCFSmall *orig_vcf,
+									const OptionSmall& op) {
+	const size_t	M = ref_haps[0].size();
+	const size_t	lower_NH = 10;
+	const size_t	upper_NH = 20;
+	const size_t	NH = compute_upper_NH(family, M, num_families, op);
+	if(is_small(family, ref_haps, num_families, op)) {
+		return new VCFOneParentImputed(family->get_samples(), records,
+												ref_haps, is_mat_imputed,
+												op.map, 0.01, orig_vcf);
 	}
-}
-
-void ImputedAndKnownFamily::impute_small_VCFs(
-								vector<VCFImputable *>& vcfs, int T) {
-	// VCFOneParentImputed is heavy for imputation,
-	// so make it multi-threaded and impute in order of processing load.
-	vector<VCFImputable *>	vcfs1(vcfs.begin(), vcfs.end());
-	std::sort(vcfs1.begin(), vcfs1.end(),
-				[](const VCFImputable * a, const VCFImputable * b) {
-					return a->amount() > b->amount();
-				}
-	);
-	
-	vector<ConfigThread *>	configs(T);
-	for(int i = 0; i < T; ++i)
-		configs[i] = new ConfigThread(i, T, vcfs1);
-	
-#ifndef DEBUG
-	vector<pthread_t>	threads_t(T);
-	for(int i = 0; i < T; ++i)
-		pthread_create(&threads_t[i], NULL,
-			(void *(*)(void *))&impute_small_in_thread, (void *)configs[i]);
-	
-	for(int i = 0; i < T; ++i)
-		pthread_join(threads_t[i], NULL);
-#else
-	for(int i = 0; i < T; ++i)
-		impute_small_in_thread(configs[i]);
-#endif
-	
-	Common::delete_all(configs);
+	else if(is_small_ref(ref_haps, num_families, op)) {
+		return new VCFOneParentImputedRough(family->get_samples(), records,
+													ref_haps, is_mat_imputed,
+													op.map, 0.01, orig_vcf);
+	}
+	else if(NH >= lower_NH) {
+		const size_t	NH3 = min(upper_NH, NH);
+		vector<int>	gts(M);
+		size_t	col = is_mat_imputed ? 1 : 0;
+		for(size_t j = 0; j < M; ++j) {
+			gts[j] = records[j]->get_geno(col);
+		}
+		// If ref_haps doesn't exist, create it. If it does, reuse it.
+		const auto	filtered_ref_haps =
+					ReferenceHaplotype::filter_haplotypes(ref_haps, gts, NH3);
+		return new VCFOneParentImputedRough(family->get_samples(),
+												records,
+												filtered_ref_haps,
+												is_mat_imputed,
+												op.map, 0.01, orig_vcf);
+	}
+	else {
+		return new VCFOneParentImputedFast(family->get_samples(), records,
+											is_mat_imputed, op.map, orig_vcf);
+	}
 }
 
 VCFGenoBase *ImputedAndKnownFamily::impute_by_parent(
@@ -211,13 +185,7 @@ VCFGenoBase *ImputedAndKnownFamily::impute_by_parent(
 	if(N == 0)
 		return NULL;
 	
-	vector<const VCFGenoBase *>	vcfs(N);
-	vector<VCFImputable *>	small_vcfs;
-	vector<VCFFamily *>	vcf_garbage;
-	const size_t	lower_NH = 10;
-	const size_t	upper_NH = 20;
-	// Save ref_haps here as we will impute them all together later.
-	vector<vector<vector<int>>>	ref_haps_table(N);
+	vector<VCFImputable *>	vcfs(N);
 	for(size_t i = 0; i < N; ++i) {
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
@@ -226,59 +194,21 @@ VCFGenoBase *ImputedAndKnownFamily::impute_by_parent(
 											   non_imputed_parents.end(),
 											   family->get_pat())
 										!= non_imputed_parents.end();
-		const size_t	M = vcf->size();
-		const size_t	NH = compute_upper_NH(family, M, N, op);
-		if(is_small(family, ref_haps, (int)N, op)) {
-			auto	*vcf1 = new VCFOneParentImputed(family->get_samples(),
-													vcf->get_family_records(),
-													ref_haps, is_mat_imputed,
-													op.map, 0.01, orig_vcf);
-			small_vcfs.push_back(vcf1);
-			vcfs[i] = vcf1;
-			// The records are being reused,
-			// so the original VCF is emptied before being deleted.
-		}
-		else if(is_small_ref(ref_haps, (int)N, op)) {
-			auto	*vcf2 = new VCFOneParentImputedRough(family->get_samples(),
-													vcf->get_family_records(),
-													ref_haps, is_mat_imputed,
-													op.map, 0.01, orig_vcf);
-			small_vcfs.push_back(vcf2);
-			vcfs[i] = vcf2;
-		}
-		else if(NH >= lower_NH) {
-			const size_t	NH3 = min(upper_NH, NH);
-			vector<int>	gts(M);
-			size_t	col = is_mat_imputed ? 1 : 0;
-			for(size_t j = 0; j < vcf->size(); ++j) {
-				gts[j] = vcf->get_record(j)->get_geno()[col];
-			}
-			// If ref_haps doesn't exist, create it. If it does, reuse it.
-			ref_haps_table[i] =
-					ReferenceHaplotype::filter_haplotypes(ref_haps, gts, NH3);
-			auto	*vcf3 = new VCFOneParentImputedRough(vcf->get_samples(),
-													vcf->get_family_records(),
-													ref_haps_table[i],
-													is_mat_imputed,
-													op.map, 0.01, orig_vcf);
-			small_vcfs.push_back(vcf3);
-			vcfs[i] = vcf3;
-		}
-		else {
-			auto	*vcf4 = impute(*family, vcf, non_imputed_parents,
-															op.map, orig_vcf);
-			vcfs[i] = vcf4;
-		}
+		// vcfs[i] reuses the record objects from vcf.
+		// Clear the records before deleting vcf;
+		// otherwise deleting vcf would also delete the records used by vcfs[i].
+		vcfs[i] = create_family_vcf(family, vcf->get_family_records(),
+									is_mat_imputed, N, ref_haps, orig_vcf, op);
 		vcf->clear_records();
-		vcf_garbage.push_back(vcf);
+		delete vcf;
 	}
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	impute_small_VCFs(small_vcfs, op.num_threads);
+	VCFImputable::impute_VCFs(vcfs, op.num_threads);
 	cout << N << " families whose one parent is imputed and the other parent"
 									<< " is known have been imputed." << endl;
-	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
-	Common::delete_all(vcf_garbage);
+	vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
+	auto	*new_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
 }

@@ -3,7 +3,8 @@ from __future__ import annotations
 # coding: utf-8
 # VCFJunkRecord.py
 
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
+from ClassifyRecord import FillType
 from TypeDeterminer import ParentComb
 
 

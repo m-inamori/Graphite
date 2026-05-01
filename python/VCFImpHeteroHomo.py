@@ -9,10 +9,11 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
 
 from VCF import VCFSmall
 from GenoRecord import GenoRecord
+from VCFFillableRecord import VCFFillableRecord
 from VCFFamily import *
-from VCFImpFamilyRecord import FillType
-from VCFHeteroHomoOnePhased import *
+from VCFImputable import *
 from Map import *
+from ClassifyRecord import FillType
 from Genotype import Genotype
 import Imputer
 from option import *
@@ -20,22 +21,30 @@ from option import *
 
 #################### VCFImpHeteroHomo ####################
 
-class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
+class VCFImpHeteroHomo(VCFImputable, VCFMeasurable):
 	def __init__(self, samples: list[str],
 						records: list[VCFFillableRecord],
 						is_mat_hetero: bool, map_: Map, vcf: VCFSmall):
-		VCFHeteroHomoOnePhased.__init__(self, samples, records,
-												is_mat_hetero, map_, vcf)
+		VCFImputable.__init__(self, samples, vcf)
+		VCFMeasurable.__init__(self, map_)
+		self.records: list[VCFFillableRecord] = records
+		self.is_mat_hetero: bool = is_mat_hetero
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### non-virtual methods #####
 	def imputed_index(self) -> int:
 		return 0 if self.is_mat_hetero else 1
 	
@@ -122,6 +131,7 @@ class VCFImpHeteroHomo(VCFHeteroHomoOnePhased):
 			else:
 				record.geno[j] = Genotype.from_alleles(a_homo, a_hetero)
 	
+	##### virtual methods for VCFImputable #####
 	def impute(self) -> None:
 		if not self.records:
 			return

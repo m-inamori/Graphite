@@ -15,7 +15,7 @@ public:
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<VCFFamilyRecord *>&	ref_records;
+	const std::vector<VCFFamilyRecord *>	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const bool is_mat_imputed;
@@ -37,17 +37,11 @@ private:
 	std::size_t NH() const { return ref_haps.size(); }
 	std::size_t M() const { return ref_haps[0].size(); }
 	std::size_t num_progenies() const {
-		return ref_records[0]->num_samples() - 2;
+		return records[0]->num_samples() - 2;
 	}
 	
 	int gt_by_haplotypes(int hc1, int hc2, int mat_gt, int pat_gt) const {
 		return ((mat_gt >> hc1) & 1) | (((pat_gt >> hc2) & 1) << 1);
-	}
-	
-	int compute_phased_gt_by_refhaps(int hp, std::size_t i) const {
-		const int	hp1 = hp % NH();
-		const int	hp2 = hp / NH();
-		return ref_haps[hp1][i] | (ref_haps[hp2][i] << 1);
 	}
 	
 	double emission_probability(std::size_t i, int h, int op,

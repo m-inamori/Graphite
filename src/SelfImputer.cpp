@@ -7,7 +7,7 @@ using namespace std;
 SelfImputer::SelfImputer(const vector<GenoRecord *>& rs,
 							const vector<vector<int>>& ref_hs,
 							const Map& map_, double w) :
-					VCFHMM(rs, map_, w), records(rs),
+					VCFHMM(map_, w), records(rs),
 					ref_haps(ref_hs),
 					prev_h_table(collect_possible_previous_hidden_states()),
 					Cc(calc_Cc(rs)), Cp(calc_Cp(rs))
@@ -109,7 +109,7 @@ double SelfImputer::progs_emission_probability(int hc, const vector<int>& ocs,
 }
 
 double SelfImputer::emission_probability(int i, int h, int op,
-											std::vector<int>& ocs) const {
+											const std::vector<int>& ocs) const {
 	const auto	t = decode_state(h);
 	const int	hp1 = get<0>(t);
 	const int	hp2 = get<1>(t);

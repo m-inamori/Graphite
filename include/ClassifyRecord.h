@@ -7,13 +7,22 @@
 #include "TypeDeterminer.h"
 
 
+class GenoRecord;
+class VCFFamilyRecord;
+
+
+//////////////////// WrongType ////////////////////
+
 enum class WrongType {
 	RIGHT, MODIFIABLE, UNMODIFIABLE, MIX, UNSPECIFIED
 };
 
-class GenoRecord;
-class VCFFamilyRecord;
 
+//////////////////// FillType ////////////////////
+
+enum class FillType {
+	MAT = 0, PAT, FILLED, IMPUTABLE, UNABLE
+};
 
 
 //////////////////// ClassifyRecord ////////////////////
@@ -43,6 +52,8 @@ public:
 	std::pair<ParentComb, WrongType> classify_self_record(
 												const GenoRecord *record,
 												const TypeDeterminer *td);
+	static std::pair<ParentComb, FillType> classify_family_record(
+												const VCFFamilyRecord *record);
 	
 private:
 	std::array<int, 3> count_int_gts(const std::vector<int>& gts) const;

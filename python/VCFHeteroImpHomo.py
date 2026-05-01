@@ -5,20 +5,21 @@ from __future__ import annotations
 # phasingされている方がホモのヘテロ×ホモファミリー
 
 from collections import defaultdict, Counter
-from typing import List, Tuple, Optional, IO, Dict, Iterator, Sequence
+from typing import Iterator
 
 from VCF import VCFSmall
 from GenoRecord import GenoRecord
 from VCFFamily import *
 from VCFFillable import *
-from VCFImpFamilyRecord import FillType
-from VCFHeteroHomoOnePhased import *
+from VCFImputable import VCFImputable
+from VCFFillableRecord import VCFFillableRecord
 from Map import *
 from Genotype import Genotype
 import ClassifyRecord
 import Imputer
 from group import Groups
 from RecordSet import RecordSet
+from ClassifyRecord import FillType
 from option import *
 
 
@@ -83,22 +84,30 @@ class Value:
 
 #################### VCFHeteroImpHomo ####################
 
-class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
+class VCFHeteroImpHomo(VCFImputable):
 	def __init__(self, samples: list[str],
 						records: list[VCFFillableRecord],
 						is_mat_hetero: bool, map_: Map, vcf: VCFSmall):
-		VCFHeteroHomoOnePhased.__init__(self, samples, records,
-												is_mat_hetero, map_, vcf)
+		VCFImputable.__init__(self, samples, vcf)
+		self.records: list[VCFFillableRecord] = records
+		self.is_mat_hetero: bool = is_mat_hetero
+		self.gmap: Map = map_
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### non-virtual methods #####
 	def get_samples(self) -> list[str]:
 		return self.samples
 	
@@ -108,6 +117,7 @@ class VCFHeteroImpHomo(VCFHeteroHomoOnePhased):
 	def unimputed_index(self) -> int:
 		return 0 if self.is_mat_hetero else 1
 	
+	##### virtual methods for VCFImputable #####
 	def impute(self) -> None:
 		INF = 10**9
 		def init_dp(n: int) -> list[Value]:

@@ -73,7 +73,7 @@ namespace SmallFamily {
 	
 	VCFGeno *impute_small_family(
 						const VCFSmall *orig_vcf, VCFGeno *merged_vcf,
-						const Map& geno_map, const Option *option,
+						const Map& geno_map, const Option& option,
 						SampleManager *sample_man);
 	
 	VCFGeno *impute_non_imputed_samples(

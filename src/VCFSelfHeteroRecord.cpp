@@ -6,7 +6,7 @@ using namespace std;
 //////////////////// VCFSelfHeteroRecord ////////////////////
 
 vector<int> VCFSelfHeteroRecord::progeny_gts() const {
-	const vector<int>&	geno = this->get_geno();
+	const vector<int>&	geno = this->get_genos();
 	return vector<int>(geno.begin() + 1, geno.end());
 }
 

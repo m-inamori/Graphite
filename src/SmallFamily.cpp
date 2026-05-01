@@ -219,7 +219,6 @@ VCFGeno *SmallFamily::impute_vcf_by_known_parent(const VCFSmall *orig_vcf,
 	delete merged_vcf;
 	sample_man->add_imputed_samples(vcf->get_samples());
 	delete vcf;
-//	Common::delete_all(families);
 	return new_merged_vcf;
 }
 
@@ -280,12 +279,12 @@ VCFGeno *SmallFamily::impute_non_imputed_samples(const VCFSmall *orig_vcf,
 VCFGeno *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 											VCFGeno *merged_vcf,
 											const Map& geno_map,
-											const Option *option,
+											const Option& option,
 											SampleManager *sample_man) {
-	OptionSmall	op_small(geno_map, option->num_threads,
-										option->precision_ratio,
-										option->imputes_isolated_samples,
-										option->outputs_unimputed_samples);
+	OptionSmall	op_small(geno_map, option.num_threads,
+									option.precision_ratio,
+									option.imputes_isolated_samples,
+									option.outputs_unimputed_samples);
 	const auto	ref_haps = ReferenceHaplotype::extract_haplotypes(merged_vcf,
 																	sample_man);
 	// Repeat until there are no more families to impute

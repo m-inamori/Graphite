@@ -28,9 +28,6 @@ public:
 private:
 	std::vector<double> calc_Cc(const std::vector<GenoRecord *>& rs) const;
 	std::size_t M() const { return records.size(); }
-	std::size_t num_progenies() const {
-		return records[0]->num_samples() - 1;
-	}
 	
 	int progeny_genotype(int h, int parent_gt) const {
 		const int	hc1 = h & 1;

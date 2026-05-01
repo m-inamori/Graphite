@@ -6,9 +6,10 @@ from __future__ import annotations
 from typing import Optional, Iterator, List, Tuple
 from itertools import *
 
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from RecordSet import RecordSet, RecordSetSmall
+from ClassifyRecord import FillType
 
 Group = Tuple[FillType, List[VCFFillableRecord]]
 

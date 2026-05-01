@@ -10,7 +10,8 @@ from typing import List, Tuple, Optional, IO, Dict, Iterator
 from VCF import VCFSmall
 from VCFGeno import VCFGenoBase, VCFGeno
 from GenoRecord import GenoRecord
-from VCFImputable import *
+from Haplotype import *
+import RefCommon
 from Genotype import Genotype
 from OptionSmall import *
 
@@ -18,19 +19,25 @@ from OptionSmall import *
 #################### VCFIsolated ####################
 
 # imputed samples at the beginning, followed by reference samples
-class VCFIsolated(VCFImputable):
+class VCFIsolated(VCFGenoBase, VCFMeasurable):
 	def __init__(self, samples: list[str], num_imputed_samples: int,
 						records: list[GenoRecord], map_: Map, vcf: VCFSmall):
-		VCFImputable.__init__(self, samples, map_, vcf)
+		VCFGenoBase.__init__(self, samples, vcf)
+		VCFMeasurable.__init__(self, map_)
 		self.records: list[GenoRecord] = records
 		self.num_imputed_samples = num_imputed_samples
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### non-virtual methods #####
 	# divide VCF by 1 cM
 	def divide_by_cM(self) -> Iterator[VCFIsolated]:
 		# 1cMを超えても10個以内で10cM以内なら塊とみなす
@@ -57,6 +64,42 @@ class VCFIsolated(VCFImputable):
 	
 	def collect_haplotypes_pat(self, sample_index: int) -> list[Haplotype]:
 		return self.collect_haplotype_from_refs()
+	
+	def clip_haplotype(self, sample_index: int, side: int) -> Haplotype:
+		hap = self.clip_raw_haplotype(sample_index, side)
+		return Haplotype(hap, sample_index, side)
+	
+	def is_block(self, record: GenoRecord, rs: list[GenoRecord]) -> bool:
+		length = self.cM(record.pos) - self.cM(rs[0].pos)
+		if length < 1.0:
+			return True
+		elif len(rs) < 10 and length < 10.0:
+			return True
+		else:
+			return False
+	
+	def get_int_gts(self, sample_index: int) -> list[int]:
+		int_gts: list[int] = [ self.get_record(i).unphased(sample_index)
+												for i in range(len(self)) ]
+		return int_gts
+	
+	def impute_cM_each_sample(self, prev_hap: HaplotypePair,
+								sample_index: int, exec: bool) -> HaplotypePair:
+		int_gts: list[int] = self.get_int_gts(sample_index)
+		haps_mat: list[Haplotype] = self.collect_haplotypes_mat(sample_index)
+		haps_pat: list[Haplotype] = self.collect_haplotypes_pat(sample_index)
+		seed: int = self.get_record(0).pos
+		hap = Haplotype.impute(int_gts, haps_mat, haps_pat, prev_hap, seed)
+		if exec:	# actually impute?
+			self.set_haplotype(hap, sample_index)
+		return hap
+	
+	def set_haplotype(self, hap: HaplotypePair, sample_index: int) -> None:
+		hap_mat, hap_pat = hap
+		for i in range(len(self)):
+			record = self.get_record(i)
+			gt = hap_mat.hap[i] | (hap_pat.hap[i] << 1) | 4
+			record.geno[sample_index] = gt
 	
 	def impute_cM(self, prev_haps: list[HaplotypePair]) -> list[HaplotypePair]:
 		haps: list[HaplotypePair] = []
@@ -93,5 +136,15 @@ class VCFIsolated(VCFImputable):
 		vcf = VCFIsolated(new_samples, len(samples),
 								new_records, op.map, orig_vcf)
 		return vcf
+	
+	@staticmethod
+	def create_ref(orig_vcf: VCFSmall, phased_vcf: VCFGeno,
+						samples: list[str], references: list[str],
+						op: OptionSmall) -> VCFIsolated:
+		vcf = VCFGeno.extract_samples(samples, orig_vcf);
+		new_samples = samples + references
+		records = RefCommon.merge_records(phased_vcf, vcf, new_samples)
+		return VCFIsolated(new_samples, len(samples),
+									records, op.map, orig_vcf)
 
 __all__ = ['VCFIsolated']

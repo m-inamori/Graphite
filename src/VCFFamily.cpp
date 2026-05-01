@@ -24,6 +24,15 @@ vector<int> VCFFamilyRecord::progeny_gts() const {
 	return w;
 }
 
+vector<int> VCFFamilyRecord::extract_sample_genotypes(size_t c,
+									const vector<VCFFamilyRecord *>& records) {
+	vector<int>	gts(records.size());
+	for(size_t i = 0; i < records.size(); ++i) {
+		gts[i] = records[i]->get_geno(c);
+	}
+	return gts;
+}
+
 
 //////////////////// VCFFamily ////////////////////
 
@@ -70,7 +79,7 @@ VCFFamily *VCFFamily::create_by_two_vcfs(const VCFGenoBase *vcf1,
 	vector<VCFFamilyRecord *>	new_records;
 	for(size_t i = 0; i < vcf1->size(); ++i) {
 		const ll	pos = vcf1->get_pos(i);
-		const auto&	geno1 = vcf1->get_record(i)->get_geno();
+		const auto&	geno1 = vcf1->get_record(i)->get_genos();
 		const auto&	v2 = vcf2->get_record(i)->get_v();
 		vector<int>	geno;
 		for(size_t j = 0; j < samples.size(); ++j) {

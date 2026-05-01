@@ -5,7 +5,7 @@ from __future__ import annotations
 # 自殖でimputedなサンプルが一つもない
 
 from VCF import VCFSmall
-from VCFGeno import VCFGenoBase
+from VCFSelfImputable import VCFSelfImputable
 from GenoRecord import GenoRecord
 from SelfImputer import SelfImputer
 from Map import *
@@ -13,27 +13,25 @@ from Map import *
 
 #################### VCFSelfNoImputed ####################
 
-class VCFSelfNoImputed(VCFGenoBase, VCFMeasurable):
+class VCFSelfNoImputed(VCFSelfImputable):
 	def __init__(self, samples: list[str],
 						records: list[GenoRecord],
 						ref_haps: list[list[int]],
 						map_: Map, vcf: VCFSmall) -> None:
-		VCFGenoBase.__init__(self, samples, vcf)
-		VCFMeasurable.__init__(self, map_)
+		VCFSelfImputable.__init__(self, samples, vcf)
 		self.records: list[GenoRecord] = records
 		self.imputer = SelfImputer(records, ref_haps, map_, 0.01)
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
-	def get_samples(self) -> list[str]:
-		return self.samples
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
 	
-	def num_progenies(self) -> int:
-		return len(self.get_samples()) - 1
-	
+	##### virtual methods for VCFGenoBase #####
 	def impute(self) -> None:
 		self.imputer.impute()

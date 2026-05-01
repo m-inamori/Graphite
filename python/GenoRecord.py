@@ -19,6 +19,9 @@ class GenoRecord(ABC):
 		self.pos: int = pos
 		self.geno: list[int] = geno
 	
+	def copy(self) -> GenoRecord:
+		return GenoRecord(self.pos, self.geno[:])
+	
 	def num_samples(self) -> int:
 		return len(self.geno)
 	
@@ -59,10 +62,62 @@ class GenoRecord(ABC):
 	def unphased_gts(self) -> list[int]:
 		return [ self.unphased(i) for i in range(self.num_samples()) ]
 	
-	def write(self, record: VCFRecord, out: TextIO) -> None:
+	@staticmethod
+	def default_info(record: VCFRecord) -> str:
+		w = record.v[9].split(':')
+		w1 = []
+		for u in w[1:]:
+			t = u.split(',')
+			u1 = ','.join(['.']*len(t))
+			w1.append(u1)
+		return ':'.join(w1)
+	
+	@staticmethod
+	def extra_info(record: VCFRecord, c: int, def_info: str) -> str:
+		if c == 0:
+			return def_info
+		else:
+			return record.v[c][4:]
+	
+	# Write a VCF record to the output stream.
+	#
+	# This method outputs one VCF record, including per-sample fields.
+	# For each sample, the genotype (GT) is always written based on the
+	# internally stored integer representation.
+	#
+	# For additional per-sample FORMAT fields (i.e., fields other than GT):
+	# - If the original extra information exists in the input record,
+	#   it is preserved and written.
+	# - Otherwise, default values are generated and used instead.
+	#
+	# The final record is written as a tab-separated line in standard VCF format.
+	def write(self, record: VCFRecord, columns: list[int], out: TextIO) -> None:
+		# Take the first 9 standard VCF fields (CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT)
+		# from the given VCFRecord.
 		v = record.v[:9]
+		
+		# Prepare the default per-sample auxiliary information (fields other than GT).
+		# This will be used when the original extra information is not available.
+		def_info = GenoRecord.default_info(record)
+		
+		# Iterate over all genotype entries stored in self.geno (one per sample).
 		for i in range(len(self.geno)):
+			# Get the integer-encoded genotype for the i-th sample.
 			gt = self.geno[i]
-			gt_orig = record.v[i+9]
-			v.append(Genotype.int_to_all_gt(gt) + gt_orig[3:])
+			
+			# Try to retrieve the original extra information (non-GT fields) for this sample.
+			# If not available, fall back to the default information prepared above.
+			ex_info = GenoRecord.extra_info(record, columns[i], def_info)
+			
+			# Convert the integer genotype to its string representation (e.g., "0/1").
+			# If extra information exists, append it after ":" as in standard VCF FORMAT fields.
+			if ex_info != '':
+				s = Genotype.int_to_all_gt(gt) + ':' + ex_info
+			else:
+				s = Genotype.int_to_all_gt(gt)
+			
+			# Append the formatted sample field to the VCF record fields.
+			v.append(s)
+		
+		# Write the complete VCF record as a tab-separated line to the output stream.
 		write_tsv(v, out)

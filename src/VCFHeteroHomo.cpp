@@ -273,7 +273,6 @@ string VCFHeteroHomo::clean_each_sample_seq(size_t i,
 void VCFHeteroHomo::clean_each_sample(size_t i, const vector<double>& cMs,
 																double min_c) {
 	const string	cleaned_seq = clean_each_sample_seq(i, cMs, min_c);
-	vector<int>	ws(this->size());
 	for(size_t k = 0; k < this->size(); ++k) {
 		VCFHeteroHomoRecord	*record = this->records[k];
 		const int	w = cleaned_seq.c_str()[k] - '0';
@@ -366,8 +365,8 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 		const VCFHeteroHomoRecord	*record1 = this->records[k];
 		const VCFHeteroHomoRecord	*record2 = other->records[l];
 		if(record1->get_pos() == record2->get_pos()) {
-			if(record1->get_geno()[hetero_index1] ==
-						record2->get_geno()[hetero_index2])
+			if(record1->get_geno(hetero_index1) ==
+						record2->get_geno(hetero_index2))
 				num_match += 1;
 			else
 				num_unmatch += 1;
@@ -384,7 +383,7 @@ pair<int, int> VCFHeteroHomo::match(const VCFHeteroHomo *other) const {
 void VCFHeteroHomo::inverse_hetero_parent_phases() {
 	const int	hetero_index = this->is_mat_hetero() ? 0 : 1;
 	for(auto p = this->records.begin(); p != this->records.end(); ++p) {
-		if((*p)->get_geno()[hetero_index] == Genotype::PH_01)
+		if((*p)->get_geno(hetero_index) == Genotype::PH_01)
 			(*p)->set_geno(hetero_index, Genotype::PH_10);
 		else
 			(*p)->set_geno(hetero_index, Genotype::PH_01);

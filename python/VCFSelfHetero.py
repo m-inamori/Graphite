@@ -36,14 +36,19 @@ class VCFSelfHetero(VCFGenoBase, VCFMeasurable):
 		self.records = records
 		self.prog_imputer = SelfProgenyImputer(records, map_, 0.01)
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
-	def num_progenies(self) -> int:
-		return self.num_samples() - 1
-	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
+	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### non-virtual methods #####
+	def num_progenies(self) -> int:
+		return self.num_samples() - 1
 	
 	def make_graph(self, max_dist: float) -> InvGraph:
 		# ベータ分布を使うので、distはfloat

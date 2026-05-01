@@ -5,13 +5,12 @@
 using namespace std;
 
 template<typename R>
-VCFHMM<R>::VCFHMM(const std::vector<R *>& rs,
-									const Map& map_, double w) :
-				VCFMeasurable(map_), records(rs),
-				E{{log(1.0-w*2), log(w/2),     log(w/2),     log(w)},
-				  {log(w/2),     log(1.0-w*2), log(w/2),     log(w)},
-				  {log(w/2),     log(1.0-w*2), log(w/2),     log(w)},
-				  {log(w/2),     log(w/2),     log(1.0-w*2), log(w)}} { }
+VCFHMM<R>::VCFHMM(const Map& map_, double w) :
+				VCFMeasurable(map_),
+				E{{{{log(1.0-w*2), log(w/2),     log(w/2),     log(w)}},
+				   {{log(w/2),     log(1.0-w*2), log(w/2),     log(w)}},
+				   {{log(w/2),     log(1.0-w*2), log(w/2),     log(w)}},
+				   {{log(w/2),     log(w/2),     log(1.0-w*2), log(w)}}}} { }
 
 template<typename R>
 vector<int> VCFHMM<R>::trace_back(const vector<DP>& dps) const {

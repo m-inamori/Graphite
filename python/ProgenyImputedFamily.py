@@ -14,6 +14,18 @@ from Map import *
 from KnownFamily import KnownFamily
 from OptionSmall import OptionSmall
 
+
+#################### ProgenyImputedFamily ####################
+
+def impute_family(family: KnownFamily, samples: list[str],
+					records: list[VCFFamilyRecord],
+					num_families: int, ref_haps: list[list[int]],
+					vcf: VCFSmall, op: OptionSmall) -> VCFGenoBase:
+	vcf1 = VCFProgenyImputed(samples, records, ref_haps,
+										family.mat_known, op.map, vcf)
+	vcf1.impute()
+	return vcf1
+
 def impute(orig_vcf: VCFSmall, merged_vcf: VCFGenoBase,
 			families: list[KnownFamily], imputed_progenies: list[list[str]],
 			ref_haps: list[list[int]], op: OptionSmall) -> Optional[VCFGeno]:
@@ -24,9 +36,8 @@ def impute(orig_vcf: VCFSmall, merged_vcf: VCFGenoBase,
 		progeny = imputed_progenies[i][0]
 		samples = [parent, progeny]
 		vcf = VCFFamily.create_by_two_vcfs(merged_vcf, orig_vcf, samples)
-		vcf1 = VCFProgenyImputed(samples, vcf.records, ref_haps,
-											family.mat_known, op.map, orig_vcf)
-		vcf1.impute()
+		vcf1 = impute_family(family, samples, vcf.records,
+									len(families), ref_haps, orig_vcf, op)
 		vcfs.append(vcf1)
 	
 	if not vcfs:

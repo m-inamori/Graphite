@@ -114,8 +114,6 @@ void VCFHeteroImpHomo::trace_back(State state, const vector<DP>& dps) {
 		const char	gt_imp = record->get_allele(imputed_index(), 0);
 		for(size_t j = 2; j < get_samples().size(); ++j) {
 			const int	h = state.haplotype(j-2);
-//if(j >= record->get_geno().size())
-//cerr << "j : " << j << " size : " << get_samples().size() << " " << record->get_geno().size() << endl;
 			if(is_mat_hetero)
 				record->set_geno(j, Genotype::from_alleles(order^h, gt_imp));
 			else

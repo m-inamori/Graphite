@@ -6,6 +6,23 @@ using namespace std;
 
 //////////////////// VCFGenoBase ////////////////////
 
+VCFGeno *VCFGenoBase::copy() const {
+	vector<string>	new_samples(samples.size());
+	std::copy(samples.begin(), samples.end(), new_samples.begin());
+	vector<GenoRecord *>	new_records(size());
+	for(size_t i = 0; i < size(); ++i) {
+		new_records[i] = get_record(i)->copy();
+	}
+	return new VCFGeno(new_samples, new_records, vcf);
+}
+
+vector<GenoRecord *> VCFGenoBase::get_geno_records() const {
+	vector<GenoRecord *>	records;
+	for(size_t i = 0; i < size(); ++i)
+		records.push_back(get_record(i));
+	return records;
+}
+
 vector<size_t> VCFGenoBase::extract_columns(const STRVEC& samples) const {
 	map<string, size_t>	dic;	// { sample: column }
 	for(size_t i = 0; i < this->samples.size(); ++i)
@@ -26,7 +43,7 @@ vector<int> VCFGenoBase::extract_sample_genotypes(size_t sample_index) const {
 	vector<int>	gts;
 	for(size_t j = 0; j < size(); ++j) {
 		const GenoRecord	*record = get_record(j);
-		const int	gt = record->get_geno()[sample_index];
+		const int	gt = record->get_geno(sample_index);
 		gts.push_back(gt);
 	}
 	return gts;
@@ -37,19 +54,44 @@ vector<int> VCFGenoBase::clip_raw_haplotype(size_t sample_index,
 	vector<int>	hap;
 	for(size_t j = 0; j < size(); ++j) {
 		const GenoRecord	*record = get_record(j);
-		const int	gt = record->get_geno()[sample_index];
+		const int	gt = record->get_geno(sample_index);
 		hap.push_back((gt >> side) & 1);
 	}
 	return hap;
 }
 
-void VCFGenoBase::write(ostream& os, bool with_header) const {
-	if(with_header)
-		this->vcf->write_header(os);
+vector<size_t> VCFGenoBase::map_samples_to_reference_columns() const {
+	// Build a dictionary: reference sample name -> column index in VCF
+	// (+9 because VCF sample columns start after the first 9 fixed fields)
+	map<string, size_t>	dic_col;
+	const STRVEC&	ref_samples = vcf->get_samples();
+	for(size_t i = 0; i != ref_samples.size(); ++i) {
+		dic_col[ref_samples[i]] = i + 9;
+	}
 	
+	// Prepare result vector initialized with 0
+	// (0 means the sample does not exist in the reference VCF)
+	vector<size_t>	columns(samples.size(), 0);
+	// For each sample in this VCF, look up its column index in the reference
+	for(size_t i = 0; i < samples.size(); ++i) {
+		auto	q = dic_col.find(samples[i]);
+		if(q != dic_col.end())
+			columns[i] = q->second;
+	}
+	return columns;
+}
+
+void VCFGenoBase::write(ostream& os, bool with_header) const {
+	if(with_header) {
+		const auto	header = vcf->trim_header(samples);
+		for(auto p = header.begin(); p != header.end(); ++p)
+			Common::write_tsv(*p, os);
+	}
+	
+	const vector<size_t>	columns = map_samples_to_reference_columns();
 	for(size_t i = 0; i < this->size(); ++i) {
 		const GenoRecord	*record = this->get_record(i);
-		record->write(vcf->get_record(i), os);
+		record->write(vcf->get_record(i), columns, os);
 	}
 }
 
@@ -61,7 +103,7 @@ VCFGeno *VCFGenoBase::extract_by_samples(const STRVEC& samples) const {
 		const ll	pos = record->get_pos();
 		vector<int>	geno;
 		for(auto p = cs.begin(); p != cs.end(); ++p) {
-			geno.push_back(record->get_geno()[*p]);
+			geno.push_back(record->get_geno(*p));
 		}
 		GenoRecord	*new_record = new GenoRecord(pos, geno);
 		new_records.push_back(new_record);
@@ -74,6 +116,16 @@ VCFGeno *VCFGenoBase::extract_by_samples(const STRVEC& samples) const {
 
 VCFGeno::~VCFGeno() {
 	Common::delete_all(records);
+}
+
+vector<vector<int>> VCFGeno::create_ref_haps() const {
+	const size_t	 N = num_samples() * 2;
+	vector<vector<int>>	ref_haps(N, vector<int>(this->size(), 0));
+	for(size_t i = 0; i < N; ++i) {
+		for(size_t j = 0; j < this->size(); ++j)
+			ref_haps[i][j] = (records[j]->get_geno(i>>1) >> (i&1)) & 1;
+	}
+	return ref_haps;
 }
 
 VCFGeno *VCFGeno::convert(const VCFSmall *vcf) {
@@ -89,21 +141,6 @@ VCFGeno *VCFGeno::convert(const VCFSmall *vcf) {
 		new_records.push_back(new_record);
 	}
 	return new VCFGeno(vcf->get_samples(), new_records, vcf);
-}
-
-VCFGeno *VCFGeno::extract_samples(const STRVEC& samples, const VCFSmall *vcf) {
-	const auto	cs = vcf->extract_columns(samples);
-	vector<GenoRecord *>	new_records;
-	for(size_t i = 0; i < vcf->size(); ++i) {
-		const VCFRecord	*record = vcf->get_record(i);
-		const ll	pos = record->pos();
-		vector<int>	new_geno;
-		for(auto p = cs.begin(); p != cs.end(); ++p)
-			new_geno.push_back(Genotype::all_gt_to_int(record->get_v()[*p]));
-		auto	*new_record = new GenoRecord(pos, new_geno);
-		new_records.push_back(new_record);
-	}
-	return new VCFGeno(samples, new_records, vcf);
 }
 
 VCFGeno *VCFGeno::join(const vector<const VCFGenoBase *>& vcfs,
@@ -132,7 +169,7 @@ VCFGeno *VCFGeno::join(const vector<const VCFGenoBase *>& vcfs,
 		const ll	pos = vcfs[0]->get_record(i)->get_pos();
 		vector<int>	geno;
 		for(auto p = cols.begin(); p != cols.end(); ++p)
-			geno.push_back(get<1>(*p)->get_record(i)->get_geno()[get<2>(*p)]);
+			geno.push_back(get<1>(*p)->get_record(i)->get_geno(get<2>(*p)));
 		new_records.push_back(new GenoRecord(pos, geno));
 	}
 	const VCFSmall	*ref_vcf = vcfs[0]->get_ref_vcf();
@@ -141,6 +178,9 @@ VCFGeno *VCFGeno::join(const vector<const VCFGenoBase *>& vcfs,
 
 VCFGeno *VCFGeno::join(const VCFGenoBase *vcf1, const VCFGenoBase *vcf2,
 														const STRVEC& samples) {
+	if(vcf1 == NULL)
+		return vcf2->copy();
+	
 	vector<const VCFGenoBase *>	vcfs { vcf1, vcf2 };
 	return VCFGeno::join(vcfs, samples);
 }
@@ -158,7 +198,7 @@ VCFGeno *VCFGeno::create_by_two_vcfs(const VCFGenoBase *vcf1,
 		vector<int>	geno;
 		for(size_t j = 0; j < samples.size(); ++j) {
 			if(columns1[j] != string::npos)
-				geno.push_back(record1->get_geno()[columns1[j]]);
+				geno.push_back(record1->get_geno(columns1[j]));
 			else if(columns2[j] != string::npos)
 				geno.push_back(
 					Genotype::all_gt_to_int(record2->get_gt(columns2[j]-9)));
@@ -169,4 +209,23 @@ VCFGeno *VCFGeno::create_by_two_vcfs(const VCFGenoBase *vcf1,
 		new_records.push_back(new_record);
 	}
 	return new VCFGeno(samples, new_records, vcf2);
+}
+
+VCFGeno *VCFGeno::extract_samples(const STRVEC& samples, const VCFSmall *vcf) {
+	const auto	cs = vcf->extract_columns(samples);
+	vector<GenoRecord *>	new_records;
+	for(size_t i = 0; i < vcf->size(); ++i) {
+		const VCFRecord	*record = vcf->get_record(i);
+		const ll	pos = record->pos();
+		vector<int>	new_geno;
+		for(auto p = cs.begin(); p != cs.end(); ++p) {
+			const auto	c = *p;
+			const int	gt = c == string::npos ? Genotype::NA :
+									Genotype::all_gt_to_int(record->get_v()[c]);
+			new_geno.push_back(gt);
+		}
+		auto	*new_record = new GenoRecord(pos, new_geno);
+		new_records.push_back(new_record);
+	}
+	return new VCFGeno(samples, new_records, vcf);
 }

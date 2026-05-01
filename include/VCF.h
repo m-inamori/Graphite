@@ -69,6 +69,9 @@ public:
 	Probs parse_PL_each(std::size_t c, std::size_t PL_pos, int gt) const;
 	std::vector<Probs> parse_PL(const std::vector<int>& geno,
 								const std::vector<std::size_t>& cols) const;
+	STRVEC default_info() const;
+	STRVEC extra_info(std::size_t c, const STRVEC& def_info) const;
+	
 	static Probs decide_PL_by_genotype(int gt) {
 		if(Genotype::is_00(gt))			return Probs(0.98, 0.01, 0.01);
 		else if(Genotype::is_01(gt))	return Probs(0.01, 0.98, 0.01);

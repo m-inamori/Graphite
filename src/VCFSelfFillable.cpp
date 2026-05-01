@@ -73,7 +73,7 @@ vector<vector<VCFRecord::Probs>> VCFSelfFillable::calc_probs(
 	const auto	cols = orig_vcf->extract_columns(vcf->get_samples());
 	vector<vector<VCFRecord::Probs>>	prob_table;
 	for(size_t i = 0; i < records.size(); ++i) {
-		const auto&	geno = records[i]->get_geno();
+		const auto&	geno = records[i]->get_genos();
 		const auto	probs = orig_vcf->get_record(i)->parse_PL(geno, cols);
 		prob_table.push_back(probs);
 	}

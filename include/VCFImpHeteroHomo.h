@@ -1,21 +1,38 @@
 #ifndef __VCFIMPHETEROHOMO
 #define __VCFIMPHETEROHOMO
 
-#include "VCFHeteroHomoOnePhased.h"
-
-class Map;
+#include "VCFImputable.h"
+#include "VCFFillableRecord.h"
+#include "Map.h"
 
 
 //////////////////// VCFImpHeteroHomo ////////////////////
 
-class VCFImpHeteroHomo : public VCFHeteroHomoOnePhased {
+class VCFImpHeteroHomo : public VCFImputable, public VCFMeasurable {
+	std::vector<VCFFillableRecord *>	records;
+	bool	is_mat_hetero;
+	
 public:
 	VCFImpHeteroHomo(const STRVEC& s,
 						const std::vector<VCFFillableRecord *>& rs,
-						bool is_mat_hetero, const Map& m,
+						bool is_mat_hetero_, const Map& m,
 						const VCFSmall *vcf) :
-				VCFHeteroHomoOnePhased(s, rs, is_mat_hetero, m, vcf) { }
+									VCFImputable(s, vcf),
+									VCFMeasurable(m),
+									records(rs),
+									is_mat_hetero(is_mat_hetero_) { }
 	~VCFImpHeteroHomo() { }
+	
+	///// virtual methods for VCFGenoBase /////
+	std::size_t size() const override { return records.size(); }
+	GenoRecord *get_record(std::size_t i) const override {
+		return records[i];
+	}
+	
+	///// virtual methods for VCFFamilyBase /////
+	VCFFamilyRecord *get_family_record(std::size_t i) const override {
+		return records[i];
+	}
 	
 	///// non-virtual methods /////
 	std::size_t imputed_index() const { return is_mat_hetero ? 0 : 1; }
@@ -29,7 +46,8 @@ public:
 	std::string impute_sample_seq(std::size_t j, const std::vector<double>& cMs,
 															double min_c) const;
 	
-	///// virtual methods /////
+	///// virtual methods for VCFImputable /////
+	std::size_t amount() const override { return 1; }
 	void impute() override;
 };
 #endif

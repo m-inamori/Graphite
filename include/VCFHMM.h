@@ -1,6 +1,8 @@
 #ifndef __VCFHMM
 #define __VCFHMM
 
+#include <array>
+
 #include "Map.h"
 
 
@@ -13,12 +15,10 @@ public:
 	using DP = std::vector<std::pair<double, int>>;
 	
 protected:
-	const std::vector<R *>&	records;
-	const double	E[4][4];			// exhaust probabilities
+	const std::array<std::array<double, 4>, 4>	E;	// exhaust probabilities
 	
 public:
-	VCFHMM(const std::vector<R *>& rs,
-								const Map& map_, double w);
+	VCFHMM(const Map& map_, double w);
 	~VCFHMM() { }
 	
 protected:

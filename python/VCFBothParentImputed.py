@@ -25,15 +25,21 @@ class VCFBothParentImputed(VCFFamily):
 		self.prog_imputer = ProgenyImputer(records, map_, 0.01)
 		self.records: list[VCFFamilyRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### non-virtual methods #####
 	def get_samples(self) -> list[str]:
 		return self.samples
 	

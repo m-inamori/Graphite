@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from itertools import count
 from abc import ABC, abstractmethod
-from typing import TextIO
+from typing import Optional, TextIO
 
 from GenoRecord import GenoRecord
 from VCF import VCFSmall, VCFRecord
@@ -27,6 +27,10 @@ class VCFGenoBase(ABC):
 	
 	@abstractmethod
 	def get_record(self, i: int) -> GenoRecord:
+		pass
+	
+	@abstractmethod
+	def get_records(self) -> list[GenoRecord]:
 		pass
 	
 	def get_ref_vcf(self) -> VCFSmall:
@@ -55,8 +59,10 @@ class VCFGenoBase(ABC):
 			header = self.vcf.trim_header(self.samples)
 			for v in header:
 				write_tsv(v, out)
+		dic_col = { s: c for c, s in enumerate(self.vcf.samples, 9) }
+		columns = [ dic_col.get(s, 0) for s in self.samples ]
 		for i in range(len(self)):
-			self.get_record(i).write(self.vcf.records[i], out)
+			self.get_record(i).write(self.vcf.records[i], columns, out)
 	
 	def extract_by_samples(self, samples: list[str]) -> VCFGeno:
 		cs = self.extract_columns(samples)
@@ -78,11 +84,37 @@ class VCFGeno(VCFGenoBase):
 		super().__init__(samples, vcf)
 		self.records: list[GenoRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
+	
+	def get_records(self) -> list[GenoRecord]:
+		return self.records
+	
+	##### non-virtual methods #####
+	def copy(self) -> VCFGeno:
+		new_records = [ r.copy() for r in self.records ]
+		return VCFGeno(self.samples, new_records, self.vcf)
+	
+	def extract_samples_geno(self, samples: list[str]) -> VCFGeno:
+		cs = self.extract_columns(samples)
+		new_records: list[GenoRecord] = []
+		for record in self.records:
+			geno = [ record.geno[c] for c in cs ]
+			new_records.append(GenoRecord(record.pos, geno))
+		return VCFGeno(samples, new_records, self.vcf)
+	
+	def create_ref_haps(self) -> list[list[int]]:
+		N = self.num_samples() * 2
+		M = len(self)
+		ref_haps: list[list[int]] = [ [0] * M for _ in range(N) ]
+		for i, record in enumerate(self.records):
+			for j in range(N):
+				ref_haps[j][i] = (record.geno[j>>1] >> (j&1)) & 1
+		return ref_haps
 	
 	@staticmethod
 	def convert(vcf: VCFSmall) -> VCFGeno:
@@ -102,7 +134,8 @@ class VCFGeno(VCFGenoBase):
 		for i in range(len(vcf)):
 			record = vcf.get_record(i)
 			pos = int(record.v[1])
-			new_v = [ Genotype.all_gt_to_int(record.v[c]) for c in cs ]
+			new_v = [ Genotype.NA if c == -1
+						else Genotype.all_gt_to_int(record.v[c]) for c in cs ]
 			new_record = GenoRecord(pos, new_v)
 			new_records.append(new_record)
 		return VCFGeno(samples, new_records, vcf)
@@ -128,6 +161,13 @@ class VCFGeno(VCFGenoBase):
 				geno.append(vcf.get_record(i).geno[c])
 			new_records.append(GenoRecord(vcfs[0].get_record(i).pos, geno))
 		return VCFGeno(new_samples, new_records, vcfs[0].vcf)
+	
+	@staticmethod
+	def merge(vcf1: Optional[VCFGeno], vcf2: VCFGeno) -> VCFGeno:
+		if vcf1 is None:
+			return vcf2
+		else:
+			return VCFGeno.join([vcf1, vcf2], vcf1.samples + vcf2.samples)
 	
 	# vcf1にあるsampleはvcf1から、
 	# そうでないsampleはvcf2からGenotypeを取って新たなVCFを作る

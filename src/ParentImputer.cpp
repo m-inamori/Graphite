@@ -8,7 +8,7 @@ ParentImputer::ParentImputer(const vector<VCFFamilyRecord *>& rs,
 							 bool is_mat_imputed_,
 							 const vector<vector<int>>& ref_hs,
 							 const Map& map_, double w) :
-			VCFHMM(rs, map_, w), ref_records(rs), ref_haps(ref_hs),
+			VCFHMM(map_, w), ref_records(rs), ref_haps(ref_hs),
 			prev_h_table(collect_possible_previous_hidden_states()),
 			is_mat_imputed(is_mat_imputed_), Cp(calc_Cp(rs)),
 			Epc{{{log(1.0-w*2),   log(w/2),       log(w/2),       log(w)},

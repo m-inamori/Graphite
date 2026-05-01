@@ -9,7 +9,7 @@ ProgenyImputerByOneParent::ProgenyImputerByOneParent(
 											const vector<vector<int>>& ref_hs,
 											bool is_mat,
 											const Map& map_, double w) :
-										VCFHMM(rs, map_, w), ref_records(rs),
+										VCFHMM(map_, w), records(rs),
 										ref_haps(ref_hs),
 										is_mat_imputed(is_mat),
 										Cc(calc_Cc(rs)), Cp(calc_Cp(rs)) { }
@@ -38,7 +38,7 @@ vector<double> ProgenyImputerByOneParent::calc_Cp(
 double ProgenyImputerByOneParent::emission_probability(size_t i, size_t j,
 														int h,
 														int parent_gt) const {
-	const int	oc = ref_records[i]->unphased(j+2);
+	const int	oc = records[i]->unphased(j+2);
 	const auto	alleles = parent_alleles(h, i);
 	const int	mat_a = alleles.first;
 	const int	pat_a = alleles.second;
@@ -50,7 +50,7 @@ vector<ProgenyImputerByOneParent::DP>
 ProgenyImputerByOneParent::initialize_dp(size_t j) const {
 	const size_t	L = NH() * 2;
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
-	const VCFFamilyRecord	*record = ref_records[0];
+	const VCFFamilyRecord	*record = records[0];
 	const int	parent_gt = is_mat_imputed ? record->mat_gt() :
 												record->pat_gt();
 	for(int h = 0; h < (int)L; ++h) {	// hidden state
@@ -63,7 +63,7 @@ ProgenyImputerByOneParent::initialize_dp(size_t j) const {
 void ProgenyImputerByOneParent::update_dp(size_t i, size_t j,
 												vector<DP>& dp) const {
 	const size_t	L = NH() * 2;
-	const VCFFamilyRecord	*record = ref_records[i];
+	const VCFFamilyRecord	*record = records[i];
 	const int	parent_gt = is_mat_imputed ? record->mat_gt() :
 												record->pat_gt();
 	
@@ -84,7 +84,7 @@ void ProgenyImputerByOneParent::update_genotypes(size_t j,
 		const int	mat_a = alleles.first;
 		const int	pat_a = alleles.second;
 		const int	phased_gt = Genotype::from_alleles(mat_a, pat_a);
-		ref_records[i]->set_geno(j+2, phased_gt);
+		records[i]->set_geno(j+2, phased_gt);
 	}
 }
 

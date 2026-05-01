@@ -45,6 +45,40 @@ size_t SelfNonImputedFamily::compute_upper_NH(const Family *family, size_t M,
 	return 0;	// dummy
 }
 
+VCFSelfImputable *SelfNonImputedFamily::create_family_vcf(const Family *family,
+											const vector<GenoRecord *>& records,
+											size_t num_families,
+											const vector<vector<int>>& ref_haps,
+											const VCFSmall *vcf,
+											const OptionSmall& op) {
+	const size_t	lower_NH = 10;
+	const size_t	upper_NH = 20;
+	vector<string>	samples = family->get_samples();
+	samples.erase(samples.begin() + 1);		// Remove one of the two parents
+	const size_t	NH = compute_upper_NH(family, vcf->size(),
+													num_families, op);
+	if(is_small(family, ref_haps, num_families, op)) {
+		return new VCFSelfNoImputed(samples, records, ref_haps,
+													op.map, 0.01, vcf);
+	}
+	else if(is_small_ref(ref_haps, (int)num_families, op)) {
+		return new VCFSelfNoImputedRough(samples, records, ref_haps,
+													op.map, 0.01, vcf);
+	}
+	else if(NH >= lower_NH) {
+		const size_t	NH3 = min(upper_NH, NH);
+		const auto	gts = GenoRecord::extract_sample_genotypes(0, records);
+		const auto	filtered_ref_haps =
+				ReferenceHaplotype::filter_haplotypes(ref_haps, gts, NH3);
+		return new VCFSelfNoImputedRough(samples, records,
+												filtered_ref_haps,
+												op.map, 0.01, vcf);
+	}
+	else {
+		return NULL;
+	}
+}
+
 VCFGeno *SelfNonImputedFamily::impute(
 									const VCFSmall *orig_vcf,
 									const VCFGeno *imputed_vcf,
@@ -52,58 +86,36 @@ VCFGeno *SelfNonImputedFamily::impute(
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
 	const size_t	N = families.size();
-	vector<const VCFGenoBase *>	vcfs;
-	const size_t	lower_NH = 10;
-	const size_t	upper_NH = 20;
-	// Save ref_haps for parent
-	vector<vector<vector<int>>>	ref_haps_table(N);
+	vector<VCFSelfImputable *>	vcfs;
+	vector<VCFGeno *>	vcf_garbage;
 	for(size_t i = 0; i < N; ++i) {
 		const KnownFamily	*family = families[i];
 		vector<string>	samples = family->get_samples();
 		samples.erase(samples.begin() + 1);		// Remove one of the two parents
 		auto	*vcf = VCFGeno::create_by_two_vcfs(imputed_vcf,
 													orig_vcf, samples);
-		const size_t	NH = compute_upper_NH(family, vcf->size(), N, op);
-		if(is_small(family, ref_haps, N, op)) {
-			auto	*vcf1 = new VCFSelfNoImputed(samples, vcf->get_records(),
-															ref_haps, op.map,
-															0.01, orig_vcf);
-			vcf1->impute();
+		auto	*vcf1 = create_family_vcf(family, vcf->get_records(), N,
+													ref_haps, orig_vcf, op);
+		if(vcf1 != NULL) {
 			vcfs.push_back(vcf1);
-			// The records are being reused,
-			// so the original VCF is emptied before being deleted.
 			vcf->clear_records();
 		}
-		else if(is_small_ref(ref_haps, (int)N, op)) {
-			auto	*vcf2 = new VCFSelfNoImputedRough(samples,
-													  vcf->get_records(),
-													  ref_haps, op.map,
-													  0.01, orig_vcf);
-			vcf2->impute();
-			vcfs.push_back(vcf2);
-			vcf->clear_records();
-		}
-		else if(NH >= lower_NH) {
-			const size_t	NH3 = min(upper_NH, NH);
-			const auto	gts = vcf->extract_sample_genotypes(0);
-			ref_haps_table[i] =
-					ReferenceHaplotype::filter_haplotypes(ref_haps, gts, NH3);
-			auto	*vcf3 = new VCFSelfNoImputedRough(samples,
-														vcf->get_records(),
-														ref_haps_table[i],
-														op.map, 0.01, orig_vcf);
-			vcf3->impute();
-			vcfs.push_back(vcf3);
-			vcf->clear_records();
-		}
+		
+		vcf_garbage.push_back(vcf);
 		delete vcf;
 	}
 	
-	if(vcfs.empty())
+	if(vcfs.empty()) {
+		Common::delete_all(vcf_garbage);
 		return NULL;
+	}
+	
+	VCFSelfImputable::impute_VCFs(vcfs, op.num_threads);
 	
 	cout << vcfs.size() << " self families have been imputed." << endl;
-	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
+	vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
+	auto	*new_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
+	Common::delete_all(vcf_garbage);
 	Common::delete_all(vcfs);
 	return new_vcf;
 }

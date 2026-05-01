@@ -8,7 +8,9 @@ VCFSelfProgenyImputed::VCFSelfProgenyImputed(const STRVEC& s,
 											 const vector<vector<int>>& ref_hs,
 											 size_t ic_, const Map& map_,
 											 double w, const VCFSmall *vcf) :
-								VCFGenoBase(s, vcf), records(rs), ic(ic_),
+								VCFSelfImputable(s, vcf),
+								records(rs),
+								ic(ic_),
 								parent_imputer(records, ref_hs, ic, map_, w),
 								prog_imputer(records, map_, w)
 								{ }

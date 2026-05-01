@@ -3,7 +3,8 @@ from __future__ import annotations
 # coding: utf-8
 # option.py
 
-from typing import Optional
+from itertools import repeat
+from typing import Optional, Iterator
 import sys
 
 
@@ -30,6 +31,17 @@ class Option:
 	
 	def exists_ref(self) -> bool:
 		return self.path_ref_VCF != ''
+	
+	# 処理する染色体かどうかを排出する
+	def chroms_efficients(self) -> Iterator[bool]:
+		if not self.chroms:
+			return repeat(True)
+		
+		upper = max(self.chroms)
+		v: list[bool] = [False] * (upper + 1)
+		for i in self.chroms:
+			v[i] = True
+		return (b for b in v)
 	
 	def print_info(self) -> None:
 		# required

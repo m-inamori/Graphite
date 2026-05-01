@@ -8,8 +8,7 @@ VCFSelfNoImputedRough::VCFSelfNoImputedRough(const STRVEC& s,
 											const vector<vector<int>>& ref_hs,
 											const Map& map_, double w,
 											const VCFSmall *vcf) :
-									VCFGenoBase(s, vcf),
-									VCFMeasurable(map_),
+									VCFSelfImputable(s, vcf),
 									records(rs),
 									parent_imputer(records, ref_hs, map_, w),
 									prog_imputer(records, map_, w)

@@ -74,6 +74,5 @@ private:
 	static std::pair<double, bool> distance(const std::vector<int>& gts1,
 											const std::vector<int>& gts2);
 	static double dist_with_NA(int right, int counter_NA, int N);
-	static void impute_in_thread(void *config);
 };
 #endif

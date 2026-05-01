@@ -1,7 +1,7 @@
 #ifndef __VCFBOTHPARENTIMPUTED
 #define __VCFBOTHPARENTIMPUTED
 
-#include "VCFFamily.h"
+#include "VCFImputable.h"
 #include "ProgenyImputer.h"
 
 class Map;
@@ -9,7 +9,7 @@ class Map;
 
 //////////////////// VCFBothParentImputed ////////////////////
 
-class VCFBothParentImputed : public VCFFamilyBase {
+class VCFBothParentImputed : public VCFImputable {
 	const std::vector<VCFFamilyRecord *>	records;
 	ProgenyImputer	prog_imputer;
 	
@@ -32,7 +32,8 @@ public:
 		return records[i];
 	}
 	
-	///// non-virtual methods /////
-	void impute();
+	///// virtual methods for VCFImputable /////
+	std::size_t amount() const override { return 1; }
+	void impute() override;
 };
 #endif

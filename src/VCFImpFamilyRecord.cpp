@@ -8,9 +8,9 @@ using namespace std;
 
 void VCFImpFamilyRecord::set_00x11_parents(size_t i, int gt) {
 	const size_t	j = i == 0 ? 1 : 0;
-	geno[i] = gt;		// 2 * 3 + 4
-	geno[j] = 7 - gt;	// 2 * 3
-	const int	prog_gt = (gt == 0) ^ (i == 0) ? 5 : 6;
+	geno[i] = gt / 2 * 3 + 4;
+	geno[j] = 7 - gt / 2 * 3;
+	const int	prog_gt = ((gt == 0) ^ (i == 0)) ? 5 : 6;
 	for(size_t k = 2; k < geno.size(); ++k) {
 		geno[k] = prog_gt;
 	}

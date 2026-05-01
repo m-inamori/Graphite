@@ -9,8 +9,9 @@ from VCF import VCFSmall
 from VCFGeno import VCFGenoBase
 from GenoRecord import GenoRecord
 from VCFFamily import *
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
 from Genotype import Genotype
+from ClassifyRecord import FillType
 from TypeDeterminer import ParentComb
 
 
@@ -46,15 +47,21 @@ class VCFSelfHomo(VCFGenoBase):
 		VCFGenoBase.__init__(self, samples, vcf)
 		self.records: list[VCFSelfHomoRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### non-virtual methods #####
 	def impute(self) -> list[VCFSelfHomo]:
 		L: int = self.num_samples()
 		records = [ record.impute() for record in self.records ]

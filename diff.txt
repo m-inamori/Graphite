@@ -1,0 +1,70 @@
+(base) inamori:source$ diff -q python ../old/20251215/python/
+* python のみに存在: BothImputedFamilyRef.py
+ファイル python/BothKnownFamily.py
+python のみに存在: BothKnownFamilyRef.py
+ファイル python/GenoRecord.py と ../old/20251215/python/GenoRecord.py は異なります
+ファイル python/Haplotype.py と ../old/20251215/python/Haplotype.py は異なります
+python のみに存在: ImputeByRef.py
+python のみに存在: ImputeNoRef.py
+ファイル python/ImputedAndKnownFamily.py
+python のみに存在: ImputedAndKnownFamilyRef.py
+ファイル python/LargeFamily.py
+ファイル python/LargeSelfFamily.py
+python のみに存在: LargeSelfFamilyRef.py
+ファイル python/OneImputedFamily.py
+python のみに存在: OneImputedFamilyRef.py
+ファイル python/OneKnownFamily.py
+python のみに存在: OneKnownFamilyRef.py
+ファイル python/Orphan.py と ../old/20251215/python/Orphan.py は異なります
+python のみに存在: OrphanRef.py
+python のみに存在: ParentNoRefImputer.py
+python のみに存在: ParentRefImputer.py
+ファイル python/ProgenyImputedFamily.py
+python のみに存在: ProgenyImputedFamilyRef.py
+python のみに存在: ProgenyRefImputer.py
+python のみに存在: ProgenySelfRefImputer.py
+* python のみに存在: RefCommon.py
+ファイル python/SampleManager.py
+ファイル python/SelfFamily.py と ../old/20251215/python/SelfFamily.py は異なります
+python のみに存在: SelfFamilyRef.py
+ファイル python/SelfNonImputedFamily.py
+python のみに存在: SelfNonImputedFamilyRef.py
+ファイル python/SmallFamily.py と ../old/20251215/python/SmallFamily.py は異なります
+python のみに存在: SmallFamilyRef.py
+ファイル python/VCF.py と ../old/20251215/python/VCF.py は異なります
+ファイル python/VCFBothKnown.py
+ファイル python/VCFBothParentImputed.py
+ファイル python/VCFFamily.py と ../old/20251215/python/VCFFamily.py は異なります
+ファイル python/VCFFillable.py と ../old/20251215/python/VCFFillable.py は異なります
+ファイル python/VCFGeno.py と ../old/20251215/python/VCFGeno.py は異なります
+python のみに存在: VCFHMMRef.py
+python のみに存在: VCFHMMSelfRef.py
+ファイル python/VCFHeteroHomo.py
+ファイル python/VCFHeteroHomoOnePhased.py
+ファイル python/VCFHeteroImpHomo.py
+ファイル python/VCFHomoHomo.py と ../old/20251215/python/VCFHomoHomo.py は異なります
+ファイル python/VCFImpHeteroHomo.py
+ファイル python/VCFImputable.py と
+ファイル python/VCFImputedAndUnknown.py
+ファイル python/VCFIsolated.py と ../old/20251215/python/VCFIsolated.py は異なります
+python のみに存在: VCFLargeBothRef.py
+python のみに存在: VCFLargeNoRef.py
+python のみに存在: VCFLargeOneRef.py
+ファイル python/VCFOneParentImputed.py
+ファイル python/VCFOneParentImputedRough.py
+ファイル python/VCFOneParentKnown.py
+ファイル python/VCFOrphan.py と ../old/20251215/python/VCFOrphan.py は異なります
+ファイル python/VCFOrphanRough.py
+ファイル python/VCFProgenyImputed.py
+ファイル python/VCFSelfFillable.py
+ファイル python/VCFSelfHetero.py
+ファイル python/VCFSelfHomo.py
+ファイル python/VCFSelfNoImputed.py
+ファイル python/VCFSelfNoImputedRough.py
+ファイル python/VCFSelfParentImputed.py
+ファイル python/VCFSelfProgenyImputed.py
+python のみに存在: VCFSelfRef.py
+ファイル python/VCFSmallFillable.py
+ファイル python/graphite.py
+../old/20251215/python/ のみに存在: impute_prog_only.py
+ファイル python/option.py と ../old/20251215/python/option.py は異なります

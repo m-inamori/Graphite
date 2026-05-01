@@ -411,6 +411,7 @@ vector<const KnownFamily *> SampleManager::make_families(
 
 SampleManager *SampleManager::create(const PedigreeTable *ped,
 									const vector<string>& samples,
+									const vector<string>& ref_samples,
 									size_t lower_progs,
 									const vector<size_t>& family_indices) {
 	const auto	families = make_families(ped, samples,
@@ -431,7 +432,8 @@ SampleManager *SampleManager::create(const PedigreeTable *ped,
 			small_families.push_back(family);
 	}
 	
-	if(large_families.empty() && large_self_families.empty())
+	if(ref_samples.empty() && large_families.empty() &&
+									large_self_families.empty())
 		throw SampleException();
 	
 	return new SampleManager(ped, large_families, large_self_families,

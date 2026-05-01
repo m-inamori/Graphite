@@ -26,12 +26,17 @@ class VCFOrphan(VCFGenoBase):
 		self.imputer = OrphanImputer(records, ref_haps, map_, 0.01)
 		self.records: list[GenoRecord] = records
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return self.records
+	
+	##### non-virtual methods #####
 	def get_samples(self) -> list[str]:
 		return self.samples
 	

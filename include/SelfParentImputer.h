@@ -15,7 +15,7 @@ public:
 	const double	MIN_PROB = -1e300;
 	
 private:
-	const std::vector<GenoRecord *>&	ref_records;
+	const std::vector<GenoRecord *>&	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::size_t	ic;
 	const std::vector<std::vector<int>>	prev_h_table;
@@ -37,7 +37,7 @@ private:
 	std::size_t NH() const { return ref_haps.size(); }
 	std::size_t M() const { return ref_haps[0].size(); }
 	std::size_t num_progenies() const {
-		return ref_records[0]->num_samples() - 1;
+		return records[0]->num_samples() - 1;
 	}
 	
 	std::tuple<int, int, int, int> decode_state(int h) const;
@@ -68,12 +68,6 @@ private:
 	double phased_emission_probability(int h, std::size_t i, int prog_gt) const;
 	double non_phased_emission_probability(const std::vector<int>& ocs,
 														int parent_gt) const;
-	
-	int compute_phased_gt_by_refhaps(int hp, std::size_t i) const {
-		const int	hp1 = hp % NH();
-		const int	hp2 = hp / NH();
-		return ref_haps[hp1][i] | (ref_haps[hp2][i] << 1);
-	}
 	
 	double emission_probability(int h, std::size_t i, int op, int prog_gt,
 											const std::vector<int>& ocs) const;

@@ -1,7 +1,7 @@
 #ifndef __VCFONEPARENTIMPUTED
 #define __VCFONEPARENTIMPUTED
 
-#include "VCFFamily.h"
+#include "VCFImputable.h"
 #include "ParentImputer.h"
 #include "ProgenyImputer.h"
 #include "Map.h"
@@ -9,12 +9,10 @@
 
 //////////////////// VCFOneParentKnown ////////////////////
 
-class VCFOneParentKnown :  public VCFFamilyBase {
+class VCFOneParentKnown :  public VCFImputable {
 	const std::vector<VCFFamilyRecord *>	records;
 	const bool is_mat_known;
-	ParentImputer	parent1_imputer;
-	ParentImputer	parent2_imputer;
-	ProgenyImputer	prog_imputer;
+	ParentImputer	parent_imputer;
 	
 public:
 	VCFOneParentKnown(const STRVEC& s,
@@ -37,10 +35,8 @@ public:
 		return records[i];
 	}
 	
-	///// non-virtual methods /////
-	const std::string& get_known_parent() const;
-	
-	void impute_known_parent();
-	void impute();
+	///// virtual methods for VCFImputable /////
+	void impute() override;
+	std::size_t amount() const override { return 1; }
 };
 #endif

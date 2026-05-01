@@ -223,6 +223,15 @@ def impute(orig_vcf: VCFSmall, families: list[KnownFamily],
 	if not families:
 		return None
 	
+	filled_vcfs = impute_all_families(orig_vcf, families, geno_map, option)
+	print("%d large families have been imputed." % len(families))
+	return VCFFillable.merge(filled_vcfs, orig_vcf.get_samples())
+
+def impute_all_families(orig_vcf: VCFSmall, families: list[KnownFamily],
+						  geno_map: Map, option: Option) -> list[VCFFillable]:
+	if not families:
+		return []
+	
 	vcfss, other_recordss = impute_hetero_homo(orig_vcf, families,
 															geno_map, option)
 	
@@ -244,8 +253,6 @@ def impute(orig_vcf: VCFSmall, families: list[KnownFamily],
 	for parent, vcfs in v:
 		VCFHeteroHomo.inverse_phases(vcfs)
 	
-	filled_vcfs = fill_vcf(dic_vcfs, other_recordss, families)
-	print("%d large families have been imputed." % len(families))
-	return VCFFillable.merge(filled_vcfs, orig_vcf.get_samples())
+	return fill_vcf(dic_vcfs, other_recordss, families)
 
-__all__ = ['impute_large_normal_families']
+__all__ = ['impute', 'impute_all_families']

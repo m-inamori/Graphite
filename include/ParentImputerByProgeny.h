@@ -43,7 +43,6 @@ private:
 	
 	std::vector<DP> initialize_dp() const;
 	
-	// hidden stateに対して、可能な前のhidden stateを集めておく
 	std::vector<std::vector<int>>
 				collect_possible_previous_hidden_states() const;
 	

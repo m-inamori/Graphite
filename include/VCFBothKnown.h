@@ -1,16 +1,16 @@
 #ifndef __VCFNOPARENTIMPUTED
 #define __VCFNOPARENTIMPUTED
 
-#include "VCFFamily.h"
-#include "../include/ParentImputer.h"
-#include "../include/ProgenyImputer.h"
+#include "VCFImputable.h"
+#include "ParentImputer.h"
+#include "ProgenyImputer.h"
 
 class Map;
 
 
 //////////////////// VCFBothKnown ////////////////////
 
-class VCFBothKnown : public VCFFamilyBase {
+class VCFBothKnown : public VCFImputable {
 private:
 	std::vector<VCFFamilyRecord *>	records;
 	ParentImputer	mat_imputer;
@@ -38,8 +38,11 @@ public:
 		return records[i];
 	}
 	
+	///// virtual methods for VCFFamilyBase /////
+	void impute() override;
+	std::size_t amount() const override { return 1; }
+	
 	///// non-virtual methods /////
-	void impute();
 	void clear_records() { records.clear(); }
 };
 #endif

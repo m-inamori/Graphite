@@ -11,7 +11,8 @@ import VCF
 from VCFFamily import *
 from GenoRecord import GenoRecord
 from VCFHeteroHomo import VCFHeteroHomo
-from VCFImpFamilyRecord import FillType, VCFImpFamilyRecord
+from VCFImpFamilyRecord import VCFImpFamilyRecord
+from ClassifyRecord import FillType
 from TypeDeterminer import ParentComb
 from common import *
 from Genotype import Genotype

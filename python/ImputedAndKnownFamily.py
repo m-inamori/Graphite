@@ -12,71 +12,19 @@ from VCFFamily import *
 from VCFSmallFillable import *
 from group import Groups
 from RecordSet import RecordSet
-from VCFImpFamilyRecord import FillType
 from VCFImpHeteroHomo import *
 from VCFHeteroImpHomo import *
 from VCFOneParentImputed import VCFOneParentImputed
 from VCFOneParentImputedRough import VCFOneParentImputedRough
+from VCFOneParentImputedFast import VCFOneParentImputedFast
 from Map import *
 from ReferenceHaplotype import filter_haplotypes
+from ClassifyRecord import FillType
 from TypeDeterminer import ParentComb
 from OptionSmall import OptionSmall
 
 
-# VCFHeteroHomoPPを使わずにこれを使う あとで統合する
-def classify_record(record: VCFFamilyRecord) -> tuple[ParentComb, FillType]:
-	if record.is_mat_NA() or record.is_pat_NA():
-		return (ParentComb.PNA, FillType.IMPUTABLE)
-	
-	i = 0 if record.is_mat_hetero() else 1
-	j = 0 if record.is_pat_hetero() else 1
-	if (i, j) == (0, 0):		# 0/1 x 0/1
-		return (ParentComb.P01x01, FillType.IMPUTABLE)
-	elif (i, j) == (1, 0):		# 0/0 x 0/1 or 1/1 x 0/1
-		if record.is_00(0):
-			return (ParentComb.P00x01, FillType.PAT)
-		else:
-			return (ParentComb.P01x11, FillType.PAT)
-	elif (i, j) == (0, 1):		# 0/1 x 0/0 or 0/1 x 1/1
-		if record.is_00(1):
-			return (ParentComb.P00x01, FillType.MAT)
-		else:
-			return (ParentComb.P01x11, FillType.MAT)
-	else:
-		if record.is_00(0) and record.is_00(1):
-			return (ParentComb.P00x00, FillType.FILLED)
-		elif record.is_11(0) and record.is_11(1):
-			return (ParentComb.P11x11, FillType.FILLED)
-		else:													# 0/0 x 1/1
-			return (ParentComb.P00x11, FillType.FILLED)
-
-def classify_records(samples: list[str],
-						records: Sequence[VCFFamilyRecord],
-						ref_vcf: VCFSmall) -> list[list[VCFFillableRecord]]:
-	cols = ref_vcf.extract_columns(samples)
-	# ヘテロ×ヘテロ, ホモ×ヘテロ, ヘテロ×ホモ, ホモ×ホモ
-	rss: list[list[VCFFillableRecord]] = [ [] for _ in range(4) ]
-	for index, record in enumerate(records):
-		pair, type = classify_record(record)
-		ref_record = ref_vcf.records[index]
-		probs = ref_record.parse_PL(record.geno, cols)
-		rss[type.value].append(VCFFillableRecord(record.pos, record.geno,
-													index, type, pair, probs))
-	return rss
-
-def create(samples: list[str], rs: list[VCFFillableRecord],
-						is_mat_hetero: bool, is_mat_imputed: bool,
-						gmap: Map, vcf: VCFSmall) -> VCFHeteroHomoOnePhased:
-	if is_mat_hetero == is_mat_imputed:
-		return VCFImpHeteroHomo(samples, rs, is_mat_hetero, gmap, vcf)
-	else:
-		return VCFHeteroImpHomo(samples, rs, is_mat_hetero, gmap, vcf)
-
-def merge_vcf(samples: list[str], rss: list[list[VCFFillableRecord]],
-												vcf: VCFSmall) -> VCFFillable:
-	rs = rss[0] + rss[1] + rss[2] + rss[3]
-	rs.sort(key=lambda r: r.pos)
-	return VCFSmallFillable(samples, rs, vcf)
+#################### ImputedAndKnownFamily ####################
 
 # HMMにrefを使っても計算量が十分に小さいか
 def is_small(family: Family, ref_haps: list[list[int]],
@@ -104,62 +52,53 @@ def compute_upper_NH(family: Family, M: int, L: int, op: OptionSmall) -> int:
 			break
 	return NH - 1
 
-def impute_roughly(family: Family, vcf: VCFFamily,
-					unimputed_parents: list[str], gmap: Map) -> VCFFillable:
-	samples = family.samples()
-	rss = classify_records(samples, vcf.records, vcf.vcf)
-	is_mat_imp = family.pat in unimputed_parents
-	mat_vcf = create(samples, rss[FillType.MAT.value], True,
-											is_mat_imp, gmap, vcf.vcf)
-	mat_vcf.impute()
-	pat_vcf = create(samples, rss[FillType.PAT.value], False,
-											is_mat_imp, gmap, vcf.vcf)
-	pat_vcf.impute()
-	merged_vcf = merge_vcf(samples, rss, vcf.vcf)
-	merged_vcf.modify(False)
-	return merged_vcf
+def create_family_vcf(family: Family, records: list[VCFFamilyRecord],
+								is_mat_imputed: bool, num_families: int,
+								ref_haps: list[list[int]],
+								vcf: VCFSmall, op: OptionSmall) -> VCFImputable:
+	NH = compute_upper_NH(family, len(vcf), num_families, op)
+	if is_small(family, ref_haps, num_families, op):
+		return VCFOneParentImputed(family.samples(), records, ref_haps,
+											is_mat_imputed, op.map, vcf)
+	elif is_small_ref(ref_haps, num_families, op):
+		return VCFOneParentImputedRough(family.samples(), records, ref_haps,
+													is_mat_imputed, op.map, vcf)
+	elif NH >= 10:
+		NH3 = min(20, NH)
+		col = 1 if is_mat_imputed else 0
+		gts = [ r.geno[col] for r in records ]
+		filtered_ref_haps = filter_haplotypes(ref_haps, gts, NH3)
+		return VCFOneParentImputedRough(family.samples(), records,
+											filtered_ref_haps,
+											is_mat_imputed, op.map, vcf)
+	else:
+		return VCFOneParentImputedFast(family.samples(), records,
+											is_mat_imputed, op.map, vcf)
 
 def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 									ref_haps: list[list[int]],
 									families: list[Family],
 									non_imputed_parents: list[str],
 									op: OptionSmall) -> Optional[VCFGenoBase]:
-	vcfs: list[VCFGenoBase] = []
+	vcfs: list[VCFImputable] = []
 	for family in families:
-		vcf = VCFFamily.create_by_two_vcfs(imputed_vcf,
-											orig_vcf, family.samples())
-		is_mat_imputed = family.pat in non_imputed_parents
-		NH = compute_upper_NH(family, len(vcf), len(families), op)
-		if is_small(family, ref_haps, len(families), op):
-			vcf1 = VCFOneParentImputed(vcf.samples, vcf.records, ref_haps,
-												is_mat_imputed, op.map, vcf.vcf)
-			vcf1.impute()
-			vcfs.append(vcf1)
-		elif is_small_ref(ref_haps, len(families), op):
-			vcf2 = VCFOneParentImputedRough(vcf.samples, vcf.records, ref_haps,
-												is_mat_imputed, op.map, vcf.vcf)
-			vcf2.impute()
-			vcfs.append(vcf2)
-		elif NH >= 10:
-			NH3 = min(20, NH)
-			col = 1 if is_mat_imputed else 0
-			gts = [ r.geno[col] for r in vcf.records ]
-			filtered_ref_haps = filter_haplotypes(ref_haps, gts, NH3)
-			vcf3 = VCFOneParentImputedRough(vcf.samples, vcf.records,
-												filtered_ref_haps,
-												is_mat_imputed, op.map, vcf.vcf)
-			vcf3.impute()
-			vcfs.append(vcf3)
-		else:
-			vcf4 = impute_roughly(family, vcf, non_imputed_parents, op.map)
-			vcfs.append(vcf4)
+		vcf_family = VCFFamily.create_by_two_vcfs(imputed_vcf,
+													orig_vcf, family.samples())
+		is_mat_imputed = vcf_family.pat() in non_imputed_parents
+		vcf = create_family_vcf(family, vcf_family.records, is_mat_imputed,
+										len(families), ref_haps, orig_vcf, op)
+		vcfs.append(vcf)
 	
 	if not vcfs:
 		return None
 	
+	for vcf in vcfs:
+		vcf.impute()
+	
 	print("%d families whose one parent is imputed and the other parent is"
 									" known have been imputed." % len(vcfs))
-	new_vcf = VCFGeno.join(vcfs, orig_vcf.samples)
+	vcfs_base: list[VCFGenoBase] = [ vcf for vcf in vcfs ]
+	new_vcf = VCFGeno.join(vcfs_base, orig_vcf.samples)
 	return new_vcf
 
-__all__ = ['impute']
+__all__ = ['impute', 'impute_family']

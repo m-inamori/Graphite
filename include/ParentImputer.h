@@ -16,7 +16,7 @@ public:
 	
 private:
 	const std::vector<VCFFamilyRecord *>&	ref_records;
-	const std::vector<std::vector<int>>&	ref_haps;
+	const std::vector<std::vector<int>>	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const bool is_mat_imputed;
 	const std::vector<double>	Cp;

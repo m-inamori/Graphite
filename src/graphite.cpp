@@ -1,165 +1,28 @@
 #include <iostream>
-#include <memory>
-#include <cassert>
+
 #include "../include/graphite.h"
-#include "../include/SampleManager.h"
-#include "../include/LargeFamily.h"
-#include "../include/LargeSelfFamily.h"
-#include "../include/SmallFamily.h"
-#include "../include/impute_prog_only.h"
-#include "../include/VCFHeteroHomoPP.h"
-#include "../include/VCFIsolated.h"
+#include "../include/ImputeByRef.h"
+#include "../include/ImputeNoRef.h"
 #include "../include/materials.h"
 #include "../include/option.h"
-#include "../include/common.h"
-
-using namespace std;
+#include "../include/error_codes.h"
 
 
-//////////////////// process ////////////////////
+//////////////////// graphite ////////////////////
 
-void display_chromosome_info(const VCFSmall *orig_vcf) {
-	cerr << "chr : " << orig_vcf->get_records().front()->chrom() << " ";
-	if(orig_vcf->size() == 1) {
-		cerr << "1 record." << endl;
-	}
-	else {
-		cerr << orig_vcf->size() << " records." << endl;
-	}
-}
-
-VCFGeno *impute_vcf_chr(const VCFSmall *orig_vcf, SampleManager *sample_man,
-									const Map& geno_map, const Option *option) {
-	display_chromosome_info(orig_vcf);
-	
-	const auto	large_families = sample_man->get_large_families();
-	auto	merged_vcf = LargeFamily::correct_large_family_VCFs(
-									orig_vcf, large_families, geno_map, option);
-	if(merged_vcf != NULL)
-		sample_man->add_imputed_samples(merged_vcf->get_samples());
-	
-	const auto	self_families =
-						sample_man->extract_self_parent_non_imputed_families();
-	auto	*imputed_vcf = LargeSelfFamily::impute(orig_vcf, merged_vcf,
-											self_families, geno_map, option);
-	if(imputed_vcf != NULL) {
-		merged_vcf = imputed_vcf;
-		sample_man->add_imputed_samples(merged_vcf->get_samples());
-	}
-	
-	merged_vcf = SmallFamily::impute_small_family(orig_vcf, merged_vcf,
-												geno_map, option, sample_man);
-	
-	sample_man->clear_imputed_samples();
-	return merged_vcf;
-}
-
-void impute_all(VCFHuge *vcf, const Materials *materials,
-										const Option *option) {
-	const vector<string>&	samples = vcf->get_samples();
-	std::unique_ptr<const PedigreeTable> ped = nullptr;
-	try {
-		ped.reset(materials->get_ped()->limit_samples(samples));
-	}
-	catch(const ExceptionWithCode& e) {
-		throw;
-	}
-	
-	SampleManager	*sample_man = SampleManager::create(ped.get(), samples,
-										option->lower_progs, option->families);
-	
-	sample_man->display_info();
-	
-	// process chromosome by chromosome
-	VCFHuge::ChromDivisor	divisor(vcf);
-	bool	first_chromosome = true;
-	for(int	chrom_index = 0; ; ++chrom_index) {
-		// chrom_index is required only for because they can skip chromosomes
-		const VCFSmall	*vcf_chrom = divisor.next();
-		if(vcf_chrom == NULL)
-			break;
-		try {
-			vcf_chrom->check_records();
-		}
-		catch(const std::exception& e) {
-			delete vcf_chrom;
-			delete sample_man;
-			throw;
-		}
-		if(!option->is_efficient_chrom(chrom_index)) {
-			delete vcf_chrom;
-			continue;
-		}
-		
-		const Map	*gmap = materials->get_chr_map(chrom_index);
-		const VCFGeno	*vcf_imputed = impute_vcf_chr(vcf_chrom,
-													sample_man, *gmap, option);
-		if(first_chromosome) {
-			ofstream	ofs(option->path_out);
-			vcf_imputed->write(ofs, true);	// write header
-		}
-		else {
-			ofstream	ofs(option->path_out, ios_base::app);
-			vcf_imputed->write(ofs, false);
-		}
-		first_chromosome = false;
-		delete vcf_imputed;
-		delete vcf_chrom;
-	}
-	
-	delete sample_man;
-}
-
-void impute_progenies(VCFHuge *vcf, const Materials *materials,
-												const Option *option) {
-	auto	*vcf_ref = VCFHuge::read(option->path_ref_vcf);
-	VCFHuge::ChromDivisor	divisor(vcf);
-	VCFHuge::ChromDivisor	divisor_ref(vcf_ref);
-	bool	first_chromosome = true;
-	// とりあえず、後代のVCFも同じ染色体があるとする
-	for(int	chrom_index = 0; ; ++chrom_index) {
-		// chrom_index is required only for because they can skip chromosomes
-		VCFSmall	*vcf_chrom = divisor.next();
-		VCFSmall	*vcf_ref_chrom = divisor_ref.next();
-		if(vcf_chrom == NULL)
-			break;
-		else if(!option->is_efficient_chrom(chrom_index)) {
-			delete vcf_chrom;
-			continue;
-		}
-		
-		const Map	*gmap = materials->get_chr_map(chrom_index);
-		const VCFGenoBase	*vcf_imputed =
-				ImputeProgOnly::impute_prog_vcf_chr(vcf_ref_chrom,
-													vcf_chrom, *gmap, option);
-		delete vcf_chrom;
-		delete vcf_ref_chrom;
-		if(first_chromosome) {
-			ofstream	ofs(option->path_out);
-			vcf_imputed->write(ofs, true);	// write header
-		}
-		else {
-			ofstream	ofs(option->path_out, ios_base::app);
-			vcf_imputed->write(ofs, false);
-		}
-		first_chromosome = false;
-		delete vcf_imputed;
-	}
-}
-
-void impute_VCF(const Option *option) {
-	option->print_info();
-	Materials	*materials = Materials::create(option->path_map,
-												option->path_ped);
+void graphite(const Option& option) {
+	option.print_info();
+	Materials	*materials = Materials::create(option.path_map,
+													option.path_ped);
 	materials->display_map_info();
 	
 	VCFHuge	*vcf = NULL;
 	try {
-		vcf = VCFHuge::read(option->path_vcf);
-		if(option->exists_ref())
-			impute_progenies(vcf, materials, option);
+		vcf = VCFHuge::read(option.path_vcf);
+		if(option.exists_ref())
+			ImputeByRef::impute(vcf, materials, option);
 		else
-			impute_all(vcf, materials, option);
+			ImputeNoRef::impute(vcf, materials, option);
 		delete vcf;
 	}
 	catch(const ExceptionWithCode& e) {
@@ -179,11 +42,11 @@ int main(int argc, char **argv) {
 	}
 	
 	try {
-		impute_VCF(option);
+		graphite(*option);
 	}
 	catch(const ExceptionWithCode& e) {
 		delete option;
-		cerr << e.what() << endl;
+		std::cerr << e.what() << std::endl;
 		exit(e.get_error_code());
 	}
 	

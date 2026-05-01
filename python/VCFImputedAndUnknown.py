@@ -9,6 +9,7 @@ from VCF import VCFSmall
 from VCFGeno import VCFGenoBase
 from GenoRecord import GenoRecord
 from VCFFamily import *
+from VCFImputable import VCFImputable
 from ProgenyImputerByOneParent import *
 from ParentImputerByProgeny import *
 from ProgenyImputer import *
@@ -17,11 +18,11 @@ from Map import *
 
 #################### VCFImputedAndUnknown ####################
 
-class VCFImputedAndUnknown(VCFFamilyBase):
+class VCFImputedAndUnknown(VCFImputable):
 	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
 					ref_haps: list[list[int]], is_mat_imputed: bool,
 					map_: Map, vcf: VCFSmall):
-		VCFFamilyBase.__init__(self, samples, vcf)
+		VCFImputable.__init__(self, samples, vcf)
 		self.records: list[VCFFamilyRecord] = records
 		self.prog_imputer = ProgenyImputerByOneParent(records, ref_haps,
 														is_mat_imputed,
@@ -31,15 +32,21 @@ class VCFImputedAndUnknown(VCFFamilyBase):
 														map_, 0.01)
 		self.progs_imputer = ProgenyImputer(records, map_, 0.01)
 	
+	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
 		return len(self.records)
 	
 	def get_record(self, i: int) -> GenoRecord:
 		return self.records[i]
 	
+	def get_records(self) -> list[GenoRecord]:
+		return [ r for r in self.records ]
+	
+	##### virtual methods for VCFFamilyBase #####
 	def get_family_record(self, i: int) -> VCFFamilyRecord:
 		return self.records[i]
 	
+	##### virtual methods for VCFImputable #####
 	def impute(self) -> None:
 		# 最初の後代をimpute
 		self.prog_imputer.impute(0)

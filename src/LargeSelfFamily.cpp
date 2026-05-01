@@ -19,15 +19,15 @@ using namespace std;
 
 // create new records and divide them into two
 pair<vector<VCFSelfHeteroRecord *>, vector<VCFImpSelfRecord *>>
-LargeSelfFamily::divide_records(const VCFGeno *vcf, const Option *op) {
+LargeSelfFamily::divide_records(const VCFGeno *vcf, const Option& op) {
 	ClassifyRecord	*CR = ClassifyRecord::get_instance();
-	const auto	*td = CR->get_TypeDeterminer(vcf->num_samples()-1, op->ratio);
+	const auto	*td = CR->get_TypeDeterminer(vcf->num_samples()-1, op.ratio);
 	vector<VCFSelfHeteroRecord *>	he_records;
 	vector<VCFImpSelfRecord *>	other_records;
 	for(size_t i = 0; i < vcf->size(); ++i) {
 		const GenoRecord	*record = vcf->get_record(i);
 		const ll	pos = record->get_pos();
-		const auto	geno = record->get_geno();
+		const auto	geno = record->get_genos();
 		const auto	pair1 = CR->classify_self_record(record, td);
 		const ParentComb	pc = pair1.first;
 		const WrongType	wrong_type = pair1.second;
@@ -64,7 +64,7 @@ VCFGeno *LargeSelfFamily::extract_parents(
 		const ll	pos = vcfs[0]->get_record(i)->get_pos();
 		vector<int>	geno;
 		for(size_t j = 0; j < vcfs.size(); ++j) {
-			geno.push_back(vcfs[j]->get_record(i)->get_geno()[0]);
+			geno.push_back(vcfs[j]->get_record(i)->get_geno(0));
 		}
 		auto	record = new GenoRecord(pos, geno);
 		records.push_back(record);
@@ -75,7 +75,7 @@ VCFGeno *LargeSelfFamily::extract_parents(
 VCFGeno *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
 									VCFGeno *merged_vcf,
 									const vector<const KnownFamily *>& families,
-									const Map& geno_map, const Option *op) {
+									const Map& geno_map, const Option& op) {
 	if(families.empty())
 		return NULL;
 	
@@ -91,7 +91,7 @@ VCFGeno *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
 		auto	*vcf_hetero = new VCFSelfHetero(samples, he_records,
 													geno_map, 0.01, orig_vcf);
 		
-		auto	pair2 = vcf_hetero->impute(op->num_threads);
+		auto	pair2 = vcf_hetero->impute(op.num_threads);
 		const vector<VCFSelfHetero *>&	vcf_heteros = pair2.first;
 		const vector<VCFSelfHeteroRecord *>&	unused = pair2.second;
 		other_records.insert(other_records.end(), unused.begin(), unused.end());
@@ -112,8 +112,8 @@ VCFGeno *LargeSelfFamily::impute(const VCFSmall *orig_vcf,
 													orig_vcf->get_samples());
 	}
 	else {
-		vector<const VCFGenoBase *>	vcfs { vcf_parents };
-		new_merged_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
+		vector<const VCFGenoBase *>	vcfs1 { vcf_parents };
+		new_merged_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
 	}
 	delete vcf_parents;
 	delete merged_vcf;

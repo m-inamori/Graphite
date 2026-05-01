@@ -179,9 +179,9 @@ array<vector<VCFFillableRecord *>, 4> VCFHeteroHomoPP::classify_records(
 		VCFFamilyRecord	*record = records[index];
 		const auto	pair = classify_record(record);
 		const auto	*ref_record = ref_vcf->get_record(index);
-		const auto	probs = ref_record->parse_PL(record->get_geno(), cols);
+		const auto	probs = ref_record->parse_PL(record->get_genos(), cols);
 		auto	*new_record = new VCFFillableRecord(record->get_pos(),
-												record->get_geno(), index,
+												record->get_genos(), index,
 												pair.second, pair.first, probs);
 		const size_t	type_index = static_cast<size_t>(pair.second);
 		rss[type_index].push_back(new_record);
@@ -247,8 +247,7 @@ VCFFillableRecord *VCFHeteroHomoPP::fill_NA(VCFRecord *record1,
 	const auto&	v = record1->get_v();
 	for(size_t c = 9; c != v.size(); ++c)
 		geno.push_back(Genotype::all_gt_to_int(v[c]));
-	for(size_t i = 0; i < NA_len; ++i)
-		geno.push_back(Genotype::NA);
+	geno.resize(geno.size() + NA_len, Genotype::NA);	// fill with N/A
 	
 	vector<VCFRecord::Probs>	probs;
 	for(auto p = geno.begin(); p != geno.end(); ++p)
@@ -262,7 +261,6 @@ VCFHeteroHomoPP *VCFHeteroHomoPP::merge(const VCFSmall *vcf_parents,
 										const VCFSmall *orig_vcf,
 										const STRVEC& samples,
 										const Map& m, const Option *option) {
-	const auto	header = vcf_parents->trim_header(samples);
 	vector<VCFFillableRecord *>	records;
 	size_t	j = 0;
 	for(size_t i = 0; i < vcf_parents->size(); ++i) {

@@ -9,13 +9,6 @@
 #include "ClassifyRecord.h"
 
 
-//////////////////// FillType ////////////////////
-
-enum class FillType {
-	MAT = 0, PAT, FILLED, IMPUTABLE, UNABLE
-};
-
-
 //////////////////// VCFImpFamilyRecord ////////////////////
 
 class VCFImpFamilyRecord : public VCFFamilyRecord {
