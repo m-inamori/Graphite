@@ -96,7 +96,10 @@ VCFGeno *ImputeByRef::impute_vcf_chr(const VCFSmall *orig_vcf,
 											option.imputes_isolated_samples);
 	merged_vcf->set_ref_vcf(ref_vcf_);
 	sample_man->clear_imputed_samples();
-	return remove_reference_samples(merged_vcf, ref_vcf->get_samples());
+	auto	*vcf = remove_reference_samples(merged_vcf, ref_vcf->get_samples());
+	delete ref_vcf;
+	delete merged_vcf;
+	return vcf;
 }
 
 void ImputeByRef::impute(VCFHuge *vcf, const Materials *materials,
@@ -126,19 +129,26 @@ void ImputeByRef::impute(VCFHuge *vcf, const Materials *materials,
 		// chrom_index is required only for because they can skip chromosomes
 		const VCFSmall	*vcf_chrom = divisor.next();
 		const VCFSmall	*ref_vcf_chrom = divisor_ref.next();
-		if(vcf_chrom == NULL || ref_vcf_chrom == NULL)
+		if(vcf_chrom == NULL || ref_vcf_chrom == NULL) {
+			if(vcf_chrom != NULL)
+				delete vcf_chrom;
+			if(ref_vcf_chrom != NULL)
+				delete ref_vcf_chrom;
 			break;
+		}
 		try {
 			vcf_chrom->check_records();
 			ref_vcf_chrom->check_records();
 		}
 		catch(const std::exception& e) {
 			delete vcf_chrom;
+			delete ref_vcf_chrom;
 			delete sample_man;
 			throw;
 		}
 		if(!option.is_efficient_chrom(chrom_index)) {
 			delete vcf_chrom;
+			delete ref_vcf_chrom;
 			continue;
 		}
 		
@@ -155,8 +165,10 @@ void ImputeByRef::impute(VCFHuge *vcf, const Materials *materials,
 		}
 		first_chromosome = false;
 		delete vcf_imputed;
+		delete ref_vcf_chrom;
 		delete vcf_chrom;
 	}
 	
+	delete ref_vcf;
 	delete sample_man;
 }

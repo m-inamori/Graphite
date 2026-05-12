@@ -27,7 +27,6 @@ VCFGeno *BothImputedFamilyRef::impute(const VCFSmall *orig_vcf,
 		auto	*vcf1 = new VCFBothParentImputed(samples, records, op.map,
 													0.01, vcf->get_ref_vcf());
 		vcfs.push_back(vcf1);
-		vcf->clear_records();
 		delete vcf;
 	}
 	

@@ -29,6 +29,7 @@ public:
 								pat_imputer(records, map_,
 											true, ref_vcf, w),
 								prog_imputer(records, map_, w) { }
+	~VCFLargeNoRef();
 	
 	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }

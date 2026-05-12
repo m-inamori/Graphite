@@ -22,5 +22,6 @@ VCFGenoBase *OrphanRef::impute(const std::vector<std::string>& samples,
 											ref_haps, orig_vcf, op);
 	if(vcf1 != NULL)
 		cerr << samples.size() << " orphan samples have been imputed." << endl;
+	delete vcf;
 	return vcf1;
 }

@@ -53,7 +53,7 @@ VCFSelfImputable *SelfFamily::create_family_vcf(const VCFSmall *orig_vcf,
 		STRVEC	samples { mat };
 		for(size_t i = 0; i < progs.size(); ++i) {
 			const auto&	s = progs[i]->get_name();
-			if(set_imputed_samples.find(s) != set_imputed_samples.end()) {
+			if(set_imputed_samples.find(s) == set_imputed_samples.end()) {
 				samples.push_back(s);
 				indices.push_back(i + 1);
 			}
@@ -120,7 +120,6 @@ VCFGeno *SelfFamily::impute(const VCFSmall *orig_vcf,
 			vcfs.push_back(vcf1);
 		}
 		vcf_garbage.push_back(vcf);
-		delete vcf;
 	}
 	
 	if(vcfs.empty()) {

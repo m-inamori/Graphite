@@ -36,7 +36,6 @@ VCFGeno *OneImputedFamilyRef::impute(const VCFSmall *orig_vcf,
 													records, L,
 													ref_haps, orig_vcf, op);
 		vcfs.push_back(vcf1);
-		vcf->clear_records();
 		vcf_garbage.push_back(vcf);
 	}
 	

@@ -21,6 +21,7 @@ public:
 										VCFImputable(samples, vcf),
 										records(rs),
 										imputer(records, map_, w) { }
+	~VCFLargeBothRef();
 	
 	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }

@@ -16,7 +16,7 @@ public:
 	
 private:
 	const std::vector<GenoRecord *>&	records;
-	const std::vector<std::vector<int>>&	ref_haps;
+	const std::vector<std::vector<int>>	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
 	const std::vector<double>	Cp;
 	const double	Epc[4][4];

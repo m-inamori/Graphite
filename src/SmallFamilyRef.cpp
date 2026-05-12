@@ -13,6 +13,7 @@
 #include "../include/KnownFamily.h"
 #include "../include/SampleManager.h"
 #include "../include/OptionSmall.h"
+#include "../include/common.h"
 
 using namespace std;
 
@@ -47,7 +48,10 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_both_imputed_parents(
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
 	
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	Common::delete_all(families);
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_vcf_by_imputed_and_known_parent(
@@ -76,7 +80,10 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_imputed_and_known_parent(
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	Common::delete_all(families);
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_vcf_by_both_known_parents(
@@ -94,7 +101,10 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_both_known_parents(
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	Common::delete_all(families);
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_vcf_by_imputed_parent(
@@ -113,7 +123,10 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_imputed_parent(
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	Common::delete_all(families);
+	return vcf1;
 }
 
 
@@ -138,7 +151,9 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_known_parent(
 		else
 			sample_man->add_imputed_sample((*p)->get_pat());
 	}
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_self_vcf(const VCFSmall *orig_vcf,
@@ -167,7 +182,9 @@ VCFGeno *SmallFamilyRef::impute_self_vcf(const VCFSmall *orig_vcf,
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_self_non_imputed_vcf(
@@ -186,7 +203,9 @@ VCFGeno *SmallFamilyRef::impute_self_non_imputed_vcf(
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_vcf_by_progenies(
@@ -220,7 +239,10 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_progenies(
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	Common::delete_all(families);
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_orphan_samples(
@@ -231,14 +253,16 @@ VCFGeno *SmallFamilyRef::impute_orphan_samples(
 											SampleManager *sample_man) {
 	const auto samples = sample_man->extract_non_imputed_samples();
 	
-	VCFGenoBase *vcf = OrphanRef::impute(samples, orig_vcf,
+	VCFGenoBase	*vcf = OrphanRef::impute(samples, orig_vcf,
 											ref_haps, phased_vcf, op_small);
 	if(vcf == NULL) {
 		return NULL;
 	}
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
-	return merge_vcf(phased_vcf, vcf, orig_vcf->get_samples());
+	auto	*vcf1 = merge_vcf(phased_vcf, vcf, orig_vcf->get_samples());
+	delete vcf;
+	return vcf1;
 }
 
 VCFGeno *SmallFamilyRef::impute_non_imputed_samples(
@@ -278,6 +302,8 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 	VCFGeno	*phased_vcf = NULL;
 	while(true) {
 		// Merge the current merged VCF with reference VCF
+		if(phased_vcf != NULL)
+			delete phased_vcf;
 		phased_vcf = VCFGeno::join(merged_vcf, ref_vcf,
 													orig_vcf->get_samples());
 		
@@ -285,6 +311,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 		if(VCFGeno *new_merged_vcf = impute_vcf_by_both_imputed_parents(
 										orig_vcf, phased_vcf,
 										merged_vcf, sample_man, op_small)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -294,6 +321,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -303,6 +331,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -312,6 +341,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -321,6 +351,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -330,6 +361,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -339,6 +371,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -348,6 +381,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 										orig_vcf, phased_vcf,
 										ref_haps, merged_vcf,
 										op_small, sample_man)) {
+			delete merged_vcf;
 			merged_vcf = new_merged_vcf;
 			continue;
 		}
@@ -358,6 +392,7 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 											orig_vcf, ref_haps,
 											phased_vcf,
 											op_small, sample_man)) {
+				delete merged_vcf;
 				merged_vcf = new_merged_vcf;
 				continue;
 			}
@@ -368,7 +403,11 @@ VCFGeno *SmallFamilyRef::impute(const VCFSmall *orig_vcf,
 	}
 	
 	// Impute samples that are still non-imputed
+	if(merged_vcf != NULL)
+		delete merged_vcf;
 	merged_vcf = impute_non_imputed_samples(orig_vcf, phased_vcf,
-											op_small, sample_man);
+														op_small, sample_man);
+	if(phased_vcf != NULL && merged_vcf != phased_vcf)
+		delete phased_vcf;
 	return merged_vcf;
 }

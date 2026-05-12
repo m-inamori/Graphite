@@ -102,7 +102,6 @@ VCFGeno *SelfNonImputedFamily::impute(
 		}
 		
 		vcf_garbage.push_back(vcf);
-		delete vcf;
 	}
 	
 	if(vcfs.empty()) {

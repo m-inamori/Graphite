@@ -26,6 +26,7 @@ public:
 								parent_imputer(records, map_,
 											is_mat_ref, ref_vcf, w),
 								prog_imputer(records, map_, w) { }
+	~VCFLargeOneRef();
 	
 	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }

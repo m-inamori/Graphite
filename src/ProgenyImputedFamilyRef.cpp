@@ -24,7 +24,7 @@ VCFGeno *ProgenyImputedFamilyRef::impute(const VCFSmall *orig_vcf,
 															imputed_progenies);
 	
 	vector<VCFImputable *>	vcfs;
-	vector<VCFFamily *>	vcf_garbage;
+	vector<VCFGeno *>	vcf_garbage;
 	const size_t	L = families.size();
 	for(size_t i = 0; i < L; ++i) {
 		const KnownFamily	*family = families[i];
@@ -35,8 +35,7 @@ VCFGeno *ProgenyImputedFamilyRef::impute(const VCFSmall *orig_vcf,
 											  ref_haps, family->is_mat_known(),
 											  op.map, 0.01, orig_vcf);
 		vcfs.push_back(vcf1);
-		vcf->clear_records();
-		delete vcf;
+		vcf_garbage.push_back(vcf);
 	}
 	
 	if(vcfs.empty()) {

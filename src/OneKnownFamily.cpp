@@ -84,7 +84,6 @@ VCFGenoBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 			vcf->clear_records();
 		}
 		vcf_garbage.push_back(vcf);
-		delete vcf;
 	}
 	
 	if(vcfs.empty()) {
