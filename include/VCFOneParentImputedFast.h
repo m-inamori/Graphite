@@ -25,6 +25,8 @@ public:
 													is_mat_imputed(is_mat),
 													gmap(map_) { }
 	
+	VCFOneParentImputedFast(const VCFOneParentImputedFast&) = delete;
+	VCFOneParentImputedFast& operator=(const VCFOneParentImputedFast&) = delete;
 	~VCFOneParentImputedFast();
 	
 	///// virtual methods for VCFGenoBase /////

@@ -20,6 +20,8 @@ public:
 	VCFSelfRef(const STRVEC& s,
 					const std::vector<GenoRecord *>& rs,
 					const Map& m, double w, const VCFSmall *vcf);
+	VCFSelfRef(const VCFSelfRef&) = delete;
+	VCFSelfRef& operator=(const VCFSelfRef&) = delete;
 	~VCFSelfRef();
 	
 	///// virtual methods for VCFGenoBase /////

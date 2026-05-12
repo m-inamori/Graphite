@@ -35,6 +35,9 @@ class VCFHomoHomo: public VCFFamilyBase {
 public:
 	VCFHomoHomo(const STRVEC& s, const std::vector<VCFHomoHomoRecord *>& rs,
 														const VCFSmall *vcf);
+	VCFHomoHomo(const VCFHomoHomo&) = delete;
+	VCFHomoHomo& operator=(const VCFHomoHomo&) = delete;
+	~VCFHomoHomo() { }
 	
 	///// virtual methods for VCFGenoBase /////
 	std::size_t size() const override { return records.size(); }

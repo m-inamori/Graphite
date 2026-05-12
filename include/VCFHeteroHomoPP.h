@@ -45,6 +45,8 @@ protected:
 public:
 	VCFHeteroHomoPP(const STRVEC& s, const std::vector<VCFFillableRecord *>& rs,
 											const Map& m, const VCFSmall *vcf);
+	VCFHeteroHomoPP(const VCFHeteroHomoPP&) = delete;
+	VCFHeteroHomoPP& operator=(const VCFHeteroHomoPP&) = delete;
 	~VCFHeteroHomoPP();
 	
 	///// virtual methods for VCFGenoBase /////

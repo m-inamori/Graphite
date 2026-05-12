@@ -54,6 +54,8 @@ public:
 	VCFGeno(const STRVEC& samples, const std::vector<GenoRecord *>& rs,
 													const VCFSmall *vcf) :
 									VCFGenoBase(samples, vcf), records(rs) { }
+	VCFGeno(const VCFGeno&) = delete;
+	VCFGeno& operator=(const VCFGeno&) = delete;
 	~VCFGeno();
 	
 	///// virtual methods for VCFGenoBase /////

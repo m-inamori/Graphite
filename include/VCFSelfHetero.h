@@ -33,6 +33,8 @@ public:
 	VCFSelfHetero(const STRVEC& s,
 					const std::vector<VCFSelfHeteroRecord *>& rs,
 					const Map& m, double w, const VCFSmall *vcf);
+	VCFSelfHetero(const VCFSelfHetero&) = delete;
+	VCFSelfHetero& operator=(const VCFSelfHetero&) = delete;
 	~VCFSelfHetero();
 	
 	///// virtual methods for VCFGenoBase /////

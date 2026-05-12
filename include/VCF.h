@@ -164,6 +164,8 @@ protected:
 public:
 	VCFSmall(const std::vector<STRVEC>& header, const STRVEC& samples,
 						const std::vector<VCFRecord *>& rs, bool rr=false);
+	VCFSmall(const VCFSmall&) = delete;
+	VCFSmall& operator=(const VCFSmall&) = delete;
 	~VCFSmall();
 	
 	///// virtual methods /////
@@ -224,6 +226,8 @@ private:
 public:
 	VCFHuge(const std::vector<STRVEC>& header_, const STRVEC& samples_,
 													VCFReader *reader_);
+	VCFHuge(const VCFHuge&) = delete;
+	VCFHuge& operator=(const VCFHuge&) = delete;
 	~VCFHuge();
 	
 	VCFRecord *next();

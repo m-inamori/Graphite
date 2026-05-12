@@ -33,6 +33,8 @@ public:
 	VCFIsolated(const STRVEC& s, std::size_t nis,
 				std::vector<GenoRecord *>& rs,
 				const Map& m, const VCFSmall *vcf);
+	VCFIsolated(const VCFIsolated&) = delete;
+	VCFIsolated& operator=(const VCFIsolated&) = delete;
 	~VCFIsolated();
 	
 	///// virtual methods for VFSmallBase /////

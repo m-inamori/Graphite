@@ -26,6 +26,8 @@ public:
 						const std::vector<VCFFillableRecord *>& rs,
 						const VCFSmall *vcf) :
 										VCFFillable(s, rs, vcf) { }
+	VCFSmallFillable(const VCFSmallFillable&) = delete;
+	VCFSmallFillable& operator=(const VCFSmallFillable&) = delete;
 	~VCFSmallFillable() { }
 	
 	///// non-virtual methods /////

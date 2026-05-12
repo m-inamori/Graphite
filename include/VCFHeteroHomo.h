@@ -72,6 +72,8 @@ public:
 	VCFHeteroHomo(const STRVEC& s,
 					const std::vector<VCFHeteroHomoRecord *>& rs,
 					const Map& m, const VCFSmall *vcf);
+	VCFHeteroHomo(const VCFHeteroHomo&) = delete;
+	VCFHeteroHomo& operator=(const VCFHeteroHomo&) = delete;
 	~VCFHeteroHomo();
 	
 	///// virtual methods for VCFGenoBase /////

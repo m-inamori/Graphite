@@ -17,6 +17,9 @@ bool OneKnownFamily::is_small(const vector<vector<int>>& ref_haps,
 											size_t L, const OptionSmall& op) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
+	if(NH >= 100)
+		return false;
+	
 	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
 	return R*M < 1e8 && R < 1e5 && L*R*M < 1e9;
 }

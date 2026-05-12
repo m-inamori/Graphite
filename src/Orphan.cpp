@@ -19,6 +19,9 @@ bool Orphan::is_small(const vector<vector<int>>& ref_haps,
 												const OptionSmall& op) {
 	const size_t	M = ref_haps[0].size();
 	const size_t	NH = ref_haps.size();
+	if(NH >= 100)
+		return false;
+	
 	const double	R = (NH * NH * (2*NH - 1)) / op.precision_ratio;
 	return R * M < 100000000 && R < 100000;		// 10^8 & 10^5
 }

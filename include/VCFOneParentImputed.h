@@ -19,6 +19,8 @@ public:
 						const std::vector<std::vector<int>>& ref_haps,
 						bool is_mat_imputed, const Map& map_,
 						double w, const VCFSmall *vcf);
+	VCFOneParentImputed(const VCFOneParentImputed&) = delete;
+	VCFOneParentImputed& operator=(const VCFOneParentImputed&) = delete;
 	~VCFOneParentImputed();
 	
 	///// virtual methods for VCFGenoBase /////

@@ -21,6 +21,8 @@ public:
 									VCFMeasurable(m),
 									records(rs),
 									is_mat_hetero(is_mat_hetero_) { }
+	VCFImpHeteroHomo(const VCFImpHeteroHomo&) = delete;
+	VCFImpHeteroHomo& operator=(const VCFImpHeteroHomo&) = delete;
 	~VCFImpHeteroHomo() { }
 	
 	///// virtual methods for VCFGenoBase /////

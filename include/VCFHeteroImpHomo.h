@@ -69,6 +69,8 @@ public:
 									VCFMeasurable(m),
 									records(rs),
 									is_mat_hetero(is_mat_het) { }
+	VCFHeteroImpHomo(const VCFHeteroImpHomo&) = delete;
+	VCFHeteroImpHomo& operator=(const VCFHeteroImpHomo&) = delete;
 	~VCFHeteroImpHomo() { }
 	
 	///// virtual methods for VCFGenoBase /////

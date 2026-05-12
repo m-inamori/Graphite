@@ -70,6 +70,8 @@ protected:
 public:
 	VCFFamily(const STRVEC& s, const std::vector<VCFFamilyRecord *>& rs,
 														const VCFSmall *vcf);
+	VCFFamily(const VCFFamily&) = delete;
+	VCFFamily& operator=(const VCFFamily&) = delete;
 	~VCFFamily();
 	
 	///// virtual methods for VCFGenoBase /////
