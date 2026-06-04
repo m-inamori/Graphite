@@ -77,7 +77,7 @@ VCFGenoBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 									const vector<const KnownFamily *>& families,
 									const OptionSmall& op) {
 	const size_t	N = families.size();
-	vector<VCFImputable *>	small_vcfs;
+	vector<VCFImputable *>	vcfs;
 	vector<VCFFamily *>	vcf_garbage;
 	// Save ref_haps for mat and pat
 	for(size_t i = 0; i < N; ++i) {
@@ -87,21 +87,20 @@ VCFGenoBase *BothKnownFamily::impute(const VCFSmall *orig_vcf,
 		auto	*vcf1 = create_vcf(family, vcf->get_family_records(),
 												N, ref_haps, orig_vcf, op);
 		if(vcf1 != NULL) {
-			small_vcfs.push_back(vcf1);
+			vcfs.push_back(vcf1);
 			vcf->clear_records();
 		}
 		vcf_garbage.push_back(vcf);
 	}
 	
-	if(small_vcfs.empty())
+	if(vcfs.empty())
 		return NULL;
 	
 	// Small VCFs are heavy to process, so it will be parallelized.
-	VCFImputable::impute_VCFs(small_vcfs, op.num_threads);
-	cout << small_vcfs.size()
+	VCFImputable::impute_VCFs(vcfs, op.num_threads);
+	cout << vcfs.size()
 			<< " families whose parents are known have been imputed." << endl;
-	vector<const VCFGenoBase *>	vcfs(small_vcfs.begin(), small_vcfs.end());
-	auto	*new_vcf = VCFGeno::join(vcfs, orig_vcf->get_samples());
+	auto	*new_vcf = VCFImputable::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcf_garbage);
 	Common::delete_all(vcfs);
 	return new_vcf;

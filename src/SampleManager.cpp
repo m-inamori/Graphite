@@ -67,8 +67,7 @@ bool SampleManager::is_parent_imputed_and_progenies_not_imputed(
 }
 
 bool SampleManager::is_progeny_imputed(const Family *family) const {
-	if(family->is_self() ||
-			(is_unknown(family->get_mat()) && is_unknown(family->get_pat())))
+	if(family->is_self())
 		return false;
 	
 	if(this->is_imputed(family->get_mat()) ||
@@ -285,11 +284,33 @@ SampleManager::extract_self_parent_non_imputed_families() const {
 }
 
 vector<const KnownFamily *>
-			SampleManager::extract_progenies_phased_families() const {
+SampleManager::extract_progenies_imputed_families() const {
 	vector<const KnownFamily *>	families;
 	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
 		const KnownFamily	*family = *p;
 		if(!this->is_progeny_imputed(family))
+			continue;
+		if(is_unknown(family->get_mat()) || is_unknown(family->get_pat()))
+			continue;
+		
+		vector<const Progeny *>	new_progenies;
+		const vector<const Progeny *>&	progenies = family->get_progenies();
+		for(auto q = progenies.begin(); q != progenies.end(); ++q) {
+			new_progenies.push_back((*q)->copy());
+		}
+		families.push_back(family->create(new_progenies));
+	}
+	return families;
+}
+
+vector<const KnownFamily *>
+		SampleManager::extract_parent_known_progenies_imputed_families() const {
+	vector<const KnownFamily *>	families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(!this->is_progeny_imputed(family))
+			continue;
+		if(!(is_known(family->get_mat()) ^ is_known(family->get_pat())))
 			continue;
 		
 		vector<const Progeny *>	new_progenies;

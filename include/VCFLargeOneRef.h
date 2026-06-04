@@ -13,19 +13,20 @@ class Map;
 
 class VCFLargeOneRef : public VCFImputable {
 	std::vector<VCFFamilyRecord *>	records;
+	const bool	is_mat_ref;
 	ParentRefImputer	parent_imputer;
 	ProgenyRefImputer	prog_imputer;
 	
 public:
 	VCFLargeOneRef(const STRVEC& samples,
 					const std::vector<VCFFamilyRecord *>& rs,
-					const Map& map_, bool is_mat_ref,
+					const Map& map_, bool is_mat,
 					double w, const VCFGeno *ref_vcf):
-								VCFImputable(samples, ref_vcf->get_ref_vcf()),
-								records(rs),
-								parent_imputer(records, map_,
-											is_mat_ref, ref_vcf, w),
-								prog_imputer(records, map_, w) { }
+							VCFImputable(samples, ref_vcf->get_ref_vcf()),
+							records(rs),
+							is_mat_ref(is_mat),
+							parent_imputer(records, map_, is_mat, ref_vcf, w),
+							prog_imputer(records, map_, w) { }
 	~VCFLargeOneRef();
 	
 	///// virtual methods for VCFGenoBase /////
@@ -41,6 +42,7 @@ public:
 	
 	///// virtual methods for VCFImputable /////
 	std::size_t amount() const override { return 1; }
+	STRVEC imputed_samples() const override;
 	void impute() override;
 };
 

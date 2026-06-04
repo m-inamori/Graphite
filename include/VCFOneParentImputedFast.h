@@ -42,6 +42,7 @@ public:
 	
 	///// virtual methods for VCFImputable /////
 	std::size_t amount() const override;
+	STRVEC imputed_samples() const override;
 	void impute() override;
 	
 private:

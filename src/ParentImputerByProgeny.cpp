@@ -5,12 +5,13 @@
 using namespace std;
 
 ParentImputerByProgeny::ParentImputerByProgeny(
-							const vector<VCFFamilyRecord *>& rs,
-							const vector<vector<int>>& ref_hs,
-							bool is_mat_known_, const Map& map_, double w) :
+									const vector<VCFFamilyRecord *>& rs,
+									const vector<vector<int>>& ref_hs,
+									bool should_impute_mat_,
+									const Map& map_, double w) :
 					VCFHMM(map_, w), records(rs), ref_haps(ref_hs),
 					prev_h_table(collect_possible_previous_hidden_states()),
-					is_mat_known(is_mat_known_),
+					should_impute_mat(should_impute_mat_),
 					Cc(calc_Cc(rs)), Cp(calc_Cp(rs)) { }
 
 vector<double> ParentImputerByProgeny::calc_Cc(
@@ -39,7 +40,7 @@ int ParentImputerByProgeny::compute_parent_gt(size_t i, int h) const {
 									// from the parent to the progeny
 	const int	hc = (h >> 1) & 1;	// Which parent passed it to the progeny
 	const int	hp = h >> 2;		// Those who have not passed to the progeny
-	const int	prog_allele = records[i]->get_allele(1, hw);
+	const int	prog_allele = records[i]->get_allele(2, hw);
 	if(hc == 0)
 		return prog_allele | (ref_haps[hp][i] << 1);
 	else
@@ -48,7 +49,8 @@ int ParentImputerByProgeny::compute_parent_gt(size_t i, int h) const {
 
 double ParentImputerByProgeny::emission_probability(size_t i, int h) const {
 	const int	parent_phased_gt = compute_parent_gt(i, h);
-	const int	parent_gt = records[i]->unphased_mat();
+	const size_t	index = should_imputed_index();
+	const int	parent_gt = records[i]->unphased(index);
 	return E[parent_phased_gt][parent_gt];
 }
 
@@ -112,14 +114,15 @@ void ParentImputerByProgeny::update_dp(size_t i, vector<DP>& dp) const {
 void ParentImputerByProgeny::update_genotypes(const vector<int>& hs) {
 	// Genotypes may be swapped depending on
 	// which of the progeny passed the parental haplotype
-	const bool	is_swapped = is_mat_known ^ ((hs[0] & 1) == 0);
+	const bool	is_swapped = should_impute_mat ^ ((hs[0] & 1) == 0);
+	const size_t	index = should_imputed_index();
 	for(size_t i = 0; i < this->M(); ++i) {
 		VCFFamilyRecord	*record = records[i];
 		const int	parent_gt = compute_parent_gt(i, hs[i]);
-		record->set_geno(0, parent_gt | 4);
+		record->set_geno(index, parent_gt | 4);
 		if(is_swapped) {
-			const int	gt = record->mat_gt();
-			record->set_geno(0, Genotype::inverse(gt));
+			const int	gt = record->get_geno(index);
+			record->set_geno(index, Genotype::inverse(gt));
 		}
 	}
 }

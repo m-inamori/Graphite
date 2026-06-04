@@ -76,7 +76,7 @@ private:
 	
 	std::vector<DP> initialize_dp() const;
 	
-	// hidden stateに対して、可能な前のhidden stateを集めておく
+	// Collect all possible previous hidden states for each hidden state.
 	std::vector<std::vector<int>>
 				collect_possible_previous_hidden_states() const;
 	

@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cassert>
 #include "../include/ProgenyImputedFamilyRef.h"
-#include "../include/ProgenyImputedFamily.h"
 #include "../include/VCFFamily.h"
 #include "../include/VCFProgenyImputed.h"
 #include "../include/KnownFamily.h"
@@ -20,18 +19,18 @@ VCFGeno *ProgenyImputedFamilyRef::impute(const VCFSmall *orig_vcf,
 								const vector<vector<string>>& imputed_progenies,
 								const vector<vector<int>>& ref_haps,
 								const OptionSmall& op) {
-	const auto	sample_table = ProgenyImputedFamily::collect_samples(families,
-															imputed_progenies);
 	
 	vector<VCFImputable *>	vcfs;
 	vector<VCFGeno *>	vcf_garbage;
 	const size_t	L = families.size();
 	for(size_t i = 0; i < L; ++i) {
 		const KnownFamily	*family = families[i];
-		auto	*vcf = VCFGeno::extract_samples(sample_table[i], orig_vcf);
-		const auto	records = RefCommon::merge_family_records(imputed_vcf, vcf,
-															sample_table[i]);
-		auto	*vcf1 = new VCFProgenyImputed(sample_table[i], records,
+		const string&	progeny = imputed_progenies[i][0];
+		STRVEC	samples = { family->get_mat(), family->get_pat(), progeny };
+		auto	*vcf = VCFGeno::extract_samples(samples, orig_vcf);
+		const auto	records = RefCommon::merge_family_records(imputed_vcf,
+																vcf, samples);
+		auto	*vcf1 = new VCFProgenyImputed(samples, records,
 											  ref_haps, family->is_mat_known(),
 											  op.map, 0.01, orig_vcf);
 		vcfs.push_back(vcf1);
@@ -48,8 +47,7 @@ VCFGeno *ProgenyImputedFamilyRef::impute(const VCFSmall *orig_vcf,
 	cout << vcfs.size()
 			<< " families whose progeny is imputed have been imputed." << endl;
 	
-	vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
-	auto	*new_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
+	auto	*new_vcf = VCFImputable::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcf_garbage);
 	Common::delete_all(vcfs);
 	return new_vcf;

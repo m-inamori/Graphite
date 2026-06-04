@@ -143,16 +143,8 @@ VCFGeno *VCFGeno::convert(const VCFSmall *vcf) {
 	return new VCFGeno(vcf->get_samples(), new_records, vcf);
 }
 
-VCFGeno *VCFGeno::join(const vector<const VCFGenoBase *>& vcfs,
-											const STRVEC& samples) {
-	map<string, pair<const VCFGenoBase *, size_t>>	dic;
-	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
-		const VCFGenoBase	*vcf = *p;
-		const STRVEC&	ss = vcf->get_samples();
-		for(size_t i = 0; i < ss.size(); ++i)
-			dic[ss[i]] = make_pair(vcf, i);
-	}
-	
+VCFGeno *VCFGeno::join_core(const vector<const VCFGenoBase *>& vcfs,
+							const SampleIndexMap& dic, const STRVEC& samples) {
 	vector<tuple<string, const VCFGenoBase *, size_t>>	cols;
 	for(auto p = samples.begin(); p != samples.end(); ++p) {
 		auto	q = dic.find(*p);
@@ -168,12 +160,31 @@ VCFGeno *VCFGeno::join(const vector<const VCFGenoBase *>& vcfs,
 	for(size_t i = 0; i < vcfs.front()->size(); ++i) {
 		const ll	pos = vcfs[0]->get_record(i)->get_pos();
 		vector<int>	geno;
-		for(auto p = cols.begin(); p != cols.end(); ++p)
-			geno.push_back(get<1>(*p)->get_record(i)->get_geno(get<2>(*p)));
+		for(auto p = cols.begin(); p != cols.end(); ++p) {
+			const auto	*vcf = get<1>(*p);
+			const size_t	k = get<2>(*p);
+			const auto	*record = vcf->get_record(i);
+			const int	gt = record->get_geno(k);
+			geno.push_back(gt);
+		}
 		new_records.push_back(new GenoRecord(pos, geno));
 	}
 	const VCFSmall	*ref_vcf = vcfs[0]->get_ref_vcf();
 	return new VCFGeno(new_samples, new_records, ref_vcf);
+}
+
+VCFGeno *VCFGeno::join(const vector<const VCFGenoBase *>& vcfs,
+											const STRVEC& samples) {
+	// Register all samples with their corresponding VCF and sample index.
+	SampleIndexMap	dic;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		const VCFGenoBase	*vcf = *p;
+		const STRVEC&	ss = vcf->get_samples();
+		for(size_t i = 0; i < ss.size(); ++i)
+			dic[ss[i]] = make_pair(vcf, i);
+	}
+	
+	return VCFGeno::join_core(vcfs, dic, samples);
 }
 
 VCFGeno *VCFGeno::join(const VCFGenoBase *vcf1, const VCFGenoBase *vcf2,

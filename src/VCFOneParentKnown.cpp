@@ -24,3 +24,8 @@ VCFOneParentKnown::~VCFOneParentKnown() {
 void VCFOneParentKnown::impute() {
 	parent_imputer.impute();
 }
+
+STRVEC VCFOneParentKnown::imputed_samples() const {
+	const size_t	index = phased_index();
+	return { samples[index] };
+}

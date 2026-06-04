@@ -3,8 +3,6 @@
 
 #include "VCFImputable.h"
 #include "ProgenyImputerByOneParent.h"
-#include "ParentImputerByProgeny.h"
-#include "ProgenyImputer.h"
 
 class Map;
 
@@ -14,16 +12,15 @@ class Map;
 class VCFImputedAndUnknown : public VCFImputable {
 private:
 	std::vector<VCFFamilyRecord *>	records;
+	const bool	is_mat_imputed;
 	const std::vector<std::vector<int>>&	ref_haps;
 	ProgenyImputerByOneParent	prog_imputer;
-	ParentImputerByProgeny		parent_imputer;
-	ProgenyImputer				progs_imputer;
 	
 public:
 	VCFImputedAndUnknown(const STRVEC& s,
 							const std::vector<VCFFamilyRecord *>& records,
 							const std::vector<std::vector<int>>& ref_haps,
-							bool is_mat_imputed,
+							bool is_mat,
 							const Map& map_, double w, const VCFSmall *vcf);
 	VCFImputedAndUnknown(const VCFImputedAndUnknown&) = delete;
 	VCFImputedAndUnknown& operator=(const VCFImputedAndUnknown&) = delete;
@@ -42,6 +39,7 @@ public:
 	
 	///// virtual methods for VCFImputable /////
 	std::size_t amount() const override;
+	STRVEC imputed_samples() const override { return { samples[2] }; }
 	void impute() override;
 	
 	///// non-virtual methods /////

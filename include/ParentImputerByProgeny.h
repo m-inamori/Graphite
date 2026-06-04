@@ -18,14 +18,14 @@ private:
 	const std::vector<VCFFamilyRecord *>&	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
-	const bool is_mat_known;
+	const bool should_impute_mat;
 	const std::vector<double>	Cc;
 	const std::vector<double>	Cp;
 	
 public:
 	ParentImputerByProgeny(const std::vector<VCFFamilyRecord *>& rs,
 							const std::vector<std::vector<int>>& ref_haps,
-							bool is_mat_known_, const Map& map_, double w);
+							bool should_impute_mat_, const Map& map_, double w);
 	~ParentImputerByProgeny() { }
 	
 	void impute();
@@ -35,6 +35,9 @@ private:
 	std::vector<double> calc_Cp(const std::vector<VCFFamilyRecord *>& rs) const;
 	std::size_t NH() const { return ref_haps.size(); }
 	std::size_t M() const { return ref_haps[0].size(); }
+	std::size_t should_imputed_index() const {
+		return static_cast<std::size_t>(!should_impute_mat);
+	}
 	
 	int compute_parent_gt(std::size_t i, int h) const;
 	

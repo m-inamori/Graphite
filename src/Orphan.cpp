@@ -83,6 +83,7 @@ VCFGenoBase *Orphan::impute(const vector<string>& samples,
 	auto	*vcf = VCFGeno::extract_samples(samples, orig_vcf);
 	auto	*vcf1 = impute_samples(samples, vcf->get_records(),
 											ref_haps, orig_vcf, op);
+	vcf->clear_records();
 	delete vcf;
 	return vcf1;
 }

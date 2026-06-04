@@ -215,7 +215,7 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_progenies(
 											VCFGeno *imputed_vcf,
 											const OptionSmall& op_small,
 											SampleManager *sample_man) {
-	const auto families = sample_man->extract_progenies_phased_families();
+	const auto families = sample_man->extract_progenies_imputed_families();
 	
 	// collect imputed progenies
 	vector<vector<string>> imputed_progenies;

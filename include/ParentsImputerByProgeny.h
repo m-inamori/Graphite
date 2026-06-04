@@ -1,14 +1,14 @@
-#ifndef __PARENTPROGENYIMPUTER
-#define __PARENTPROGENYIMPUTER
+#ifndef __PARENTSIMPUTERBYPROGENY
+#define __PARENTSIMPUTERBYPROGENY
 
 #include "VCFFamily.h"
 #include "VCFHMM.h"
 #include "Map.h"
 
 
-//////////////////// ParentProgenyImputer ////////////////////
+//////////////////// ParentsImputerByProgeny ////////////////////
 
-class ParentProgenyImputer : public VCFHMM<VCFFamilyRecord> {
+class ParentsImputerByProgeny : public VCFHMM<VCFFamilyRecord> {
 public:
 	// (log of probability, previous hidden state)
 	using DP = std::vector<std::pair<double, int>>;
@@ -16,26 +16,27 @@ public:
 	
 private:
 	const std::vector<VCFFamilyRecord *>	records;
-	const std::vector<std::vector<int>>&	ref_haps;
-	const std::vector<std::vector<int>>	prev_h_table;
-	const bool is_mat_imputed;
+	const std::vector<std::vector<int>>		ref_haps_mat;
+	const std::vector<std::vector<int>>		ref_haps_pat;
+	const std::vector<std::vector<int>>		prev_h_table;
 	const std::vector<double>	Cc;
 	const std::vector<double>	Cp;
 	
 public:
-	ParentProgenyImputer(const std::vector<VCFFamilyRecord *>& rs,
-							bool is_mat_imputed,
-							const std::vector<std::vector<int>>& ref_haps,
+	ParentsImputerByProgeny(const std::vector<VCFFamilyRecord *>& rs,
+							const std::vector<std::vector<int>>& ref_hs_mat,
+							const std::vector<std::vector<int>>& ref_hs_pat,
 							const Map& map_, double w);
-	~ParentProgenyImputer() { }
+	~ParentsImputerByProgeny() { }
 	
 	void impute();
 	
 private:
 	std::vector<double> calc_Cc(const std::vector<VCFFamilyRecord *>& rs) const;
 	std::vector<double> calc_Cp(const std::vector<VCFFamilyRecord *>& rs) const;
-	std::size_t NH() const { return ref_haps.size(); }
-	std::size_t M() const { return ref_haps[0].size(); }
+	std::size_t NH() const { return ref_haps_mat.size(); }
+	std::size_t num_states() const { return (NH()*NH()) << 3; }
+	std::size_t M() const { return ref_haps_mat[0].size(); }
 	std::size_t num_progenies() const {
 		return records[0]->num_samples() - 2;
 	}
@@ -44,14 +45,8 @@ private:
 		return ((mat_gt >> hc1) & 1) | (((pat_gt >> hc2) & 1) << 1);
 	}
 	
-	double emission_probability(std::size_t i, int h, int op,
-								const std::vector<int>& ocs,
-								int phased_parent_gt) const;
-	
-	double progeny_transition_probability(std::size_t i,
-											int prev_hc, int hc) const;
-	double parent_transition_probability(std::size_t i,
-											int prev_hp, int hp) const;
+	std::pair<int, int> compute_parent_gt(int i, int h) const;
+	double emission_probability(std::size_t i, int h) const;
 	double transition_probability(std::size_t i, int prev_h, int h) const;
 	
 	std::vector<DP> initialize_dp() const;

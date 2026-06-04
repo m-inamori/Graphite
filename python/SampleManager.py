@@ -178,11 +178,38 @@ class SampleManager:
 		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.mat_known,
 									f.progenies) for f in families ]
 	
-	# 両親は補完されていないが子どもの一部が補完されている家系
+	# 両親がknownで子どもの一部が補完されている家系
 	def extract_progenies_imputed_families(self) -> list[KnownFamily]:
 		families = [ family for family in self.small_families
 								if not family.is_self() and
-									(family.mat_known or family.pat_known) and
+									(family.mat_known and family.pat_known) and
+									not self.is_imputed(family.mat) and
+									not self.is_imputed(family.pat) and
+									any(self.is_imputed(prog)
+											for prog in family.progenies) ]
+		return [ KnownFamily(f.mat, f.pat, f.mat_known,
+									f.mat_known, f.progenies)
+														for f in families ]
+	
+	# 片親がknownで子どもの一部が補完されている家系
+	def extract_parent_known_progenies_imputed_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+								if not family.is_self() and
+									(family.mat_known ^ family.pat_known) and
+									not self.is_imputed(family.mat) and
+									not self.is_imputed(family.pat) and
+									any(self.is_imputed(prog)
+											for prog in family.progenies) ]
+		return [ KnownFamily(f.mat, f.pat, f.mat_known,
+									f.mat_known, f.progenies)
+														for f in families ]
+	
+	# 親の片側がknownで子どもの一部が補完されている家系
+	def extract_known_parent_and_progenies_imputed_families(
+													self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+								if not family.is_self() and
+									(family.mat_known ^ family.pat_known) and
 									not self.is_imputed(family.mat) and
 									not self.is_imputed(family.pat) and
 									any(self.is_imputed(prog)

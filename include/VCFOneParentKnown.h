@@ -37,6 +37,10 @@ public:
 	
 	///// virtual methods for VCFImputable /////
 	void impute() override;
+	STRVEC imputed_samples() const override;
 	std::size_t amount() const override { return 1; }
+	
+	///// non-virtual methods /////
+	std::size_t phased_index() const { return parent_imputer.phased_index(); }
 };
 #endif

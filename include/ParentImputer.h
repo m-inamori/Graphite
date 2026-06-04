@@ -30,6 +30,7 @@ public:
 	~ParentImputer() { }
 	
 	std::size_t num_ref_haps() const { return ref_haps.size(); }
+	std::size_t phased_index() const { return is_mat_imputed ? 0 : 1; }
 	
 	void impute();
 	
@@ -37,7 +38,6 @@ private:
 	std::vector<double> calc_Cp(const std::vector<VCFFamilyRecord *>& rs) const;
 	std::size_t NH() const { return ref_haps.size(); }
 	std::size_t M() const { return ref_haps[0].size(); }
-	std::size_t phased_index() const { return is_mat_imputed ? 0 : 1; }
 	std::size_t num_progenies() const {
 		return ref_records[0]->num_samples() - 2;
 	}
@@ -62,7 +62,7 @@ private:
 	
 	std::vector<DP> initialize_dp() const;
 	
-	// hidden stateに対して、可能な前のhidden stateを集めておく
+	// Collect all possible previous hidden states for each hidden state.
 	std::vector<std::vector<int>>
 				collect_possible_previous_hidden_states() const;
 	

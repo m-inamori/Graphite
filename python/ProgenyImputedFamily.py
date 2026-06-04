@@ -17,28 +17,22 @@ from OptionSmall import OptionSmall
 
 #################### ProgenyImputedFamily ####################
 
-def impute_family(family: KnownFamily, samples: list[str],
-					records: list[VCFFamilyRecord],
-					num_families: int, ref_haps: list[list[int]],
-					vcf: VCFSmall, op: OptionSmall) -> VCFGenoBase:
-	vcf1 = VCFProgenyImputed(samples, records, ref_haps,
-										family.mat_known, op.map, vcf)
-	vcf1.impute()
-	return vcf1
-
 def impute(orig_vcf: VCFSmall, merged_vcf: VCFGenoBase,
 			families: list[KnownFamily], imputed_progenies: list[list[str]],
 			ref_haps: list[list[int]], op: OptionSmall) -> Optional[VCFGeno]:
 	vcfs: list[VCFGenoBase] = []
 	for i in range(len(families)):
 		family = families[i]
-		parent = family.mat if family.mat_known else family.pat
 		progeny = imputed_progenies[i][0]
-		samples = [parent, progeny]
+		samples = [family.mat, family.pat, progeny]
 		vcf = VCFFamily.create_by_two_vcfs(merged_vcf, orig_vcf, samples)
-		vcf1 = impute_family(family, samples, vcf.records,
-									len(families), ref_haps, orig_vcf, op)
-		vcfs.append(vcf1)
+		vcf1 = VCFProgenyImputed(samples, vcf.records, ref_haps,
+									family.mat_known, op.map, orig_vcf)
+		vcf1.impute()
+		# 補完した親だけのVCFにする
+		parent = family.mat if family.mat_known else family.pat
+		vcf_parent = VCFGenoBase.extract_by_samples(vcf1, [parent])
+		vcfs.append(vcf_parent)
 	
 	if not vcfs:
 		return None

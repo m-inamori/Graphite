@@ -46,8 +46,7 @@ VCFGeno *ImputedAndKnownFamilyRef::impute(
 	VCFImputable::impute_VCFs(vcfs, op.num_threads);
 	cout << N << " families whose one parent is imputed and the other parent"
 									<< " is known have been imputed." << endl;
-	vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
-	auto	*new_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
+	auto	*new_vcf = VCFImputable::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcfs);
 	return new_vcf;
 }

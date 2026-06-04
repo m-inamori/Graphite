@@ -47,6 +47,10 @@ private:
 //////////////////// VCFGeno ////////////////////
 
 class VCFGeno : public VCFGenoBase {
+public:
+	using SampleIndexMap = std::map<std::string,
+								std::pair<const VCFGenoBase *, std::size_t>>;
+	
 protected:
 	std::vector<GenoRecord *>	records;
 	
@@ -75,6 +79,9 @@ public:
 	static VCFGeno *convert(const VCFSmall *vcf);
 	
 	// join VCFs in order of samples
+	static VCFGeno *join_core(const std::vector<const VCFGenoBase *>& vcfs,
+								const SampleIndexMap& dic,
+								const STRVEC& samples);
 	static VCFGeno *join(const std::vector<const VCFGenoBase *>& vcfs,
 													const STRVEC& samples);
 	static VCFGeno *join(const VCFGenoBase *vcf1, const VCFGenoBase *vcf2,

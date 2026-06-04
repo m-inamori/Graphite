@@ -25,10 +25,15 @@ public:
 	
 	// amount of computation
 	virtual std::size_t amount() const = 0;
+	virtual STRVEC imputed_samples() const = 0;
 	virtual void impute() = 0;
 	
 public:
 	static void impute_in_thread(void *config);
 	static void impute_VCFs(std::vector<VCFImputable *>& vcfs, int T);
+	// Merge imputed sample columns from multiple VCFs into a single VCF
+	// in the specified sample order.
+	static VCFGeno *join(const std::vector<VCFImputable *>& vcfs,
+											const STRVEC& samples);
 };
 #endif

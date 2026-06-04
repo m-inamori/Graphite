@@ -40,6 +40,7 @@ public:
 	
 	///// virtual methods for VCFFamilyBase /////
 	void impute() override;
+	STRVEC imputed_samples() const override { return samples; }
 	std::size_t amount() const override { return 1; }
 	
 	///// non-virtual methods /////

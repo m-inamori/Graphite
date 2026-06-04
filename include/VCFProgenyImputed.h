@@ -11,13 +11,14 @@ class VCFSmall;
 
 class VCFProgenyImputed : public VCFImputable {
 	const std::vector<VCFFamilyRecord *>	records;
+	const bool	should_impute_mat;
 	ParentImputerByProgeny	imputer;
 	
 public:
 	VCFProgenyImputed(const STRVEC& s,
 						const std::vector<VCFFamilyRecord *>& records,
 						const std::vector<std::vector<int>>& ref_haps,
-						bool is_mat_known, const Map& map_,
+						bool should_impute_mat, const Map& map_,
 						double w, const VCFSmall *vcf);
 	VCFProgenyImputed(const VCFProgenyImputed&) = delete;
 	VCFProgenyImputed& operator=(const VCFProgenyImputed&) = delete;
@@ -36,6 +37,7 @@ public:
 	
 	///// virtual methods for VCFFamilyBase /////
 	std::size_t amount() const override { return 1; }
+	STRVEC imputed_samples() const override;
 	void impute() override;
 };
 #endif

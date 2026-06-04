@@ -11,6 +11,7 @@ VCFOneParentImputedRough::VCFOneParentImputedRough(const STRVEC& s,
 									const VCFSmall *vcf) :
 						VCFImputable(s, vcf),
 						records(rs),
+						is_mat_imputed(is_mat),
 						parent_imputer(records, !is_mat, ref_hs, map_, w),
 						prog_imputer(records, map_, w) { }
 
@@ -24,6 +25,13 @@ size_t VCFOneParentImputedRough::amount() const {
 	const size_t	NH = parent_imputer.num_ref_haps();
 	const size_t	R = (NH*NH << (N*2)) * (2*NH + 2*N - 1);
 	return R * M;
+}
+
+STRVEC VCFOneParentImputedRough::imputed_samples() const {
+	STRVEC	ss = samples;
+	const size_t	index = is_mat_imputed ? 0 : 1;
+	ss.erase(ss.begin() + index);
+	return ss;
 }
 
 void VCFOneParentImputedRough::impute() {

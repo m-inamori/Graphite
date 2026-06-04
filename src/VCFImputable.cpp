@@ -1,3 +1,4 @@
+#include <set>
 #include <algorithm>
 
 #include "../include/VCFImputable.h"
@@ -45,4 +46,23 @@ void VCFImputable::impute_VCFs(vector<VCFImputable *>& vcfs, int T) {
 #endif
 	
 	Common::delete_all(configs);
+}
+
+VCFGeno *VCFImputable::join(const vector<VCFImputable *>& vcfs,
+											const STRVEC& samples) {
+	// Register all imputed samples with their corresponding VCF and sample index.
+	VCFGeno::SampleIndexMap	dic;
+	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
+		const VCFImputable	*vcf = *p;
+		const STRVEC	ss = vcf->imputed_samples();
+		const set<string>	set_ss(ss.begin(), ss.end());
+		const STRVEC&	samples = vcf->get_samples();
+		for(size_t i = 0; i < samples.size(); ++i) {
+			if(set_ss.find(samples[i]) != set_ss.end())
+				dic[samples[i]] = make_pair(vcf, i);
+		}
+	}
+	
+	const vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
+	return VCFGeno::join_core(vcfs1, dic, samples);
 }

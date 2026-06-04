@@ -94,14 +94,13 @@ VCFGenoBase *OneKnownFamily::impute(const VCFSmall *orig_vcf,
 		return NULL;
 	}
 	
+	// Small VCFs are heavy to process, so it will be parallelized.
 	VCFImputable::impute_VCFs(vcfs, op.num_threads);
 	
 	cout << vcfs.size() << " families whose one parent is known and"
 				<< " the other parent is unknown have been imputed." << endl;
 	
-	// Small VCFs are heavy to process, so it will be parallelized.
-	vector<const VCFGenoBase *>	vcfs1(vcfs.begin(), vcfs.end());
-	auto	*new_vcf = VCFGeno::join(vcfs1, orig_vcf->get_samples());
+	auto	*new_vcf = VCFImputable::join(vcfs, orig_vcf->get_samples());
 	Common::delete_all(vcf_garbage);
 	Common::delete_all(vcfs);
 	return new_vcf;

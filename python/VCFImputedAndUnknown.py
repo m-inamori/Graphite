@@ -27,10 +27,6 @@ class VCFImputedAndUnknown(VCFImputable):
 		self.prog_imputer = ProgenyImputerByOneParent(records, ref_haps,
 														is_mat_imputed,
 														map_, 0.01)
-		self.parent_imputer = ParentImputerByProgeny(records, ref_haps,
-														is_mat_imputed,
-														map_, 0.01)
-		self.progs_imputer = ProgenyImputer(records, map_, 0.01)
 	
 	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
@@ -50,8 +46,3 @@ class VCFImputedAndUnknown(VCFImputable):
 	def impute(self) -> None:
 		# 最初の後代をimpute
 		self.prog_imputer.impute(0)
-		# 親をimpute
-		self.parent_imputer.impute()
-		# 残りの後代をimpute
-		for i in range(1, self.num_progenies()):
-			self.progs_imputer.impute(i)

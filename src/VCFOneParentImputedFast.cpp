@@ -18,6 +18,13 @@ VCFOneParentImputedFast::~VCFOneParentImputedFast() {
 	Common::delete_all(records);
 }
 
+STRVEC VCFOneParentImputedFast::imputed_samples() const {
+	STRVEC	ss = samples;
+	const size_t	index = is_mat_imputed ? 0 : 1;
+	ss.erase(ss.begin() + index);
+	return ss;
+}
+
 size_t VCFOneParentImputedFast::amount() const {
 	const size_t	N = num_progenies();
 	const size_t	M = records.size();

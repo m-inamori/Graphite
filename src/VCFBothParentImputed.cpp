@@ -15,6 +15,12 @@ VCFBothParentImputed::~VCFBothParentImputed() {
 	Common::delete_all(records);
 }
 
+STRVEC VCFBothParentImputed::imputed_samples() const {
+	STRVEC	ss = samples;
+	ss.erase(ss.begin(), ss.begin() + 2);
+	return ss;
+}
+
 void VCFBothParentImputed::impute() {
 	for(size_t ic = 0; ic < num_progenies(); ++ic) {
 		prog_imputer.impute(ic);
