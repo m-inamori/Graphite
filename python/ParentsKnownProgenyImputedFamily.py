@@ -59,7 +59,7 @@ def impute_family(family: KnownFamily, samples: list[str],
 	else:
 		# 計算量が大きいときは、片親だけ補完する
 		new_samples = [samples[0], samples[2]]
-		new_records = [ VCFFamilyRecord(r.pos, [r.geno[0], r.geno[1]])
+		new_records = [ VCFFamilyRecord(r.pos, [r.geno[0], r.geno[2]])
 														for r in records ]
 		vcf3 = VCFProgenyImputed(new_samples, new_records, ref_haps,
 													True, op.map, vcf)

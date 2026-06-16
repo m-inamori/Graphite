@@ -1,28 +1,32 @@
 from __future__ import annotations
 
 # coding: utf-8
-# VCFOneParentImputed.py
-# 片親だけimputeされていてもう片親はknown
+# VCFParentProgenyImputed.py
+# 片親がimputeされていて、もう片親はUnknown
+# まず片親
 
 from VCF import VCFSmall
+from VCFGeno import VCFGenoBase
 from GenoRecord import GenoRecord
-from VCFFamily import VCFFamilyRecord
+from VCFFamily import *
 from VCFImputable import VCFImputable
-from ImputerByParentProgeny import ImputerByParentProgeny
+from ProgenyImputerByOneParent import *
+from ParentImputerByProgeny import *
+from ProgenyImputer import *
 from Map import *
 
 
-#################### VCFOneParentImputed ####################
+#################### VCFParentProgenyImputed ####################
 
-class VCFOneParentImputed(VCFImputable):
+class VCFParentProgenyImputed(VCFImputable):
 	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
 					ref_haps: list[list[int]], should_impute_mat: bool,
 					map_: Map, vcf: VCFSmall):
 		VCFImputable.__init__(self, samples, vcf)
 		self.records: list[VCFFamilyRecord] = records
-		self.imputer = ImputerByParentProgeny(records, ref_haps,
-												should_impute_mat, map_, 0.01)
-		self.should_impute_mat = should_impute_mat
+		self.imputer = ParentImputerByProgeny(records, ref_haps,
+														should_impute_mat,
+														map_, 0.01)
 	
 	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:

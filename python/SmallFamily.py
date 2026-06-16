@@ -18,6 +18,7 @@ from VCFFamily import VCFFamily, VCFFamilyRecord
 from pedigree import PedigreeTable, Family
 from KnownFamily import KnownFamily
 import BothImputedFamily
+import ParentProgenyImputedFamily
 import BothKnownFamily
 import OneKnownFamily
 import OneImputedFamily
@@ -48,6 +49,28 @@ def impute_vcf_by_both_imputed_parents(orig_vcf: VCFSmall,
 	
 	merged_vcf = VCFGeno.join([imputed_vcf, vcf], orig_vcf.samples)
 	sample_man.set(vcf.samples)
+	return merged_vcf
+
+def impute_vcf_by_parent_and_progeny(
+							orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
+							ref_haps: list[list[int]],
+							sample_man: SampleManager,
+							op_small: OptionSmall) -> Optional[VCFGeno]:
+	families = sample_man.extract_parent_and_progeny_imputed_families()
+	# families have been already selected
+	# in which one parent has been imputed and one parent has not been imputed
+	# collect not phased parents
+	samples: list[str] = [ parent for family in families
+								  for parent in family.parents()
+								  if not sample_man.is_imputed(parent) ]
+	
+	vcf = ParentProgenyImputedFamily.impute(orig_vcf, imputed_vcf,
+										ref_haps, families, samples, op_small)
+	if vcf is None:
+		return None
+	
+	merged_vcf = VCFGeno.join([imputed_vcf, vcf], orig_vcf.samples)
+	sample_man.set(vcf.get_samples())
 	return merged_vcf
 
 def impute_vcf_by_imputed_and_known_parent(
@@ -213,6 +236,13 @@ def impute(orig_vcf: VCFSmall, merged_vcf: VCFGeno,
 														sample_man, op_small)
 		if new_merged_vcf1 is not None:
 			merged_vcf = new_merged_vcf1
+			continue
+		
+		new_merged_vcf11 = impute_vcf_by_parent_and_progeny(orig_vcf,
+														merged_vcf, ref_haps,
+														sample_man, op_small)
+		if new_merged_vcf11 is not None:
+			merged_vcf = new_merged_vcf11
 			continue
 		
 		# 片親が補完されている家系を補完する

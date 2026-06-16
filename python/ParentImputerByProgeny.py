@@ -40,6 +40,9 @@ class ParentImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 	def NH(self) -> int:
 		return len(self.ref_haps)
 	
+	def num_states(self) -> int:
+		return self.NH() * 4
+	
 	def should_imputed_index(self) -> int:
 		return int(not self.should_impute_mat)
 	
@@ -88,7 +91,7 @@ class ParentImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 	
 	# hidden stateに対して、可能な前のhidden stateを集めておく
 	def collect_possible_previous_hidden_states(self) -> list[list[int]]:
-		L = self.NH() << 2
+		L = self.num_states()
 		prev_h_table: list[list[int]] = [ [] for _ in range(L) ]
 		for h in range(L):		# hidden state
 			# 後代のどちらに親から渡ってくるか
@@ -106,7 +109,7 @@ class ParentImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 		return prev_h_table
 	
 	def update_dp(self, i: int, dp: list[DP]) -> None:
-		L = self.NH() << 2
+		L = self.num_states()
 		for h in range(L):		# hidden state
 			E_all = self.emission_probability(i, h)
 			for prev_h in self.prev_h_table[h]:

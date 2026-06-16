@@ -20,6 +20,11 @@ namespace SmallFamily {
 						const VCFSmall *orig_vcf, const VCFGenoBase *merged_vcf,
 						SampleManager *sample_man, const OptionSmall& op_small);
 	
+	VCFGeno *impute_vcf_by_parent_and_progeny(
+						const VCFSmall *orig_vcf, const VCFGeno *merged_vcf,
+						const std::vector<std::vector<int>>& ref_haps,
+						SampleManager *sample_man, const OptionSmall& op_small);
+	
 	VCFGeno *impute_vcf_by_imputed_and_known_parent(
 						const VCFSmall *orig_vcf, const VCFGeno *merged_vcf,
 						const std::vector<std::vector<int>>& ref_haps,

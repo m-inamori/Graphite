@@ -196,6 +196,68 @@ vector<const KnownFamily *>
 	return new_families;
 }
 
+vector<const Progeny *>
+SampleManager::extract_one_imputed_and_non_imputed_progenies(
+														const Family *f) const {
+	vector<const Progeny *>	imps;
+	vector<const Progeny *>	non_imps;
+	const auto&	progs = f->get_progenies();
+	for(auto p = progs.begin(); p != progs.end(); ++p) {
+		const string&	prog = (*p)->get_name();
+		if(is_imputed(prog))
+			imps.push_back(*p);
+		else
+			non_imps.push_back(*p);
+	}
+	
+	vector<const Progeny *>	samples(non_imps.size() + 1);
+	samples[0] = imps[0]->copy();
+	for(size_t i = 1; i < samples.size(); ++i)
+		samples[i] = non_imps[i-1]->copy();
+	return samples;
+}
+
+vector<const KnownFamily *>
+SampleManager::extract_parent_and_progeny_imputed_families() const {
+	vector<const KnownFamily*> families;
+	for(auto p = small_families.begin(); p != small_families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(family->is_self())
+			continue;
+		if(!(is_imputed(family->get_mat()) ^ is_imputed(family->get_pat())))
+			continue;
+		if(!family->is_mat_known() || !family->is_pat_known())
+			continue;
+		
+		bool	has_imputed_progeny = false;
+		const auto&	progs = family->get_progenies();
+		for(auto q = progs.begin(); q != progs.end(); ++q) {
+			const string&	prog = (*q)->get_name();
+			if(is_imputed(prog)) {
+				has_imputed_progeny = true;
+				break;
+			}
+		}
+		if(!has_imputed_progeny)
+			continue;
+		
+		families.push_back(family);
+	}
+	
+	vector<const KnownFamily *>	new_families;
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const KnownFamily* f = *p;
+		const auto	progs = extract_one_imputed_and_non_imputed_progenies(f);
+		const auto	*family = new KnownFamily(f->get_mat(), f->get_pat(),
+													f->is_mat_known(),
+													f->is_pat_known(),
+													progs);
+		new_families.push_back(family);
+	}
+	
+	return new_families;
+}
+
 vector<const KnownFamily *>
 				SampleManager::extract_one_known_parent_families() const {
 	vector<const KnownFamily *>	families;

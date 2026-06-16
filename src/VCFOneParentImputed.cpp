@@ -9,31 +9,29 @@ using namespace std;
 //////////////////// VCFOneParentImputed ////////////////////
 
 VCFOneParentImputed::VCFOneParentImputed(const STRVEC& s,
-							const std::vector<VCFFamilyRecord *>& rs,
-							const std::vector<std::vector<int>>& ref_hs,
-							bool is_mat_imp, const Map& map_,
-							double w, const VCFSmall *vcf) :
+									const std::vector<VCFFamilyRecord *>& rs,
+									const std::vector<std::vector<int>>& ref_hs,
+									bool should_impute_mat_, const Map& map_,
+									double w, const VCFSmall *vcf) :
 					VCFImputable(s, vcf),
 					records(rs),
-					is_mat_imputed(is_mat_imp),
 					ref_haps(ref_hs),
-					imputer(rs, is_mat_imp, ref_hs, map_, w) { }
+					imputer(records, ref_hs, should_impute_mat_, map_, w),
+					should_impute_mat(should_impute_mat_) { }
 
 VCFOneParentImputed::~VCFOneParentImputed() {
 	Common::delete_all(records);
 }
 
 size_t VCFOneParentImputed::amount() const {
-	const size_t	M = ref_haps[0].size();
-	const size_t	NH = ref_haps.size();
-	const size_t	R = NH*NH * (2*NH - 1);
-	return R * M;
+	return ref_haps.size() << (samples.size()*2-3);
 }
 
 STRVEC VCFOneParentImputed::imputed_samples() const {
-	STRVEC	ss = samples;
-	const size_t	index = is_mat_imputed ? 0 : 1;
-	ss.erase(ss.begin() + index);
+	STRVEC	ss(samples.size()-2);
+	const size_t	index = should_impute_mat ? 0 : 1;
+	ss[0] = samples[index];
+	std::copy(samples.begin() + 3, samples.end(), ss.begin() + 1);
 	return ss;
 }
 

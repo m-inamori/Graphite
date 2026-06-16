@@ -75,6 +75,26 @@ class SampleManager:
 									self.extract_unimputed_progenies(f))
 															for f in families ]
 	
+	def extract_one_imputed_and_non_imputed_progenies(self,
+													f: Family) -> list[str]:
+		imps = [ prog for prog in f.progenies if self.is_imputed(prog) ]
+		non_imps = [ prog for prog in f.progenies if not self.is_imputed(prog) ]
+		return imps[:1] + non_imps
+	
+	# 片親と後代が補完されている家系
+	def extract_parent_and_progeny_imputed_families(self) -> list[KnownFamily]:
+		families = [ family for family in self.small_families
+						if not family.is_self() and
+							(self.is_imputed(family.mat) ^
+							 self.is_imputed(family.pat)) and
+							family.mat_known and family.pat_known and
+							any(self.is_imputed(prog)
+											for prog in family.progenies) ]
+		
+		return [ KnownFamily(f.mat, f.pat, f.mat_known, f.pat_known,
+						self.extract_one_imputed_and_non_imputed_progenies(f))
+															for f in families ]
+	
 	# 補完されていないが片方の親だけ補完されている家系
 	def extract_imputed_and_known_families(self) -> list[Family]:
 		families = [ family for family in self.small_families

@@ -4,6 +4,7 @@
 #include "../include/VCFBothParentImputed.h"
 #include "../include/VCFIsolated.h"
 #include "../include/BothImputedFamily.h"
+#include "../include/ParentProgenyImputedFamily.h"
 #include "../include/OneImputedFamily.h"
 #include "../include/BothKnownFamily.h"
 #include "../include/ImputedAndKnownFamily.h"
@@ -37,6 +38,40 @@ VCFGeno *SmallFamily::impute_vcf_by_both_imputed_parents(
 	delete merged_vcf;
 	sample_man->add_imputed_samples(vcf->get_samples());
 	delete vcf;
+	return new_merged_vcf;
+}
+
+VCFGeno *SmallFamily::impute_vcf_by_parent_and_progeny(
+											const VCFSmall *orig_vcf,
+											const VCFGeno *merged_vcf,
+											const vector<vector<int>>& ref_haps,
+											SampleManager *sample_man,
+											const OptionSmall& op_small) {
+	auto	families =
+				sample_man->extract_parent_and_progeny_imputed_families();
+	// families have been already selected
+	// in which one parent has been imputed and one parent has not been imputed
+	// collect not phased parents
+	vector<string>	samples;
+	for(auto p = families.begin(); p != families.end(); ++p) {
+		const KnownFamily	*family = *p;
+		if(!sample_man->is_imputed(family->get_mat()))
+			samples.push_back(family->get_mat());
+		else
+			samples.push_back(family->get_pat());
+	}
+	
+	auto	*vcf = ParentProgenyImputedFamily::impute(orig_vcf, merged_vcf,
+										families, samples, ref_haps, op_small);
+	if(vcf == NULL)
+		return NULL;
+	
+	auto	*new_merged_vcf = VCFGeno::join(merged_vcf, vcf,
+													orig_vcf->get_samples());
+	delete merged_vcf;
+	delete vcf;
+	sample_man->add_imputed_samples(new_merged_vcf->get_samples());
+	Common::delete_all(families);
 	return new_merged_vcf;
 }
 
@@ -325,6 +360,16 @@ VCFGeno *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 														sample_man, op_small);
 		if(new_merged_vcf1 != NULL) {
 			merged_vcf = new_merged_vcf1;
+			continue;
+		}
+		
+		// Impute families in which one parent and one progeny are imputed
+		auto	new_merged_vcf11 = impute_vcf_by_parent_and_progeny(
+														orig_vcf, merged_vcf,
+														ref_haps,
+														sample_man, op_small);
+		if(new_merged_vcf11 != NULL) {
+			merged_vcf = new_merged_vcf11;
 			continue;
 		}
 		

@@ -9,18 +9,12 @@ from typing import Optional, Sequence
 from VCF import VCFSmall
 from VCFGeno import VCFGenoBase, VCFGeno
 from VCFFamily import *
-from VCFSmallFillable import *
-from group import Groups
-from RecordSet import RecordSet
-from VCFImpHeteroHomo import *
-from VCFHeteroImpHomo import *
+from VCFImputable import VCFImputable
 from VCFOneParentImputed import VCFOneParentImputed
 from VCFOneParentImputedRough import VCFOneParentImputedRough
 from VCFOneParentImputedFast import VCFOneParentImputedFast
 from Map import *
 from ReferenceHaplotype import filter_haplotypes
-from ClassifyRecord import FillType
-from TypeDeterminer import ParentComb
 from OptionSmall import OptionSmall
 
 
