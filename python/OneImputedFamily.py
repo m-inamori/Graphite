@@ -38,15 +38,7 @@ def create_family_vcf(family: KnownFamily, is_mat_imputed: bool,
 							records: list[VCFFamilyRecord],
 							num_families: int, ref_haps: list[list[int]],
 							vcf: VCFSmall, op: OptionSmall) -> VCFImputable:
-	if is_small(family, ref_haps, num_families, op):
-		return VCFOneParentImputed(family.samples(), records, ref_haps,
-											is_mat_imputed, op.map, vcf)
-	elif is_small_ref(ref_haps, num_families, op):
-		return VCFOneParentImputedRough(family.samples(), records, ref_haps,
-												is_mat_imputed, op.map, vcf)
-	else:
-		# ここで使うHMMは計算量が小さい
-		return VCFImputedAndUnknown(family.samples(), records, ref_haps,
+	return VCFImputedAndUnknown(family.samples(), records, ref_haps,
 												is_mat_imputed, op.map, vcf)
 
 def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno, ref_haps: list[list[int]],

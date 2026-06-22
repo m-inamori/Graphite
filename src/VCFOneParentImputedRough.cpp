@@ -7,13 +7,13 @@ using namespace std;
 VCFOneParentImputedRough::VCFOneParentImputedRough(const STRVEC& s,
 									const std::vector<VCFFamilyRecord *>& rs,
 									const std::vector<std::vector<int>>& ref_hs,
-									bool is_mat, const Map& map_, double w,
-									const VCFSmall *vcf) :
-						VCFImputable(s, vcf),
-						records(rs),
-						is_mat_imputed(is_mat),
-						parent_imputer(records, !is_mat, ref_hs, map_, w),
-						prog_imputer(records, map_, w) { }
+									bool should_impute_mat_, const Map& map_,
+									double w, const VCFSmall *vcf) :
+					VCFImputable(s, vcf),
+					records(rs),
+					should_impute_mat(should_impute_mat_),
+					parent_imputer(records, should_impute_mat, ref_hs, map_, w),
+					prog_imputer(records, map_, w) { }
 
 VCFOneParentImputedRough::~VCFOneParentImputedRough() {
 	Common::delete_all(records);
@@ -29,7 +29,7 @@ size_t VCFOneParentImputedRough::amount() const {
 
 STRVEC VCFOneParentImputedRough::imputed_samples() const {
 	STRVEC	ss = samples;
-	const size_t	index = is_mat_imputed ? 0 : 1;
+	const size_t	index = should_impute_mat ? 1 : 0;
 	ss.erase(ss.begin() + index);
 	return ss;
 }

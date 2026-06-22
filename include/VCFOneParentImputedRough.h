@@ -13,7 +13,7 @@ class Map;
 
 class VCFOneParentImputedRough : public VCFImputable {
 	const std::vector<VCFFamilyRecord *>	records;
-	const bool	is_mat_imputed;
+	const bool	should_impute_mat;
 	ParentImputer	parent_imputer;
 	ProgenyImputer	prog_imputer;
 	

@@ -18,13 +18,13 @@ private:
 	const std::vector<VCFFamilyRecord *>	records;
 	const std::vector<std::vector<int>>&	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
-	const bool is_mat_imputed;
+	const bool	should_impute_mat;
 	const std::vector<double>	Cc;
 	const std::vector<double>	Cp;
 	
 public:
 	ParentProgenyImputer(const std::vector<VCFFamilyRecord *>& rs,
-							bool is_mat_imputed,
+							bool should_impute_mat,
 							const std::vector<std::vector<int>>& ref_haps,
 							const Map& map_, double w);
 	~ParentProgenyImputer() { }

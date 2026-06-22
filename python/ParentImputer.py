@@ -19,11 +19,13 @@ MIN_PROB = -1e300
 class ParentImputer(VCFHMM[VCFFamilyRecord]):
 	DP = List[Tuple[float, int]]	# (log of probability, prev h)
 	
-	def __init__(self, records: Sequence[VCFFamilyRecord], is_mat: bool,
-						ref_haps: list[list[int]], map_: Map, w: float) -> None:
+	def __init__(self, records: Sequence[VCFFamilyRecord],
+									should_impute_mat: bool,
+									ref_haps: list[list[int]],
+									map_: Map, w: float):
 		VCFHMM.__init__(self, records, map_)
 		self.records: Sequence[VCFFamilyRecord] = records
-		self.is_mat_imputed: bool = is_mat
+		self.should_impute_mat: bool = should_impute_mat
 		self.ref_haps	= ref_haps
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
 		self.Epc = self.calc_Epc(w)
@@ -100,7 +102,7 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 	# mat_gt/pat_gt: not imputed genotype
 	def emission_probability(self, i: int, h: int,
 								mat_gt: int, pat_gt: int) -> float:
-		if self.is_mat_imputed:
+		if self.should_impute_mat:
 			return self.mat_emission_probability(i, h, mat_gt, pat_gt)
 		else:
 			return self.pat_emission_probability(i, h, mat_gt, pat_gt)
@@ -160,10 +162,10 @@ class ParentImputer(VCFHMM[VCFFamilyRecord]):
 				dp[i][h] = max(dp[i][h], (prob, prev_h))
 	
 	def update_genotypes(self, hs: list[int]) -> None:
-		j = 0 if self.is_mat_imputed else 1
+		index = 0 if self.should_impute_mat else 1
 		for i in range(len(self.ref_haps[0])):
 			phased_gt = self.compute_phased_gt_by_refhaps(hs[i], i)
-			self.records[i].geno[j] = phased_gt | 4
+			self.records[i].geno[index] = phased_gt | 4
 	
 	def impute(self) -> None:
 		L = self.NH()**2			# 親のハプロタイプの状態数

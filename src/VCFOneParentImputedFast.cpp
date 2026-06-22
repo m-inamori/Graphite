@@ -20,7 +20,7 @@ VCFOneParentImputedFast::~VCFOneParentImputedFast() {
 
 STRVEC VCFOneParentImputedFast::imputed_samples() const {
 	STRVEC	ss = samples;
-	const size_t	index = is_mat_imputed ? 0 : 1;
+	const size_t	index = should_impute_mat ? 0 : 1;
 	ss.erase(ss.begin() + index);
 	return ss;
 }
@@ -55,7 +55,7 @@ VCFOneParentImputedFast::classify_records() {
 VCFImputable *VCFOneParentImputedFast::create(
 										const vector<VCFFillableRecord *>& rs,
 										bool is_mat_hetero) const {
-	if(is_mat_hetero == is_mat_imputed)
+	if(is_mat_hetero != should_impute_mat)
 		return new VCFImpHeteroHomo(samples, rs, is_mat_hetero, gmap, vcf);
 	else
 		return new VCFHeteroImpHomo(samples, rs, is_mat_hetero, gmap, vcf);

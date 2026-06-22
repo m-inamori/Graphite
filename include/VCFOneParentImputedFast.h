@@ -13,17 +13,19 @@ class VCFFillable;
 
 class VCFOneParentImputedFast : public VCFImputable {
 	const std::vector<VCFFamilyRecord *>	records;
-	const bool	is_mat_imputed;
+	const bool	should_impute_mat;
 	const Map& gmap;
 	
 public:
 	VCFOneParentImputedFast(const STRVEC& s,
 							const std::vector<VCFFamilyRecord *>& rs,
-							bool is_mat, const Map& map_, const VCFSmall *vcf) :
-													VCFImputable(s, vcf),
-													records(rs),
-													is_mat_imputed(is_mat),
-													gmap(map_) { }
+							bool should_impute_mat_,
+							const Map& map_,
+							const VCFSmall *vcf) :
+										VCFImputable(s, vcf),
+										records(rs),
+										should_impute_mat(should_impute_mat_),
+										gmap(map_) { }
 	
 	VCFOneParentImputedFast(const VCFOneParentImputedFast&) = delete;
 	VCFOneParentImputedFast& operator=(const VCFOneParentImputedFast&) = delete;

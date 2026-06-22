@@ -8,7 +8,7 @@ from VCF import VCFSmall
 from GenoRecord import GenoRecord
 from VCFFamily import VCFFamilyRecord
 from VCFImputable import VCFImputable
-from ImputerByParentProgeny import ImputerByParentProgeny
+from ParentProgenyImputer import ParentProgenyImputer
 from Map import *
 
 
@@ -20,7 +20,7 @@ class VCFOneParentImputed(VCFImputable):
 					map_: Map, vcf: VCFSmall):
 		VCFImputable.__init__(self, samples, vcf)
 		self.records: list[VCFFamilyRecord] = records
-		self.imputer = ImputerByParentProgeny(records, ref_haps,
+		self.imputer = ParentProgenyImputer(records, ref_haps,
 												should_impute_mat, map_, 0.01)
 		self.should_impute_mat = should_impute_mat
 	

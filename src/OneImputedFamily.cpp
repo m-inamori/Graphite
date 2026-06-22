@@ -48,14 +48,7 @@ VCFImputable *OneImputedFamily::create_family_vcf(
 									const VCFSmall *vcf,
 									const OptionSmall& op) {
 	const STRVEC&	samples = family->get_samples();
-	if(is_small(family, ref_haps, num_families, op))
-		return new VCFOneParentImputed(samples, records, ref_haps,
-											is_mat_imputed, op.map, 0.01, vcf);
-	else if(is_small_ref(ref_haps, num_families, op))
-		return new VCFOneParentImputedRough(samples, records, ref_haps,
-											is_mat_imputed, op.map, 0.01, vcf);
-	else
-		return new VCFImputedAndUnknown(samples, records, ref_haps,
+	return new VCFImputedAndUnknown(samples, records, ref_haps,
 											is_mat_imputed, op.map, 0.01, vcf);
 }
 

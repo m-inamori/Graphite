@@ -80,7 +80,7 @@ class VCFGenoBase(ABC):
 
 class VCFGeno(VCFGenoBase):
 	def __init__(self, samples: list[str],
-						records: list[GenoRecord], vcf: VCFSmall) -> None:
+						records: list[GenoRecord], vcf: VCFSmall):
 		super().__init__(samples, vcf)
 		self.records: list[GenoRecord] = records
 	

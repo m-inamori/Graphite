@@ -90,6 +90,17 @@ class VCFFamilyBase(VCFGenoBase):
 	
 	def num_progenies(self) -> int:
 		return len(self.get_samples()) - 2
+	
+	def extract(self, samples: list[str]) -> VCFFamily:
+		cs = self.extract_columns(samples)
+		new_records: list[VCFFamilyRecord] = []
+		for i in range(len(self)):
+			record = self.get_record(i)
+			pos = record.pos
+			geno = [ record.geno[c] for c in cs ]
+			new_record = VCFFamilyRecord(pos, geno)
+			new_records.append(new_record)
+		return VCFFamily(samples, new_records, self.vcf)
 
 
 #################### VCFFamily ####################

@@ -42,7 +42,7 @@ namespace ImputedAndKnownFamily {
 	VCFImputable *create_family_vcf(
 							const Family *family,
 							const std::vector<VCFFamilyRecord *>& records,
-							bool is_mat_imputed,
+							bool should_impute_mat,
 							int num_families,
 							const std::vector<std::vector<int>>& ref_haps,
 							const VCFSmall *vcf,

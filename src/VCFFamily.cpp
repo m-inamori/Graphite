@@ -34,6 +34,25 @@ vector<int> VCFFamilyRecord::extract_sample_genotypes(size_t c,
 }
 
 
+//////////////////// VCFFamilyBase ////////////////////
+
+VCFFamily *VCFFamilyBase::extract(const STRVEC& samples) const {
+	const auto	cs = extract_columns(samples);
+	vector<VCFFamilyRecord *>	new_records;
+	for(size_t i = 0; i < this->size(); ++i) {
+		auto	*record = this->get_family_record(i);
+		const ll	pos = record->get_pos();
+		vector<int>	geno;
+		for(auto p = cs.begin(); p != cs.end(); ++p) {
+			geno.push_back(record->get_geno(*p));
+		}
+		auto	*new_record = new VCFFamilyRecord(pos, geno);
+		new_records.push_back(new_record);
+	}
+	return new VCFFamily(samples, new_records, this->vcf);
+}
+
+
 //////////////////// VCFFamily ////////////////////
 
 VCFFamily::VCFFamily(const STRVEC& s, const vector<VCFFamilyRecord *>& rs,

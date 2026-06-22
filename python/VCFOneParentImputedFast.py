@@ -25,10 +25,10 @@ from Map import *
 
 class VCFOneParentImputedFast(VCFImputable):
 	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
-					is_mat_imputed: bool, map_: Map, vcf: VCFSmall):
+					should_impute_mat: bool, map_: Map, vcf: VCFSmall):
 		VCFImputable.__init__(self, samples, vcf)
 		self.records: list[VCFFamilyRecord] = records
-		self.is_mat_imputed: bool = is_mat_imputed
+		self.should_impute_mat: bool = should_impute_mat
 		self.gmap = map_
 	
 	##### virtual methods for VCFGenoBase #####
@@ -60,7 +60,7 @@ class VCFOneParentImputedFast(VCFImputable):
 	
 	def create(self, rs: list[VCFFillableRecord],
 								is_mat_hetero: bool) -> VCFImputable:
-		if is_mat_hetero == self.is_mat_imputed:
+		if is_mat_hetero != self.should_impute_mat:
 			return VCFImpHeteroHomo(self.samples, rs, is_mat_hetero,
 														self.gmap, self.vcf)
 		else:

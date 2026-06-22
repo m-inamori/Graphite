@@ -139,7 +139,7 @@ size_t ImputedAndKnownFamily::compute_upper_NH(const Family *family, size_t M,
 VCFImputable *ImputedAndKnownFamily::create_family_vcf(
 									const Family *family,
 									const vector<VCFFamilyRecord *>& records,
-									bool is_mat_imputed,
+									bool should_impute_mat,
 									int num_families,
 									const vector<vector<int>>& ref_haps,
 									const VCFSmall *orig_vcf,
@@ -150,18 +150,18 @@ VCFImputable *ImputedAndKnownFamily::create_family_vcf(
 	const size_t	NH = compute_upper_NH(family, M, num_families, op);
 	if(is_small(family, ref_haps, num_families, op)) {
 		return new VCFOneParentImputed(family->get_samples(), records,
-												ref_haps, is_mat_imputed,
+												ref_haps, should_impute_mat,
 												op.map, 0.01, orig_vcf);
 	}
 	else if(is_small_ref(ref_haps, num_families, op)) {
 		return new VCFOneParentImputedRough(family->get_samples(), records,
-													ref_haps, is_mat_imputed,
+													ref_haps, should_impute_mat,
 													op.map, 0.01, orig_vcf);
 	}
 	else if(NH >= lower_NH) {
 		const size_t	NH3 = min(upper_NH, NH);
 		vector<int>	gts(M);
-		size_t	col = is_mat_imputed ? 1 : 0;
+		size_t	col = should_impute_mat ? 0 : 1;
 		for(size_t j = 0; j < M; ++j) {
 			gts[j] = records[j]->get_geno(col);
 		}
@@ -171,12 +171,13 @@ VCFImputable *ImputedAndKnownFamily::create_family_vcf(
 		return new VCFOneParentImputedRough(family->get_samples(),
 												records,
 												filtered_ref_haps,
-												is_mat_imputed,
+												should_impute_mat,
 												op.map, 0.01, orig_vcf);
 	}
 	else {
 		return new VCFOneParentImputedFast(family->get_samples(), records,
-											is_mat_imputed, op.map, orig_vcf);
+														should_impute_mat,
+														op.map, orig_vcf);
 	}
 }
 
@@ -196,15 +197,16 @@ VCFGenoBase *ImputedAndKnownFamily::impute_by_parent(
 		const KnownFamily	*family = families[i];
 		auto	*vcf = VCFFamily::create_by_two_vcfs(imputed_vcf,
 											orig_vcf, family->get_samples());
-		const bool	is_mat_imputed = std::find(non_imputed_parents.begin(),
-											   non_imputed_parents.end(),
-											   family->get_pat())
+		const bool	should_impute_mat = std::find(non_imputed_parents.begin(),
+												   non_imputed_parents.end(),
+												   family->get_mat())
 										!= non_imputed_parents.end();
 		// vcfs[i] reuses the record objects from vcf.
 		// Clear the records before deleting vcf;
 		// otherwise deleting vcf would also delete the records used by vcfs[i].
 		vcfs[i] = create_family_vcf(family, vcf->get_family_records(),
-									is_mat_imputed, N, ref_haps, orig_vcf, op);
+												should_impute_mat, N,
+												ref_haps, orig_vcf, op);
 		vcf->clear_records();
 		delete vcf;
 	}

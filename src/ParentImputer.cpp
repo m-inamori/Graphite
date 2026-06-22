@@ -5,12 +5,12 @@
 using namespace std;
 
 ParentImputer::ParentImputer(const vector<VCFFamilyRecord *>& rs,
-							 bool is_mat_imputed_,
+							 bool should_impute_mat_,
 							 const vector<vector<int>>& ref_hs,
 							 const Map& map_, double w) :
 			VCFHMM(map_, w), ref_records(rs), ref_haps(ref_hs),
 			prev_h_table(collect_possible_previous_hidden_states()),
-			is_mat_imputed(is_mat_imputed_), Cp(calc_Cp(rs)),
+			should_impute_mat(should_impute_mat_), Cp(calc_Cp(rs)),
 			Epc{{{log(1.0-w*2),   log(w/2),       log(w/2),       log(w)},
 				 {log(0.5-w*3/4), log(0.5-w*3/4), log(w/2),       log(w)},
 				 {log(w/2),       log(1.0-w*2),   log(w/2),       log(w)},
@@ -75,7 +75,7 @@ double ParentImputer::pat_emission_probability(size_t i, int h,
 
 double ParentImputer::emission_probability(size_t i, int h,
 												int mat_gt, int pat_gt) const {
-	if(is_mat_imputed)
+	if(should_impute_mat)
 		return mat_emission_probability(i, h, mat_gt, pat_gt);
 	else
 		return pat_emission_probability(i, h, mat_gt, pat_gt);

@@ -55,11 +55,9 @@ VCFGeno *VCFImputable::join(const vector<VCFImputable *>& vcfs,
 	for(auto p = vcfs.begin(); p != vcfs.end(); ++p) {
 		const VCFImputable	*vcf = *p;
 		const STRVEC	ss = vcf->imputed_samples();
-		const set<string>	set_ss(ss.begin(), ss.end());
 		const STRVEC&	samples = vcf->get_samples();
 		for(size_t i = 0; i < samples.size(); ++i) {
-			if(set_ss.find(samples[i]) != set_ss.end())
-				dic[samples[i]] = make_pair(vcf, i);
+			dic[samples[i]] = make_pair(vcf, i);
 		}
 	}
 	

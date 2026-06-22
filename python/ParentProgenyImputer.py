@@ -21,11 +21,11 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	
 	def __init__(self, records: list[VCFFamilyRecord],
 							ref_haps: list[list[int]],
-							is_mat_imputed: bool, map_: Map, w: float) -> None:
+							should_impute_mat: bool, map_: Map, w: float) -> None:
 		VCFHMM.__init__(self, records, map_)
 		self.records: list[VCFFamilyRecord] = records
 		self.ref_haps = ref_haps
-		self.is_mat_imputed = is_mat_imputed
+		self.should_impute_mat = should_impute_mat
 		self.prev_h_table = self.collect_possible_previous_hidden_states()
 		# crossover values
 		# 後代
@@ -38,6 +38,9 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 	
 	def NH(self) -> int:
 		return len(self.ref_haps)
+	
+	def should_imputed_index(self) -> int:
+		return int(not self.should_impute_mat)
 	
 	def num_progenies(self) -> int:
 		return len(self.records[0].geno) - 2
@@ -55,10 +58,10 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		hp2, hp1 = divmod(hp, self.NH())
 		non_phased_parent_gt = (self.ref_haps[hp1][i] |
 								(self.ref_haps[hp2][i] << 1))
-		mat_gt = (phased_parent_gt if self.is_mat_imputed
-										else non_phased_parent_gt)
-		pat_gt = (non_phased_parent_gt if self.is_mat_imputed
+		mat_gt = (non_phased_parent_gt if self.should_impute_mat
 										else phased_parent_gt)
+		pat_gt = (phased_parent_gt if self.should_impute_mat
+										else non_phased_parent_gt)
 		Ep = self.E[non_phased_parent_gt][op]	# parent emission
 		# 後代の排出確率を計算
 		Ec = 0.0
@@ -83,8 +86,8 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		M = len(self.records)	# マーカー数
 		L = self.NH()**2 << (2*self.num_progenies())
 		dp = [ [ (MIN_PROB, 0) ] * L for _ in range(M) ]
-		phased_col = 0 if self.is_mat_imputed else 1
-		non_phased_col = 1 if self.is_mat_imputed else 0
+		phased_col = 1 if self.should_impute_mat else 0
+		non_phased_col = 0 if self.should_impute_mat else 1
 		record = self.records[0]
 		phased_parent_gt = record.geno[phased_col] & 3
 		op = record.unphased(non_phased_col)	# observed parent
@@ -143,8 +146,8 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		L = self.NH()**2 << (2*N)
 		Lc = 1 << (2*N)				# 子のハプロタイプの状態数
 		record = self.records[i]
-		phased_col = 0 if self.is_mat_imputed else 1
-		non_phased_col = 1 if self.is_mat_imputed else 0
+		phased_col = 1 if self.should_impute_mat else 0
+		non_phased_col = 0 if self.should_impute_mat else 1
 		cc = self.Cc[i-1]	# 遷移確率
 		cp = self.Cp[i-1]	# 親の遷移確率
 		phased_parent_gt = record.geno[phased_col] & 3
@@ -177,14 +180,14 @@ class ParentProgenyImputer(VCFHMM[VCFFamilyRecord]):
 		N = self.num_progenies()
 		for i in range(M):
 			record = self.records[i]
-			if self.is_mat_imputed:
-				pat_gt = self.compute_non_phased_parent_gt(hs[i], i)
-				record.geno[1] = pat_gt | 4
-				mat_gt = record.geno[0] & 3
-			else:
+			if self.should_impute_mat:
 				mat_gt = self.compute_non_phased_parent_gt(hs[i], i)
 				record.geno[0] = mat_gt | 4
 				pat_gt = record.geno[1] & 3
+			else:
+				pat_gt = self.compute_non_phased_parent_gt(hs[i], i)
+				record.geno[1] = pat_gt | 4
+				mat_gt = record.geno[0] & 3
 			for j in range(N):	# 個々の後代
 				hc2, hc1 = divmod((hs[i] >> (j * 2)) & 3, 2)
 				gtc_int = self.gt_by_haplotypes(hc1, hc2, mat_gt, pat_gt)

@@ -64,13 +64,13 @@ def impute_vcf_by_parent_and_progeny(
 								  for parent in family.parents()
 								  if not sample_man.is_imputed(parent) ]
 	
-	vcf = ParentProgenyImputedFamily.impute(orig_vcf, imputed_vcf,
-										ref_haps, families, samples, op_small)
+	vcf = ParentProgenyImputedFamily.impute(orig_vcf, imputed_vcf, ref_haps,
+													families, samples, op_small)
 	if vcf is None:
 		return None
 	
 	merged_vcf = VCFGeno.join([imputed_vcf, vcf], orig_vcf.samples)
-	sample_man.set(vcf.get_samples())
+	sample_man.set(vcf.samples)
 	return merged_vcf
 
 def impute_vcf_by_imputed_and_known_parent(

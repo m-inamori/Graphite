@@ -5,12 +5,12 @@
 using namespace std;
 
 ParentProgenyImputer::ParentProgenyImputer(const vector<VCFFamilyRecord *>& rs,
-							 bool is_mat_imputed_,
-							 const vector<vector<int>>& ref_hs,
-							 const Map& map_, double w) :
+											 bool should_impute_mat_,
+											 const vector<vector<int>>& ref_hs,
+											 const Map& map_, double w) :
 					VCFHMM(map_, w), records(rs), ref_haps(ref_hs),
 					prev_h_table(collect_possible_previous_hidden_states()),
-					is_mat_imputed(is_mat_imputed_),
+					should_impute_mat(should_impute_mat_),
 					Cc(calc_Cc(rs)), Cp(calc_Cp(rs)) { }
 
 vector<double> ParentProgenyImputer::calc_Cc(
@@ -43,10 +43,10 @@ double ParentProgenyImputer::emission_probability(std::size_t i, int h, int op,
 	const int	hp2 = hp / NH();
 	const int	non_phased_parent_gt = ref_haps[hp1][i] |
 										ref_haps[hp2][i] << 1;
-	const int	mat_gt = is_mat_imputed ? phased_parent_gt :
-												non_phased_parent_gt;
-	const int	pat_gt = is_mat_imputed ? non_phased_parent_gt :
+	const int	mat_gt = should_impute_mat ? non_phased_parent_gt :
 												phased_parent_gt;
+	const int	pat_gt = should_impute_mat ? phased_parent_gt :
+												non_phased_parent_gt;
 	const double	Ep = E[non_phased_parent_gt][op];
 	double	Ec = 0.0;
 	for(size_t j = 0; j < N; ++j) {
@@ -97,8 +97,8 @@ vector<ParentProgenyImputer::DP> ParentProgenyImputer::initialize_dp() const {
 	const size_t	L = NH() * NH() << (2*num_progenies());
 	vector<DP>	dp(M(), DP(L, pair<double, int>(MIN_PROB, 0)));
 	const VCFFamilyRecord	*record = records[0];
-	const size_t	phased_index = is_mat_imputed ? 0 : 1;
-	const size_t	non_phased_index = is_mat_imputed ? 1 : 0;
+	const size_t	phased_index = should_impute_mat ? 1 : 0;
+	const size_t	non_phased_index = should_impute_mat ? 0 : 1;
 	const int	phased_parent_gt = record->get_geno(phased_index) & 3;
 	const int	op = record->unphased(non_phased_index);
 	vector<int>	ocs;	// observed progenies' genotypes
@@ -175,8 +175,8 @@ void ParentProgenyImputer::update_dp(size_t i, vector<DP>& dp) const {
 	const size_t	N = num_progenies();
 	const size_t	L = NH() * NH() << (2*N);
 	const VCFFamilyRecord	*record = records[i];
-	const size_t	phased_index = is_mat_imputed ? 0 : 1;
-	const size_t	non_phased_index = is_mat_imputed ? 1 : 0;
+	const size_t	phased_index = should_impute_mat ? 1 : 0;
+	const size_t	non_phased_index = should_impute_mat ? 0 : 1;
 	const int	phased_parent_gt = record->get_geno(phased_index) & 3;
 	const int	op = record->unphased(non_phased_index);
 	vector<int>	ocs;	// observed progenies' genotypes
@@ -205,15 +205,15 @@ void ParentProgenyImputer::update_genotypes(const vector<int>& hs) {
 		VCFFamilyRecord	*record = records[i];
 		int	mat_gt = 0;
 		int	pat_gt = 0;
-		if(this->is_mat_imputed) {
-			pat_gt = this->compute_non_phased_parent_gt(hs[i], i);
-			record->set_geno(1, pat_gt | 4);
-			mat_gt = record->get_geno(0) & 3;
-		}
-		else {
+		if(this->should_impute_mat) {
 			mat_gt = this->compute_non_phased_parent_gt(hs[i], i);
 			record->set_geno(0, mat_gt | 4);
 			pat_gt = record->get_geno(1) & 3;
+		}
+		else {
+			pat_gt = this->compute_non_phased_parent_gt(hs[i], i);
+			record->set_geno(1, pat_gt | 4);
+			mat_gt = record->get_geno(0) & 3;
 		}
 		for(size_t j = 0; j < N; ++j) {		// each progeny
 			const int	hc = hs[i] >> (j * 2);

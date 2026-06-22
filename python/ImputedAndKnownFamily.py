@@ -47,27 +47,27 @@ def compute_upper_NH(family: Family, M: int, L: int, op: OptionSmall) -> int:
 	return NH - 1
 
 def create_family_vcf(family: Family, records: list[VCFFamilyRecord],
-								is_mat_imputed: bool, num_families: int,
+								should_impute_mat: bool, num_families: int,
 								ref_haps: list[list[int]],
 								vcf: VCFSmall, op: OptionSmall) -> VCFImputable:
 	NH = compute_upper_NH(family, len(vcf), num_families, op)
 	if is_small(family, ref_haps, num_families, op):
 		return VCFOneParentImputed(family.samples(), records, ref_haps,
-											is_mat_imputed, op.map, vcf)
+											should_impute_mat, op.map, vcf)
 	elif is_small_ref(ref_haps, num_families, op):
 		return VCFOneParentImputedRough(family.samples(), records, ref_haps,
-													is_mat_imputed, op.map, vcf)
+												should_impute_mat, op.map, vcf)
 	elif NH >= 10:
 		NH3 = min(20, NH)
-		col = 1 if is_mat_imputed else 0
+		col = 0 if should_impute_mat else 1
 		gts = [ r.geno[col] for r in records ]
 		filtered_ref_haps = filter_haplotypes(ref_haps, gts, NH3)
 		return VCFOneParentImputedRough(family.samples(), records,
 											filtered_ref_haps,
-											is_mat_imputed, op.map, vcf)
+											should_impute_mat, op.map, vcf)
 	else:
 		return VCFOneParentImputedFast(family.samples(), records,
-											is_mat_imputed, op.map, vcf)
+											should_impute_mat, op.map, vcf)
 
 def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 									ref_haps: list[list[int]],
@@ -78,8 +78,8 @@ def impute(orig_vcf: VCFSmall, imputed_vcf: VCFGeno,
 	for family in families:
 		vcf_family = VCFFamily.create_by_two_vcfs(imputed_vcf,
 													orig_vcf, family.samples())
-		is_mat_imputed = vcf_family.pat() in non_imputed_parents
-		vcf = create_family_vcf(family, vcf_family.records, is_mat_imputed,
+		should_impute_mat = vcf_family.mat() in non_imputed_parents
+		vcf = create_family_vcf(family, vcf_family.records, should_impute_mat,
 										len(families), ref_haps, orig_vcf, op)
 		vcfs.append(vcf)
 	

@@ -46,6 +46,8 @@ public:
 
 //////////////////// VCFFamilyBase ////////////////////
 
+class VCFFamily;
+
 class VCFFamilyBase : public VCFGenoBase {
 public:
 	VCFFamilyBase(const STRVEC& s, const VCFSmall *vcf) :
@@ -58,6 +60,8 @@ public:
 	std::size_t num_progenies() const { return samples.size() - 2; }
 	
 	const Parents parents() const { return Parents(mat(), pat()); }
+	
+	VCFFamily *extract(const STRVEC& samples) const;
 };
 
 

@@ -11,7 +11,6 @@ from GenoRecord import GenoRecord
 from VCFFamily import *
 from VCFImputable import VCFImputable
 from ProgenyImputerByOneParent import *
-from ParentImputerByProgeny import *
 from ProgenyImputer import *
 from Map import *
 

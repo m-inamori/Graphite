@@ -18,7 +18,7 @@ private:
 	const std::vector<VCFFamilyRecord *>&	ref_records;
 	const std::vector<std::vector<int>>	ref_haps;
 	const std::vector<std::vector<int>>	prev_h_table;
-	const bool is_mat_imputed;
+	const bool should_impute_mat;
 	const std::vector<double>	Cp;
 	const double	Epc[4][4][4];	// exhaust probability for progenies
 	
@@ -30,7 +30,7 @@ public:
 	~ParentImputer() { }
 	
 	std::size_t num_ref_haps() const { return ref_haps.size(); }
-	std::size_t phased_index() const { return is_mat_imputed ? 0 : 1; }
+	std::size_t phased_index() const { return should_impute_mat ? 0 : 1; }
 	
 	void impute();
 	

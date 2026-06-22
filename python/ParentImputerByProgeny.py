@@ -55,7 +55,7 @@ class ParentImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 		hw = h & 1			# 後代のどちらに親から渡ったか
 		hc = (h >> 1) & 1	# 親のどちらから後代に渡ったか
 		hp = h >> 2			# 後代に渡っていない方
-		prog_allele = self.records[i].get_allele(1, hw)		# 親から渡ったアレル
+		prog_allele = self.records[i].get_allele(2, hw)		# 親から渡ったアレル
 		if hc == 0:
 			return prog_allele | (self.ref_haps[hp][i] << 1)
 		else:

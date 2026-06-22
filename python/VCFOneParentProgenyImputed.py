@@ -1,33 +1,28 @@
 from __future__ import annotations
 
 # coding: utf-8
-# VCFOneParentImputedRough.py
-# 片側だけimputeされている
-# 親だけでDPで補完する
-# 子でもペナルティをつける
-# 例えば、親のGenotypeが0|1で子に0|0があったらペナルティ
+# VCFOneParentProgenyImputed.py
+# 片親だけimputeされていてもう片親はknown
 
 from VCF import VCFSmall
-from VCFGeno import VCFGenoBase
 from GenoRecord import GenoRecord
 from VCFFamily import VCFFamilyRecord
 from VCFImputable import VCFImputable
-from ParentImputer import *
-from ProgenyImputer import *
+from ImputerByParentProgeny import ImputerByParentProgeny
 from Map import *
 
 
-#################### VCFOneParentImputedRough ####################
+#################### VCFOneParentProgenyImputed ####################
 
-class VCFOneParentImputedRough(VCFImputable):
+class VCFOneParentProgenyImputed(VCFImputable):
 	def __init__(self, samples: list[str], records: list[VCFFamilyRecord],
 					ref_haps: list[list[int]], should_impute_mat: bool,
 					map_: Map, vcf: VCFSmall):
 		VCFImputable.__init__(self, samples, vcf)
 		self.records: list[VCFFamilyRecord] = records
-		self.parent_imputer = ParentImputer(records, should_impute_mat,
-														ref_haps, map_, 0.01)
-		self.prog_imputer = ProgenyImputer(records, map_, 0.01)
+		self.imputer = ImputerByParentProgeny(records, ref_haps,
+												should_impute_mat, map_, 0.01)
+		self.should_impute_mat = should_impute_mat
 	
 	##### virtual methods for VCFGenoBase #####
 	def __len__(self) -> int:
@@ -45,6 +40,4 @@ class VCFOneParentImputedRough(VCFImputable):
 	
 	##### virtual methods for VCFImputable #####
 	def impute(self) -> None:
-		self.parent_imputer.impute()
-		for i in range(self.num_progenies()):
-			self.prog_imputer.impute(i)
+		self.imputer.impute()
