@@ -13,82 +13,55 @@ enum class ParentComb {
 	P00x00 = 0, P00x01, P01x01, P00x11, P01x11, P11x11, PNA
 };
 
-inline bool is_NA(ParentComb comb) {
-	return comb == ParentComb::PNA;
-}
-
-inline bool is_homohomo(ParentComb comb) {
-	return comb == ParentComb::P00x00 ||
-		   comb == ParentComb::P00x11 ||
-		   comb == ParentComb::P11x11;
-}
-
-inline bool is_heterohomo(ParentComb comb) {
-	return comb == ParentComb::P00x01 || comb == ParentComb::P01x11;
-}
-
-inline bool is_same_parent_genotype(ParentComb comb) {
-	return comb == ParentComb::P00x00 ||
-		   comb == ParentComb::P01x01 ||
-		   comb == ParentComb::P11x11;
-}
-
-inline std::pair<int, int> int_gt_pair(ParentComb comb) {
-	const int	p = static_cast<int>(comb);
-	if(p == 0)
-		return std::pair<int, int>(0, 0);
-	else if(p < 3)
-		return std::pair<int, int>(p - 1, 1);
-	else
-		return std::pair<int, int>(p - 3, 2);
-}
-
 
 //////////////////// TypeDeterminer ////////////////////
 
 class TypeDeterminer {
-	typedef std::tuple<std::size_t,std::size_t,std::size_t>	State;
-	typedef std::tuple<double,std::size_t,std::size_t,std::size_t>	PQState;
-	
 	const std::size_t	N;
-	const double	alpha;
-	std::map<State, std::vector<std::pair<double, ParentComb>>>	memo;
+	const double	a;
+	const double	b;
+	const std::vector<double>	log_facs;
 	
 public:
-	TypeDeterminer(std::size_t n, double alpha_);
+	TypeDeterminer(size_t n) : N(n), a(1), b(9),
+								log_facs(make_memo_log_facs()) { }
 	
-	std::vector<std::pair<double, ParentComb>> determine(
-												const State& counter) const;
-	std::vector<std::pair<double, ParentComb>> determine(
-											const std::array<int, 3>& a) const {
-		return determine(std::make_tuple(a[0], a[1], a[2]));
-	}
+	std::vector<std::pair<ParentComb, double>> determine(
+										int mat_gt, int pat_gt,
+										const std::array<int, 4>& counter) const;
 	
 private:
-	void make_memo00();
-	void make_memo01();
-	void make_memo02();
-	void make_memo11();
-	void make_memo12();
-	void make_memo22();
-	void sort();
+	std::vector<double> make_memo_log_facs();
 	
-	std::vector<std::pair<int, double>> binomial(std::size_t M) const;
-	double genotype_probability(std::size_t n0,
-								std::size_t n1, std::size_t n2) const;
-	PQState initialize_state(size_t M) const;
-	PQState create_pqstate(std::size_t n0,
-							std::size_t n1, std::size_t n2) const;
-	PQState create_pqstate(const State& s) const;
-	State create_state(const PQState& s) const;
-	State reverse_state(const State& s) const;
-	std::vector<PQState> neighbor_states(const PQState& s0) const;
-	void insert(const State& s, ParentComb c, double p);
-	void insert(std::size_t n0, std::size_t n1, std::size_t n2,
-													ParentComb c, double p);
+	double log_beta(std::size_t n, std::size_t m) const {
+		return log_facs[n-1] + log_facs[m-1] - log_facs[n+m-1];
+	}
+	
+	// Cases where all result in the same genotype in the absence of errors
+	double log_likelihood_one(std::size_t n, std::size_t m) const;
+	// log likelihood for 0/0 x 0/0
+	double log_likelihood00(int mat_gt, int pat_gt,
+							const std::array<int, 4>& gt_freq) const;
+	// log likelihood for 0/0 x 0/1
+	double log_likelihood01(int mat_gt, int pat_gt,
+							const std::array<int, 4>& gt_freq) const;
+	// log likelihood for 0/1 x 0/1
+	double log_likelihood11(int mat_gt, int pat_gt,
+							const std::array<int, 4>& gt_freq) const;
+	// log likelihood for 0/0 x 1/1
+	double log_likelihood02(int mat_gt, int pat_gt,
+							const std::array<int, 4>& gt_freq) const;
+	// log likelihood for 0/1 x 1/1
+	double log_likelihood12(int mat_gt, int pat_gt,
+							const std::array<int, 4>& gt_freq) const;
+	// log likelihood for 1/1 x 1/1
+	double log_likelihood22(int mat_gt, int pat_gt,
+							const std::array<int, 4>& gt_freq) const;
 	
 public:
-	static bool is_same_parent_gts(ParentComb c) {
+	// Since an enum does not act as a namespace,
+	// I am placing the functions for ParentComb here.
+	static bool is_same_parent_genotype(ParentComb c) {
 		return c == ParentComb::P00x00 || c == ParentComb::P01x01 ||
 											c == ParentComb::P11x11;
 	}
@@ -103,7 +76,14 @@ public:
 		return (5 - static_cast<int>(c)) >> 1;
 	}
 	
-	static std::pair<int,int> int_gt_pair(ParentComb comb);
-
+	static std::pair<int,int> int_gt_pair(ParentComb comb) {
+		const int	p = static_cast<int>(comb);
+		if(p == 0)
+			return std::pair<int, int>(0, 0);
+		else if(p < 3)
+			return std::pair<int, int>(p - 1, 1);
+		else
+			return std::pair<int, int>(p - 3, 2);
+	}
 };
 #endif

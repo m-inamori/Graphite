@@ -85,7 +85,7 @@ def classify_records_parallel(v: tuple[VCFFamily, TypeDeterminer, KnownFamily,
 def classify_records(vcf: VCFFamily, family: KnownFamily,
 						option: Option) -> tuple[list[VCFHeteroHomoRecord],
 												 list[VCFImpFamilyRecord]]:
-	td = CR.get_typedeterminer(vcf.num_progenies(), option.ratio)
+	td = CR.get_typedeterminer(vcf.num_progenies())
 	records1: list[Optional[VCFHeteroHomoRecord]] = [None] * len(vcf)
 	records2: list[Optional[VCFImpFamilyRecord]] = [None] * len(vcf)
 	args = [ (vcf, td, family, records1, records2, i, option.num_threads)

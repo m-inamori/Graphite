@@ -3,11 +3,14 @@ from __future__ import annotations
 # coding: utf-8
 # TypeDeterminer.py
 
+from math import log
 from itertools import product, count
 from collections import defaultdict
 from queue import PriorityQueue
 from enum import Enum
 from typing import Dict, Iterator
+
+from MathCommon import Simpson
 
 
 #################### ParentComb ####################
@@ -46,180 +49,168 @@ class ParentComb(Enum):
 #################### TypeDeterminer ####################
 
 class TypeDeterminer:
-	def __init__(self, n: int, alpha_: float):
+	def __init__(self, n: int):
 		self.N: int = n
-		self.alpha: float = alpha_
-		# どのGenotypeの組み合わせかを4進で表す
-		# e.g. 0/1 x 1/1 -> 1 + 2*4 = 9
-		self.memo: Dict[tuple[int, int, int], list[tuple[ParentComb, float]]] \
-															= defaultdict(list)
-		self.make_memo00()
-		self.make_memo01()
-		self.make_memo02()
-		self.make_memo11()
-		self.make_memo12()
-		self.make_memo22()
-		self.sort()
+		self.a = 1	# エラーの事前分布のparameter
+		self.b = 9
+		self.log_facs = self.make_memo_log_facs()
 	
-	@staticmethod
-	def gen_errors(n: int, k: int) -> Iterator[tuple[int, ...]]:
-		if k == 0:
-			yield ()
+	def make_memo_log_facs(self) -> list[float]:
+		L = self.N + self.b + 3
+		v = [0.0] * L
+		for n in range(1, L):
+			v[n] = v[n-1] + log(n)
+		return v
+	
+	def log_beta(self, n: int, m: int) -> float:
+		return self.log_facs[n-1] + self.log_facs[m-1] - self.log_facs[n+m-1]
+	
+	# エラーが無ければ全て同じ遺伝子型になる場合
+	def log_likelihood_one(self, n: int, m: int) -> float:
+		return (self.log_beta(m+self.a, n+self.b) -
+				m*log(3.0) - self.log_beta(self.a, self.b))
+	
+	# log likelihood for 0/0 x 0/0
+	def log_likelihood00(self, mat_gt: int, pat_gt: int,
+										gt_freq: list[int]) -> float:
+		# 0/0 x 0/0 -> 0/0: 1-p otherwise: p/3
+		n = gt_freq[0]								# 0/0
+		m = gt_freq[1] + gt_freq[2] + gt_freq[3]	# 0/1 + 1/1 + ./.
+		pair_gts = (mat_gt, pat_gt)
+		if pair_gts == (0, 0):
+			# 両親合っている
+			# 両親の尤度は(1-p)^2
+			return self.log_likelihood_one(n+2, m)
+		elif mat_gt == 0 or pat_gt == 0:
+			# 片親だけ合っている
+			# 両親の尤度は(1-p)p
+			return self.log_likelihood_one(n+1, m+1)
 		else:
-			for n1 in range(n + 1):
-				for ns in TypeDeterminer.gen_errors(n - n1, k - 1):
-					yield (n1,) + ns
+			# 両親とも合っていない
+			# 両親の尤度はp^2
+			return self.log_likelihood_one(n, m+2)
 	
-	# N/Aを含めて2割まで、N/Aを含めなければ1割まで
-	@staticmethod
-	def gen_error_combinations(N: int, k: int) -> Iterator[tuple[int, ...]]:
-		for num_NA in range(N//5 + 1):
-			M = min(N//10, N//5 - num_NA)
-			for ns in TypeDeterminer.gen_errors(M, k - 1):
-				yield (num_NA,) + ns
+	# log likelihood for 0/0 x 0/1
+	def log_likelihood01(self, mat_gt: int, pat_gt: int,
+										gt_freq: list[int]) -> float:
+		# 0/0 x 0/1 ->	-> 0/0 or 0/1: 1/2-p/3, otherwise: p/3
+		n = gt_freq[0] + gt_freq[1]		# 0/0 or 0/1
+		m = gt_freq[2] + gt_freq[3]		# 1/1 or ./.
+		pair_gts = (mat_gt, pat_gt)
+		if pair_gts == (0, 1) or pair_gts == (1, 0):
+			# 両親合っている
+			# 両親の尤度は(1-p)^2
+			f = lambda p: (1-p)**2 * (1/2-p/3)**n * (p/3)**m * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
+		elif mat_gt == 0 or mat_gt == 1 or pat_gt == 0 or pat_gt == 1:
+			# 片親だけ合っている
+			# 両親の尤度は(1-p)p/3
+			f = lambda p: (1-p)*p/3 * (1/2-p/3)**n * (p/3)**m * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
+		else:
+			# 両親とも合っていない
+			# 両親の尤度は(p/3)^2
+			f = lambda p: (p/3)**2 * (1/2-p/3)**n * (p/3)**m * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
 	
-	def make_memo00(self) -> None:
-		# 全部同じになるはずのパターンはその他が2割まで
-		for num_NA, n1, n2 in TypeDeterminer.gen_errors(self.N//5, 3):
-			n0 = self.N - n1 - n2 - num_NA
-			self.memo[(n0, n1, n2)].append((ParentComb.P00x00, 0.0))
+	# log likelihood for 0/1 x 0/1
+	def log_likelihood11(self, mat_gt: int, pat_gt: int,
+										gt_freq: list[int]) -> float:
+		# 0/1 x 0/1 -> 0/0: 1/4, 0/1: 1/2-p/3, 1/1: 1/4, otherwise: p/3
+		n = gt_freq[0] + gt_freq[2]
+		m = gt_freq[1]
+		q = gt_freq[3]
+		pair_gts = (mat_gt, pat_gt)
+		if pair_gts == (1, 1):
+			# 両親合っている
+			# 両親の尤度は(1-p)^2
+			f = lambda p: (1-p)**2 * (1/4)**n * (1/2-p/3)**m * (p/3)**q * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
+		elif mat_gt == 1 or pat_gt == 1:
+			# 片親だけ合っている
+			# 両親の尤度は(1-p)p/3
+			f = lambda p: (1-p)*p/3 * (1/4)**n * (1/2-p/3)**m * (p/3)**q * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
+		else:
+			# 両親とも合っていない
+			# 両親の尤度は(p/3)^2
+			f = lambda p: (p/3)**2 * (1/4)**n * (1/2-p/3)**m * (p/3)**q * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
 	
-	def make_memo01(self) -> None:
-		for num_NA, n2 in TypeDeterminer.gen_error_combinations(self.N, 2):
-			M = self.N - num_NA - n2
-			ps = self.binomial(M)
-			for n0, p in ps:
-				self.memo[(n0, M-n0, n2)].append((ParentComb.P00x01, p))
+	# log likelihood for 0/0 x 1/1
+	def log_likelihood02(self, mat_gt: int, pat_gt: int,
+										gt_freq: list[int]) -> float:
+		# 0/0 x 1/1 ->	-> 0/1: 1-p, otherwise: p/3
+		n = gt_freq[1]
+		m = gt_freq[0] + gt_freq[2] + gt_freq[3]
+		pair_gts = (mat_gt, pat_gt)
+		if pair_gts == (0, 2) or pair_gts == (2, 0):
+			# 両親合っている
+			# 両親の尤度は(1-p)^2
+			return self.log_likelihood_one(n+2, m)
+		elif mat_gt == 0 or mat_gt == 2 or pat_gt == 0 or pat_gt == 2:
+			# 片親だけ合っている
+			# 両親の尤度は(1-p)p/3
+			return self.log_likelihood_one(n+1, m+1)
+		else:
+			# 両親とも合っていない
+			# 両親の尤度は(p/3)^2
+			return self.log_likelihood_one(n, m+2)
 	
-	def make_memo02(self) -> None:
-		for num_NA, n0, n2 in TypeDeterminer.gen_errors(self.N//5, 3):
-			n1 = self.N - n0 - n2 - num_NA
-			self.memo[(n0, n1, n2)].append((ParentComb.P00x11, 0.0))
+	# log likelihood for 0/1 x 1/1
+	def log_likelihood12(self, mat_gt: int, pat_gt: int,
+										gt_freq: list[int]) -> float:
+		# 0/1 x 1/1 -> 0/1 or 1/1: 1/2-p/3, otherwise: p/3
+		n = gt_freq[1] + gt_freq[2]		# 0/1 or 1/1
+		m = gt_freq[0] + gt_freq[3]		# 0/0 or ./.
+		pair_gts = (mat_gt, pat_gt)
+		if pair_gts == (1, 2) or pair_gts == (2, 1):
+			# 両親合っている
+			# 両親の尤度は(1-p)^2
+			f = lambda p: (1-p)**2 * (1/2-p/3)**n * (p/3)**m * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
+		elif mat_gt == 1 or mat_gt == 2 or pat_gt == 1 or pat_gt == 2:
+			# 片親だけ合っている
+			# 両親の尤度は(1-p)p/3
+			f = lambda p: (1-p)*p/3 * (1/2-p/3)**n * (p/3)**m * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
+		else:
+			# 両親とも合っていない
+			# 両親の尤度はp^2
+			f = lambda p: (p/3)**2 * (1/2-p/3)**n * (p/3)**m * (1-p)**8
+			return log(Simpson(f, 0.0, 1.0, 10)) - self.log_beta(self.a, self.b)
 	
-	# C++と同じ挙動を示すように大きい方が優先するように符号を反転する
-	class PQ:
-		def __init__(self) -> None:
-			self.pq: PriorityQueue[tuple[float, int, int, int]] = PriorityQueue()
-		
-		def put(self, v: tuple[float, int, int, int]) -> None:
-			p, n1, n2, n3 = v
-			self.pq.put((-p, -n1, -n2, -n3))
-		
-		def get(self) -> tuple[float, int, int, int]:
-			v = self.pq.get()
-			return (-v[0], -v[1], -v[2], -v[3])
+	# log likelihood for 1/1 x 1/1
+	def log_likelihood22(self, mat_gt: int, pat_gt: int,
+										gt_freq: list[int]) -> float:
+		# 1/1 x 1/1 -> 1/1: 1-p otherwise: p/3
+		n = gt_freq[2]								# 1/1
+		m = gt_freq[0] + gt_freq[1] + gt_freq[3]	# 0/0 + 0/1 + ./.
+		pair_gts = (mat_gt, pat_gt)
+		if pair_gts == (2, 2):
+			# 両親合っている
+			# 両親の尤度は(1-p)^2
+			return self.log_likelihood_one(n+2, m)
+		elif mat_gt == 2 or pat_gt == 2:
+			# 片親だけ合っている
+			# 両親の尤度は(1-p)p/3
+			return self.log_likelihood_one(n+1, m+1)
+		else:
+			# 両親とも合っていない
+			# 両親の尤度は(p/3)^2
+			return self.log_likelihood_one(n, m+2)
 	
-	# 0/1 x 0/1は難しい
-	def make_memo11(self) -> None:
-		# 確率が大きい状態から並べて累積が1-αを超えるまで列挙する
-		for num_NA in range(self.N//5 + 1):
-			M = self.N - num_NA
-			pqs0 = TypeDeterminer.initialize_state(M)
-			pq = TypeDeterminer.PQ()
-			pq.put(pqs0)
-			visited = set([pqs0])
-			total_p = 0.0
-			while total_p < 1.0 - self.alpha:
-				p, n1, n2, n3 = pq.get()
-				if n1 == n3:
-					self.memo[(n1, n2, n3)].append((ParentComb.P01x01, total_p))
-					total_p += p
-				else:
-					# n0 > n2なので、n0 < n2の分も考える
-					self.memo[(n1, n2, n3)].append((ParentComb.P01x01, total_p))
-					self.memo[(n3, n2, n1)].append((ParentComb.P01x01, total_p))
-					total_p += p * 2
-				
-				neighbors = TypeDeterminer.neighbor_states((p, n1, n2, n3))
-				for pqs1 in neighbors:
-					if pqs1 not in visited:
-						pq.put(pqs1)
-						visited.add(pqs1)
-	
-	def make_memo12(self) -> None:
-		for num_NA, n0 in TypeDeterminer.gen_error_combinations(self.N, 2):
-			M = self.N - num_NA - n0
-			ps = self.binomial(M)
-			for n1, p in ps:
-				self.memo[(n0, n1, M-n1)].append((ParentComb.P01x11, p))
-	
-	def make_memo22(self) -> None:
-		for num_NA, n0, n1 in TypeDeterminer.gen_errors(self.N//5, 3):
-			n2 = self.N - n0 - n1 - num_NA
-			self.memo[(n0, n1, n2)].append((ParentComb.P11x11, 0.0))
-	
-	def binomial(self, M: int) -> list[tuple[int, float]]:
-		p: float = 0.5**M
-		ps: list[float] = [p]
-		for n in range(1, M + 1):
-			ps.append(ps[-1] * (M - n + 1) / n)
-		
-		total_p: float = 0.0
-		ps2: list[tuple[int, float]] = []
-		if M % 2 == 0:
-			ps2.append((M//2, total_p))
-			total_p += ps[M//2]
-		for n1 in range((M-1)//2, -1, -1):
-			n2 = M - n1
-			ps2.append((n1, total_p))
-			ps2.append((n2, total_p))
-			total_p += ps[n1] * 2
-			if total_p >= 1.0 - self.alpha:
-				break
-		return ps2
-	
-	def sort(self) -> None:
-		self.memo = { ns: sorted(v, key=lambda k: k[1])
-									for ns, v in self.memo.items() }
-	
-	def determine(self, counter: tuple[int,int,int]
-									) -> list[tuple[ParentComb, float]]:
-		return self.memo.get(counter, [])
-	
-	@staticmethod
-	def genotype_probability(n0: int, n1: int, n2: int) -> float:
-		# nが大きければ対数計算しなければならないかも
-		n = n0 + n1 + n2
-		p0 = 0.25
-		p1 = 0.5
-		p2 = 0.25
-		p = 1.0
-		for i in range(1, n0 + 1):
-			p *= p0 * (n - i + 1) / i
-		for i in range(1, n1 + 1):
-			p *= p1 * (n - n0 - i + 1) / i
-		for i in range(1, n2 + 1):
-			p *= p2 * (n2 - i + 1) / i
-		return p
-	
-	@staticmethod
-	def initialize_state(M: int) -> tuple[float, int, int, int]:
-		n1 = M // 2
-		n0 = (M - n1 + 1) // 2	# n0 >= n2とする
-		n2 = M - n0 - n1
-		return TypeDeterminer.create_pqstate(n0, n1, n2)
-	
-	@staticmethod
-	def create_pqstate(n0: int, n1: int, n2: int
-								) -> tuple[float, int, int, int]:
-		p = TypeDeterminer.genotype_probability(n0, n1, n2)
-		return (p, n0, n1, n2)
-	
-	@staticmethod
-	def neighbor_states(s0: tuple[float, int, int, int]
-										) -> list[tuple[float, int, int, int]]:
-		neighbors = []
-		p, n1, n2, n3 = s0
-		if n1 > 0:
-			if n1-1 >= n3:
-				neighbors.append(TypeDeterminer.create_pqstate(n1-1, n2+1, n3))
-			if n1-1 >= n3+1:
-				neighbors.append(TypeDeterminer.create_pqstate(n1-1, n2, n3+1))
-		if n2 > 0:
-			neighbors.append(TypeDeterminer.create_pqstate(n1+1, n2-1, n3))
-			if n1 >= n3+1:
-				neighbors.append(TypeDeterminer.create_pqstate(n1, n2-1, n3+1))
-		if n3 > 0:
-			neighbors.append(TypeDeterminer.create_pqstate(n1+1, n2, n3-1))
-			neighbors.append(TypeDeterminer.create_pqstate(n1, n2+1, n3-1))
-		return neighbors
+	def determine(self, mat_gt: int, pat_gt: int,
+						counter: list[int]) -> list[tuple[ParentComb, float]]:
+		ls = [self.log_likelihood00(mat_gt, pat_gt, counter),
+			  self.log_likelihood01(mat_gt, pat_gt, counter),
+			  self.log_likelihood11(mat_gt, pat_gt, counter),
+			  self.log_likelihood02(mat_gt, pat_gt, counter),
+			  self.log_likelihood12(mat_gt, pat_gt, counter),
+			  self.log_likelihood22(mat_gt, pat_gt, counter)]
+		max_index, max_l = max(enumerate(ls), key=lambda p: p[1])
+		pairs: list[tuple[ParentComb, float]] = [(ParentComb(max_index), max_l)]
+		for i in range(6):
+			if i != max_index and ls[i] > max_l - log(30):
+				pairs.append((ParentComb(i), ls[i]))
+		return pairs

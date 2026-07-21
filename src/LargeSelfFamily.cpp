@@ -21,7 +21,7 @@ using namespace std;
 pair<vector<VCFSelfHeteroRecord *>, vector<VCFImpSelfRecord *>>
 LargeSelfFamily::divide_records(const VCFGeno *vcf, const Option& op) {
 	ClassifyRecord	*CR = ClassifyRecord::get_instance();
-	const auto	*td = CR->get_TypeDeterminer(vcf->num_samples()-1, op.ratio);
+	const auto	*td = CR->get_TypeDeterminer(vcf->num_samples()-1);
 	vector<VCFSelfHeteroRecord *>	he_records;
 	vector<VCFImpSelfRecord *>	other_records;
 	for(size_t i = 0; i < vcf->size(); ++i) {

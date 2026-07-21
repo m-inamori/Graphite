@@ -34,7 +34,7 @@ from common import *
 def divide_records(vcf: VCFGeno, op: Option
 								) ->tuple[list[VCFSelfHeteroRecord],
 										  list[VCFImpSelfRecord]]:
-	td = CR.get_typedeterminer(vcf.num_samples()-1, op.ratio)
+	td = CR.get_typedeterminer(vcf.num_samples()-1)
 	he_records: list[VCFSelfHeteroRecord] = []
 	other_records: list[VCFImpSelfRecord] = []
 	samples = vcf.samples

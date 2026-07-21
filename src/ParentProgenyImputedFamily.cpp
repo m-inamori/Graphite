@@ -23,12 +23,12 @@ bool ParentProgenyImputedFamily::is_small(const vector<vector<int>>& ref_haps,
 size_t ParentProgenyImputedFamily::compute_upper_num_progenies(
 									const vector<vector<int>>& ref_haps,
 									size_t L, size_t P, const OptionSmall& op) {
-	for(size_t p = P; p > 0; --p) {
+	for(size_t p = P; p > 1; --p) {
 		if(is_small(ref_haps, L, p, op))
 			return p;
 	}
 	
-	return 0;	// dummy
+	return 1;	// dummy
 }
 
 const KnownFamily *ParentProgenyImputedFamily::reduce_progenies(

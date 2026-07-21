@@ -92,8 +92,7 @@ LargeFamily::classify_records(const VCFFamily *vcf,
 	vector<VCFHeteroHomoRecord *>	heho_records(N, NULL);
 	vector<VCFImpFamilyRecord *>	other_records(N, NULL);
 	ClassifyRecord	*CR = ClassifyRecord::get_instance();
-	const auto	*td = CR->get_TypeDeterminer(vcf->num_samples()-2,
-														option.ratio);
+	const auto	*td = CR->get_TypeDeterminer(vcf->num_samples()-2);
 	const int	T = vcf->size() < 100 ? 1 : option.num_threads;
 	
 	vector<ConfigThreadClassify *>	configs(T);

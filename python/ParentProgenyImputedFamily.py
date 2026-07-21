@@ -29,11 +29,11 @@ def is_small(ref_haps: list[list[int]],
 # 適正な後代の個数を調べる
 def compute_upper_num_progenies(ref_haps: list[list[int]],
 								L: int, P: int, op: OptionSmall) -> int:
-	for p in range(P, -1, -1):
+	for p in range(P, 1, -1):
 		if is_small(ref_haps, L, p, op):
 			return p
 	else:
-		return 0	# dummy
+		return 1	# dummy
 
 def reduce_progenies(p: int, f: KnownFamily) -> KnownFamily:
 	progs = f.progenies[:p]

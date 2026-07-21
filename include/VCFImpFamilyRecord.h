@@ -35,8 +35,8 @@ public:
 	}
 	bool is_fixed() const {
 		return (this->comb == ParentComb::P00x00 ||
-					this->comb == ParentComb::P11x11) ||
-				(is_heterohomo(this->comb) && is_right());
+				this->comb == ParentComb::P11x11) ||
+				(TypeDeterminer::is_heterohomo(this->comb) && is_right());
 	}
 	bool is_fillable() const {
 		return wrong_type != WrongType::MIX &&
