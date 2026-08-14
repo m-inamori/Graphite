@@ -35,7 +35,7 @@ VCFGeno *ImputedAndKnownFamilyRef::impute(
 		const bool	is_mat_imputed = std::find(non_imputed_parents.begin(),
 											   non_imputed_parents.end(),
 											   family->get_pat())
-										!= non_imputed_parents.end();
+										== non_imputed_parents.end();
 		vcfs[i] = ImputedAndKnownFamily::create_family_vcf(
 												family, records, is_mat_imputed,
 												N, ref_haps, orig_vcf, op);

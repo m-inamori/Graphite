@@ -144,12 +144,28 @@ double RecordSet::compute_phasing_likelihood_each(int mat_phasing,
 									mat_phasing, pat_phasing, i);
 }
 
+double RecordSet::compute_parent_likelihood(int orig_gt, int phased_gt) const {
+	if(orig_gt < 4) {
+		const int	gt = Genotype::unphased(phased_gt | 4);
+		if(orig_gt == 1) {
+			return orig_gt == gt ? 0.9 : 0.1;
+		}
+		else {
+			return orig_gt == gt ? 0.99 : 0.01;
+		}
+	}
+	else {
+		return (orig_gt & 3) == phased_gt ? 0.99 : 0.01;
+	}
+}
+
 double RecordSet::compute_phasing_likelihood(int mat_phasing,
 												int pat_phasing) const {
 	if(this->record == NULL)
 		return log(0.0001);
 	
-	double	ll = 0.0;
+	double	ll = log(compute_parent_likelihood(record->mat_gt(), mat_phasing)) +
+				 log(compute_parent_likelihood(record->pat_gt(), pat_phasing));
 	for(int i = 2; i < (int)record->num_samples(); ++i) {
 		ll += compute_phasing_likelihood_each(mat_phasing, pat_phasing, i);
 	}

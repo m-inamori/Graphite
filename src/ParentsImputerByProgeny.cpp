@@ -156,6 +156,9 @@ void ParentsImputerByProgeny::update_genotypes(const vector<int>& hs) {
 		const int	pat_gt = p.second;
 		record->set_geno(0, mat_gt | 4);
 		record->set_geno(1, pat_gt | 4);
+		if((hs[i] & 1) == 1) {
+			record->set_geno(2, Genotype::inverse(record->get_geno(2)));
+		}
 	}
 }
 

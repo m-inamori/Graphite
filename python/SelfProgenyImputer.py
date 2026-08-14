@@ -47,7 +47,7 @@ class SelfProgenyImputer(VCFHMM[GR]):
 		record = self.records[0]
 		parent_gt = self.records[0].geno[0]
 		# observed progeny
-		oc = record.geno[iprog+1]
+		oc = record.unphased(iprog+1)
 		for h in range(4):		# hidden state
 			E_all = self.emission_probability(h, parent_gt, oc)
 			dp[0][h] = (E_all, h)

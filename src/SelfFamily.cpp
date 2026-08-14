@@ -55,7 +55,7 @@ VCFSelfImputable *SelfFamily::create_family_vcf(const VCFSmall *orig_vcf,
 			const auto&	s = progs[i]->get_name();
 			if(set_imputed_samples.find(s) == set_imputed_samples.end()) {
 				samples.push_back(s);
-				indices.push_back(i + 1);
+				indices.push_back(i + 2);
 			}
 		}
 		

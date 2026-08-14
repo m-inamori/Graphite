@@ -17,7 +17,7 @@ from OptionSmall import OptionSmall
 
 #################### ProgenyImputedFamilyRef ####################
 
-def impute(orig_vcf: VCFSmall, phased_vcf: VCFGenoBase,
+def impute(orig_vcf: VCFSmall, phased_vcf: VCFGeno,
 			families: list[KnownFamily], imputed_progenies: list[list[str]],
 			ref_haps: list[list[int]], op: OptionSmall) -> Optional[VCFGeno]:
 	vcfs: list[VCFGenoBase] = []

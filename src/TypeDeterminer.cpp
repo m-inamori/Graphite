@@ -246,9 +246,10 @@ vector<pair<ParentComb, double>> TypeDeterminer::determine(
 	std::vector<std::pair<ParentComb, double>>	pairs;
 	pairs.push_back(std::make_pair(static_cast<ParentComb>(max_index), max_l));
 	
-	const double	threshold = max_l - std::log(30.0);
+	const double	threshold = max_index == 1 || max_index == 4 ?
+												std::log(20.0) : std::log(30.0);
 	for (int i = 0; i < 6; ++i) {
-		if (i != max_index && ls[i] > threshold) {
+		if (i != max_index && ls[i] > max_l - threshold) {
 			pairs.push_back(std::make_pair(static_cast<ParentComb>(i), ls[i]));
 		}
 	}

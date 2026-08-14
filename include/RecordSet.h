@@ -90,6 +90,7 @@ public:
 							const std::vector<double>& probs_pat,
 							int mat_phasing, int pat_phasing,
 							std::size_t i) const;
+	double compute_parent_likelihood(int orig_gt, int phased_gt) const;
 	virtual double compute_phasing_likelihood(int mat_phasing,
 													int pat_phasing) const;
 	std::pair<int, int> select_phasing(

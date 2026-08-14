@@ -35,7 +35,7 @@ def create_family_vcf(orig_vcf: VCFSmall, records: list[GenoRecord],
 										if s in set_imputed_samples ]
 	if family.mat in set_imputed_samples:
 		# 親がimputedならimputedな後代はVCFに含めない
-		indices = [0] + [ i+1 for i, s in enumerate(family.progenies)
+		indices = [0] + [ i+2 for i, s in enumerate(family.progenies)
 										if s not in set_imputed_samples ]
 		samples = [family.mat] + [ s for s in family.progenies
 										if s not in set_imputed_samples ]

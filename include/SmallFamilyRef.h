@@ -15,13 +15,20 @@ class OptionSmall;
 //////////////////// SmallFamilyRef ////////////////////
 
 namespace SmallFamilyRef {
-	VCFGeno *merge_vcf(VCFGeno *imputed_vcf, const VCFGenoBase *vcf,
+	VCFGeno *merge_vcf(const VCFGeno *imputed_vcf, const VCFGenoBase *vcf,
 									const std::vector<std::string>& samples);
 	VCFGeno *impute_vcf_by_both_imputed_parents(const VCFSmall *orig_vcf,
 												VCFGeno *phased_vcf,
 												VCFGeno *imputed_vcf,
 												SampleManager *sample_man,
 												const OptionSmall& op_small);
+	VCFGeno *impute_vcf_by_parent_and_progeny(
+								const VCFSmall *orig_vcf,
+								const VCFGeno *phased_vcf,
+								const std::vector<std::vector<int>>& ref_haps,
+								VCFGeno *imputed_vcf,
+								const OptionSmall& op_small,
+								SampleManager *sample_man);
 	VCFGeno *impute_vcf_by_imputed_and_known_parent(
 								const VCFSmall *orig_vcf,
 								const VCFGeno *phased_vcf,
@@ -68,6 +75,14 @@ namespace SmallFamilyRef {
 									SampleManager *sample_man);
 	// Impute families whose progenies have been imputed
 	VCFGeno *impute_vcf_by_progenies(
+								const VCFSmall *orig_vcf,
+								const VCFGeno *phased_vcf,
+								const std::vector<std::vector<int>>& ref_haps,
+								VCFGeno *imputed_vcf,
+								const OptionSmall& op_small,
+								SampleManager *sample_man);
+	
+	VCFGeno *impute_vcf_by_progenies2(
 								const VCFSmall *orig_vcf,
 								const VCFGeno *phased_vcf,
 								const std::vector<std::vector<int>>& ref_haps,

@@ -210,7 +210,8 @@ class TypeDeterminer:
 			  self.log_likelihood22(mat_gt, pat_gt, counter)]
 		max_index, max_l = max(enumerate(ls), key=lambda p: p[1])
 		pairs: list[tuple[ParentComb, float]] = [(ParentComb(max_index), max_l)]
+		threshold = log(30) if max_index in (0, 2, 3, 5) else log(20)
 		for i in range(6):
-			if i != max_index and ls[i] > max_l - log(30):
+			if i != max_index and ls[i] > max_l - threshold:
 				pairs.append((ParentComb(i), ls[i]))
 		return pairs

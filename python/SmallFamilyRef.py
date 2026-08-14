@@ -18,10 +18,12 @@ from VCFFamily import VCFFamily, VCFFamilyRecord
 from pedigree import PedigreeTable, Family
 from KnownFamily import KnownFamily
 import BothImputedFamilyRef
+import ParentProgenyImputedFamilyRef
 import ImputedAndKnownFamilyRef
 import BothKnownFamilyRef
 import OneImputedFamilyRef
 import OneKnownFamilyRef
+import ParentsKnownProgenyImputedFamilyRef
 import ProgenyImputedFamilyRef
 import SelfFamilyRef
 import SelfNonImputedFamilyRef
@@ -55,13 +57,12 @@ def impute_vcf_by_both_imputed_parents(orig_vcf: VCFSmall, phased_vcf: VCFGeno,
 	sample_man.set(vcf.samples)
 	return merge_vcf(imputed_vcf, vcf, orig_vcf.samples)
 
-"""
 def impute_vcf_by_parent_and_progeny(
 							orig_vcf: VCFSmall, phased_vcf: VCFGeno,
-							imputed_vcf: VCFGeno,
 							ref_haps: list[list[int]],
-							sample_man: SampleManager,
-							op_small: OptionSmall) -> Optional[VCFGeno]:
+							imputed_vcf: Optional[VCFGeno],
+							op_small: OptionSmall,
+							sample_man: SampleManager) -> Optional[VCFGeno]:
 	families = sample_man.extract_parent_and_progeny_imputed_families()
 	# families have been already selected
 	# in which one parent has been imputed and one parent has not been imputed
@@ -70,15 +71,13 @@ def impute_vcf_by_parent_and_progeny(
 								  for parent in family.parents()
 								  if not sample_man.is_imputed(parent) ]
 	
-	vcf = ParentProgenyImputedFamily.impute(orig_vcf, imputed_vcf, ref_haps,
+	vcf = ParentProgenyImputedFamilyRef.impute(orig_vcf, phased_vcf, ref_haps,
 													families, samples, op_small)
 	if vcf is None:
 		return None
 	
-	merged_vcf = VCFGeno.join([imputed_vcf, vcf], orig_vcf.samples)
 	sample_man.set(vcf.get_samples())
-	return merged_vcf
-"""
+	return merge_vcf(imputed_vcf, vcf, orig_vcf.samples)
 
 def impute_vcf_by_imputed_and_known_parent(
 							orig_vcf: VCFSmall, phased_vcf: VCFGeno,
@@ -188,6 +187,24 @@ def impute_vcf_by_progenies(orig_vcf: VCFSmall, phased_vcf: VCFGeno,
 	imputed_progenies = [ [ prog for prog in family.progenies
 									if sample_man.is_imputed(prog) ]
 												for family in families ]
+	vcf = ParentsKnownProgenyImputedFamilyRef.impute(orig_vcf, phased_vcf,
+													families, imputed_progenies,
+													ref_haps, op_small)
+	if vcf is None:
+		return None
+	
+	sample_man.set(vcf.samples)
+	return merge_vcf(imputed_vcf, vcf, orig_vcf.samples)
+
+def impute_vcf_by_progenies2(orig_vcf: VCFSmall, phased_vcf: VCFGeno,
+							ref_haps: list[list[int]],
+							imputed_vcf: Optional[VCFGeno],
+							op_small: OptionSmall,
+							sample_man: SampleManager) -> Optional[VCFGeno]:
+	families = sample_man.extract_parent_known_progenies_imputed_families()
+	imputed_progenies = [ [ prog for prog in family.progenies
+									if sample_man.is_imputed(prog) ]
+												for family in families ]
 	vcf = ProgenyImputedFamilyRef.impute(orig_vcf, phased_vcf, families,
 										imputed_progenies, ref_haps, op_small)
 	if vcf is None:
@@ -242,22 +259,21 @@ def impute(orig_vcf: VCFSmall, merged_vcf: Optional[VCFGeno], ref_vcf: VCFGeno,
 			merged_vcf = new_merged_vcf1
 			continue
 		
-		"""
-		new_merged_vcf11 = impute_vcf_by_parent_and_progeny(orig_vcf,
-														merged_vcf, ref_haps,
-														sample_man, op_small)
-		if new_merged_vcf11 is not None:
-			merged_vcf = new_merged_vcf11
-			continue
-		"""
-		
-		# 片親が補完されている家系を補完する
-		new_merged_vcf2 = impute_vcf_by_imputed_and_known_parent(orig_vcf,
+		new_merged_vcf2 = impute_vcf_by_parent_and_progeny(orig_vcf,
 														phased_vcf, ref_haps,
 														merged_vcf,
 														op_small, sample_man)
 		if new_merged_vcf2 is not None:
 			merged_vcf = new_merged_vcf2
+			continue
+		
+		# 片親が補完されている家系を補完する
+		new_merged_vcf3 = impute_vcf_by_imputed_and_known_parent(orig_vcf,
+														phased_vcf, ref_haps,
+														merged_vcf,
+														op_small, sample_man)
+		if new_merged_vcf3 is not None:
+			merged_vcf = new_merged_vcf3
 			continue
 		
 		new_merged_vcf4 = impute_vcf_by_imputed_parent(orig_vcf,
@@ -277,27 +293,8 @@ def impute(orig_vcf: VCFSmall, merged_vcf: Optional[VCFGeno], ref_vcf: VCFGeno,
 			merged_vcf = new_merged_vcf5
 			continue
 		
-		"""
 		# 片親がknownで後代のどれかがimputedな家系を補完する
-		new_merged_vcf10 = impute_vcf_by_progenies2(orig_vcf,
-													merged_vcf, ref_haps,
-													op_small, sample_man)
-		if new_merged_vcf10 is not None:
-			merged_vcf = new_merged_vcf10
-			continue
-		"""
-		
-		# 両親が補完されていない家系を補完する
-		new_merged_vcf3 = impute_vcf_by_both_known_parents(orig_vcf,
-														phased_vcf, ref_haps,
-														merged_vcf,
-														op_small, sample_man)
-		if new_merged_vcf3 is not None:
-			merged_vcf = new_merged_vcf3
-			continue
-		
-		# 片親がknownだが補完されていなくてもう片親がunknowな家系
-		new_merged_vcf6 = impute_vcf_by_known_parent(orig_vcf,
+		new_merged_vcf6 = impute_vcf_by_progenies2(orig_vcf,
 													phased_vcf, ref_haps,
 													merged_vcf,
 													op_small, sample_man)
@@ -305,27 +302,45 @@ def impute(orig_vcf: VCFSmall, merged_vcf: Optional[VCFGeno], ref_vcf: VCFGeno,
 			merged_vcf = new_merged_vcf6
 			continue
 		
-		# 自殖で一つでもサンプルがimputedな家系
-		new_merged_vcf7 = impute_self_vcf(orig_vcf, phased_vcf, ref_haps,
-											merged_vcf, op_small, sample_man)
+		# 両親が補完されていない家系を補完する
+		new_merged_vcf7 = impute_vcf_by_both_known_parents(orig_vcf,
+														phased_vcf, ref_haps,
+														merged_vcf,
+														op_small, sample_man)
 		if new_merged_vcf7 is not None:
 			merged_vcf = new_merged_vcf7
 			continue
 		
-		# 自殖でimputedなサンプルが一つもない家系
-		new_merged_vcf8 = impute_self_non_imputed_vcf(orig_vcf, phased_vcf,
-														ref_haps, merged_vcf,
-														op_small, sample_man)
+		# 片親がknownだが補完されていなくてもう片親がunknowな家系
+		new_merged_vcf8 = impute_vcf_by_known_parent(orig_vcf,
+													phased_vcf, ref_haps,
+													merged_vcf,
+													op_small, sample_man)
 		if new_merged_vcf8 is not None:
 			merged_vcf = new_merged_vcf8
 			continue
 		
+		# 自殖で一つでもサンプルがimputedな家系
+		new_merged_vcf9 = impute_self_vcf(orig_vcf, phased_vcf, ref_haps,
+											merged_vcf, op_small, sample_man)
+		if new_merged_vcf9 is not None:
+			merged_vcf = new_merged_vcf9
+			continue
+		
+		# 自殖でimputedなサンプルが一つもない家系
+		new_merged_vcf10 = impute_self_non_imputed_vcf(orig_vcf, phased_vcf,
+														ref_haps, merged_vcf,
+														op_small, sample_man)
+		if new_merged_vcf10 is not None:
+			merged_vcf = new_merged_vcf10
+			continue
+		
 		if imputes_isolated_samples:
-			new_merged_vcf9 = impute_orphan_samples(orig_vcf,
+			new_merged_vcf11 = impute_orphan_samples(orig_vcf,
 													ref_haps, phased_vcf,
 													op_small, sample_man)
-			if new_merged_vcf9 is not None:
-				merged_vcf = new_merged_vcf9
+			if new_merged_vcf11 is not None:
+				merged_vcf = new_merged_vcf11
 				continue
 		
 		break

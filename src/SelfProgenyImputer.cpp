@@ -38,7 +38,7 @@ vector<SelfProgenyImputer::DP> SelfProgenyImputer::initialize_dp(
 	vector<DP>	dp(M(), DP(4, pair<double, int>(MIN_PROB, 0)));
 	const GenoRecord	*record = records[0];
 	const int	parent_gt = record->get_geno(0);
-	const int	oc = record->get_geno(iprog+1);
+	const int	oc = record->unphased(iprog+1);
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(h, parent_gt, oc);
 		dp[0][h] = make_pair(E_all, h);
@@ -50,7 +50,7 @@ void SelfProgenyImputer::update_dp(size_t i, size_t iprog,
 												vector<DP>& dp) const {
 	const GenoRecord	*record = records[i];
 	const int	parent_gt = record->get_geno(0);
-	const int	oc = record->get_geno(iprog+1);
+	const int	oc = record->unphased(iprog+1);
 	for(int h = 0; h < 4; ++h) {
 		const double	E_all = emission_probability(h, parent_gt, oc);
 		

@@ -293,10 +293,30 @@ class RecordSet:
 												self.record.probs[i][gt])
 			return modified_log(likelihood)
 		
+		def parent_likelihood(orig_gt: int, phased_gt: int) -> float:
+			if orig_gt < 4:
+				gt = Genotype.unphased(phased_gt | 4)
+				if orig_gt == 1:
+					if orig_gt == gt:
+						return 0.9
+					else:
+						return 0.1
+				else:
+					if orig_gt == gt:
+						return 0.99
+					else:
+						return 0.01
+			else:
+				if (orig_gt & 3) == phased_gt:
+					return 0.99
+				else:
+					return 0.01
+		
 		if self.record is None:
 			return log(0.0001)
 		
-		ll = 0.0
+		ll = (log(parent_likelihood(self.record.geno[0], mat_gt)) +
+			  log(parent_likelihood(self.record.geno[1], pat_gt)))
 		for i, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in self.gen_gts():
 			prev_mat_from = self.from_which_chrom_prev_mat(mat_gt1)
 			next_mat_from = self.from_which_chrom_next_mat(mat_gt2)

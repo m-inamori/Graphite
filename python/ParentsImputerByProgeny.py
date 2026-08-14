@@ -133,6 +133,9 @@ class ParentsImputerByProgeny(VCFHMM[VCFFamilyRecord]):
 			mat_gt, pat_gt = self.compute_parent_gt(i, hs[i])
 			record.geno[0] = mat_gt | 4
 			record.geno[1] = pat_gt | 4
+			if (hs[i] & 1) == 1:
+				# 後代をひっくり返す
+				record.geno[2] = Genotype.inverse(record.geno[2])
 	
 	def impute(self) -> None:
 		# DP

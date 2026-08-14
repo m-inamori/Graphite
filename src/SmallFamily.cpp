@@ -364,22 +364,22 @@ VCFGeno *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 		}
 		
 		// Impute families in which one parent and one progeny are imputed
-		auto	new_merged_vcf11 = impute_vcf_by_parent_and_progeny(
-														orig_vcf, merged_vcf,
-														ref_haps,
-														sample_man, op_small);
-		if(new_merged_vcf11 != NULL) {
-			merged_vcf = new_merged_vcf11;
-			continue;
-		}
-		
-		// Impute families in which one parent is imputed
-		auto	new_merged_vcf2 = impute_vcf_by_imputed_and_known_parent(
+		auto	new_merged_vcf2 = impute_vcf_by_parent_and_progeny(
 														orig_vcf, merged_vcf,
 														ref_haps,
 														sample_man, op_small);
 		if(new_merged_vcf2 != NULL) {
 			merged_vcf = new_merged_vcf2;
+			continue;
+		}
+		
+		// Impute families in which one parent is imputed
+		auto	new_merged_vcf3 = impute_vcf_by_imputed_and_known_parent(
+														orig_vcf, merged_vcf,
+														ref_haps,
+														sample_man, op_small);
+		if(new_merged_vcf3 != NULL) {
+			merged_vcf = new_merged_vcf3;
 			continue;
 		}
 		
@@ -403,41 +403,25 @@ VCFGeno *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 		
 		// Impute families whose a parent is known and one of progenies
 		// has been imputed
-		auto	*new_merged_vcf10 = impute_vcf_by_progenies2(orig_vcf,
+		auto	*new_merged_vcf6 = impute_vcf_by_progenies2(orig_vcf,
 														merged_vcf, ref_haps,
 														sample_man, op_small);
-		if(new_merged_vcf10 != NULL) {
-			merged_vcf = new_merged_vcf10;
-			continue;
-		}
-		
-		auto	*new_merged_vcf3 = impute_vcf_by_both_known_parents(orig_vcf,
-														merged_vcf, ref_haps,
-														sample_man, op_small);
-		if(new_merged_vcf3 != NULL) {
-			merged_vcf = new_merged_vcf3;
-			continue;
-		}
-		
-		// Impute families in which one parent is known but not imputed
-		// and the other parent is unknown
-		auto	*new_merged_vcf6 = impute_vcf_by_known_parent(orig_vcf,
-													merged_vcf, ref_haps,
-													sample_man, op_small);
 		if(new_merged_vcf6 != NULL) {
 			merged_vcf = new_merged_vcf6;
 			continue;
 		}
 		
-		auto	*new_merged_vcf7 = impute_self_vcf(orig_vcf,
-													merged_vcf, ref_haps,
-													sample_man, op_small);
+		auto	*new_merged_vcf7 = impute_vcf_by_both_known_parents(orig_vcf,
+														merged_vcf, ref_haps,
+														sample_man, op_small);
 		if(new_merged_vcf7 != NULL) {
 			merged_vcf = new_merged_vcf7;
 			continue;
 		}
 		
-		auto	*new_merged_vcf8 = impute_self_non_imputed_vcf(orig_vcf,
+		// Impute families in which one parent is known but not imputed
+		// and the other parent is unknown
+		auto	*new_merged_vcf8 = impute_vcf_by_known_parent(orig_vcf,
 													merged_vcf, ref_haps,
 													sample_man, op_small);
 		if(new_merged_vcf8 != NULL) {
@@ -445,12 +429,28 @@ VCFGeno *SmallFamily::impute_small_family(const VCFSmall *orig_vcf,
 			continue;
 		}
 		
+		auto	*new_merged_vcf9 = impute_self_vcf(orig_vcf,
+													merged_vcf, ref_haps,
+													sample_man, op_small);
+		if(new_merged_vcf9 != NULL) {
+			merged_vcf = new_merged_vcf9;
+			continue;
+		}
+		
+		auto	*new_merged_vcf10 = impute_self_non_imputed_vcf(orig_vcf,
+													merged_vcf, ref_haps,
+													sample_man, op_small);
+		if(new_merged_vcf10 != NULL) {
+			merged_vcf = new_merged_vcf10;
+			continue;
+		}
+		
 		if(op_small.imputes_isolated_samples) {
-			auto	*new_merged_vcf9 = impute_orphan_samples(orig_vcf,
+			auto	*new_merged_vcf11 = impute_orphan_samples(orig_vcf,
 														merged_vcf, ref_haps,
 														sample_man, op_small);
-			if(new_merged_vcf9 != NULL) {
-				merged_vcf = new_merged_vcf9;
+			if(new_merged_vcf11 != NULL) {
+				merged_vcf = new_merged_vcf11;
 				continue;
 			}
 		}

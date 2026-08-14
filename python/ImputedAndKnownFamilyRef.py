@@ -24,12 +24,12 @@ def impute(orig_vcf: VCFSmall, phased_vcf: VCFGeno,
 									op: OptionSmall) -> Optional[VCFGenoBase]:
 	vcfs: list[VCFGenoBase] = []
 	for family in families:
-		vcf = VCFGeno.extract_samples(family.samples(), orig_vcf);
+		vcf = VCFGeno.extract_samples(family.samples(), orig_vcf)
 		records = RefCommon.merge_family_records(phased_vcf,
 													vcf, family.samples())
-		is_mat_imputed = family.pat in non_imputed_parents
+		should_impute_mat = family.mat in non_imputed_parents
 		vcf_family = ImputedAndKnownFamily.create_family_vcf(
-										family, records, is_mat_imputed,
+										family, records, should_impute_mat,
 										len(families), ref_haps, orig_vcf, op)
 		vcf_family.impute()
 		vcfs.append(vcf_family)
