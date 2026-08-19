@@ -91,11 +91,12 @@ namespace SmallFamilyRef {
 								SampleManager *sample_man);
 	
 	VCFGeno *impute_orphan_samples(
-						const VCFSmall *orig_vcf,
-						const std::vector<std::vector<int>>& ref_haps,
-						VCFGeno *phased_vcf,
-						const OptionSmall& op_small,
-						SampleManager *sample_man);
+								const VCFSmall *orig_vcf,
+								const VCFGeno *phased_vcf,
+								const std::vector<std::vector<int>>& ref_haps,
+								VCFGeno *imputed_vcf,
+								const OptionSmall& op_small,
+								SampleManager *sample_man);
 	
 	VCFGeno *impute_non_imputed_samples(const VCFSmall *orig_vcf,
 										VCFGeno *merged_vcf,

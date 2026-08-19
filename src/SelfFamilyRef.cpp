@@ -38,6 +38,7 @@ VCFGeno *SelfFamilyRef::impute(const VCFSmall *orig_vcf,
 		auto	*vcf1 = SelfFamily::create_family_vcf(orig_vcf, records,
 													  ref_haps, family,
 													  set_imputed_samples, op);
+		Common::delete_all(records);
 		if(vcf1 != NULL) {
 			vcfs.push_back(vcf1);
 		}

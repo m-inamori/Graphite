@@ -49,7 +49,6 @@ VCFGenoBase *Orphan::impute_samples(const STRVEC& samples,
 		auto	*vcf1 = new VCFOrphan(samples, records,
 										ref_haps, op.map, 0.01, vcf);
 		vcf1->impute(op.num_threads);
-		cout << N << " orphan samples have been imputed." << endl;
 		return vcf1;
 	}
 	else if(NH >= lower_NH) {
@@ -65,7 +64,6 @@ VCFGenoBase *Orphan::impute_samples(const STRVEC& samples,
 		auto	*vcf2 = new VCFOrphanRough(samples, records,
 											ref_haps_table, op.map, 0.01, vcf);
 		vcf2->impute(op.num_threads);
-		cout << N << " orphan samples have been imputed." << endl;
 		return vcf2;
 	}
 	else {
