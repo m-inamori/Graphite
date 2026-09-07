@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "../include/RecordSet.h"
+#include "../include/Map.h"
 #include "../include/log.h"
 #include "../include/common.h"
 
@@ -12,67 +13,38 @@ using namespace std;
 
 //////////////////// RecordSet ////////////////////
 
-int RecordSet::prev_mat_from(std::size_t i) const {
-	if(prev_mat_record == NULL)
-		return 0;
-	return prev_mat_record->from_which_chrom(i, true);
-}
-int RecordSet::next_mat_from(std::size_t i) const {
-	if(next_mat_record == NULL)
-		return 0;
-	return next_mat_record->from_which_chrom(i, true);
-}
-int RecordSet::prev_pat_from(std::size_t i) const {
-	if(prev_pat_record == NULL)
-		return 0;
-	return prev_pat_record->from_which_chrom(i, false);
-}
-int RecordSet::next_pat_from(std::size_t i) const {
-	if(next_pat_record == NULL)
-		return 0;
-	return next_pat_record->from_which_chrom(i, false);
+double RecordSet::to_cM(const VCFFillableRecord *record) const {
+	if(record == NULL)
+		return -1.0;
+	else
+		return gmap.bp_to_cM(record->get_pos());
 }
 
-bool RecordSet::is_mat_prev_near() const {
-	return record->get_pos() * 2 < prev_mat_record->get_pos() +
-									next_mat_record->get_pos();
-}
-
-bool RecordSet::is_pat_prev_near() const {
-	return record->get_pos() * 2 < prev_pat_record->get_pos() +
-									next_pat_record->get_pos();
-}
-
-int RecordSet::near_mat_from(size_t i) const {
-	return is_mat_prev_near() ? prev_mat_from(i) : next_mat_from(i);
-}
-
-int RecordSet::near_pat_from(size_t i) const {
-	return is_pat_prev_near() ? prev_pat_from(i) : next_pat_from(i);
+int RecordSet::near_from(size_t i, bool is_mat) const {
+	return is_prev_near(is_mat) ? prev_from(i, is_mat) : next_from(i, is_mat);
 }
 
 RecordSet::Pair RecordSet::select_nearest_froms(
 								const vector<Pair>& pairs, size_t i) const {
-	if(pairs.size() == 4U) {
-		return Pair(near_mat_from(i), near_pat_from(i));
+	if(pairs.size() == 4) {
+		return Pair(near_from(i, true), near_from(i, false));
 	}
 	else if(pairs[0].first == pairs[1].first) {			// same mat
 		if(is_pat_prev_near())
-			return Pair(pairs[0].first, prev_pat_from(i));
+			return Pair(pairs[0].first, prev_from(i, false));
 		else
-			return Pair(pairs[0].first, next_pat_from(i));
+			return Pair(pairs[0].first, next_from(i, false));
 	}
 	else if(pairs[0].second == pairs[1].second) {	// same pat
 		if(is_mat_prev_near())
-			return Pair(prev_mat_from(i), pairs[0].second);
+			return Pair(prev_from(i, true), pairs[0].second);
 		else
-			return Pair(next_mat_from(i), pairs[1].second);
+			return Pair(next_from(i, true), pairs[1].second);
 	}
 	else {	// Both parents crossover (rarely)
-		return Pair(near_mat_from(i), near_pat_from(i));
+		return Pair(near_from(i, true), near_from(i, false));
 	}
 }
-
 
 // Select a pair from both parent's Haplotype
 // Prefer pairs that do not change the genotype
@@ -102,24 +74,79 @@ RecordSet::Pair RecordSet::select_pair(const vector<Pair>& pairs,
 		return select_pair(pairs, i, true);
 }
 
-// Likelihood based on which of the parent Haplotypes
-// came from before and after the record
-vector<double> RecordSet::likelihoods_from_which_chrom(
-										int prev_from, int next_from) const {
-	static const double ps[] = {
-		0.5, 0.9, 0.1, 0.9, 0.99, 0.5, 0.1, 0.5, 0.01
-	};
-	const double	prob1 = ps[prev_from+next_from*3];
-	vector<double>	probs = { prob1, 1.0 - prob1 };
-	return probs;
+// Probability of having the same haplotype at the previous and next positions
+// but a different haplotype at the intermediate position
+double RecordSet::prob_same(double cM_prev, double cM0, double cM_next) {
+	const double	r1 = Map::Kosambi((cM0 - cM_prev) / 100.0);
+	const double	r2 = Map::Kosambi((cM_next - cM_prev) / 100.0);
+	const double	r3 = Map::Kosambi((cM_next - cM_prev) / 100.0);
+	const double	num = r1 * r2;
+	const double	den = 1.0 - r3;
+    if(num >= den)
+        return 1.0;
+    else
+        return num / den;
 }
 
-vector<double> RecordSet::likelihoods_from_which_chrom(
-												size_t i, bool is_mat) const {
-	if(is_mat)
-		return likelihoods_from_which_chrom(prev_mat_from(i), next_mat_from(i));
-	else
-		return likelihoods_from_which_chrom(prev_pat_from(i), next_pat_from(i));
+// Probability that the haplotypes at the two ends are different,
+// and the haplotype at the intermediate position is
+// different from the previous one
+double RecordSet::prob_diff(double cM_prev, double cM0, double cM_next) {
+	const double	r1 = Map::Kosambi((cM0 - cM_prev) / 100.0);
+	const double	r2 = Map::Kosambi((cM_next - cM_prev) / 100.0);
+	const double	r3 = Map::Kosambi((cM_next - cM_prev) / 100.0);
+    const double	num = r1 * (1.0 - r2);
+    const double	den = r3;
+    if(num >= den)
+        return 1.0;
+    else
+        return num / den;
+}
+
+// Likelihood based on which of the parent Haplotypes
+// came from before and after the record
+vector<double> RecordSet::likelihoods_from_which_chrom(std::size_t i,
+														bool is_mat) const {
+	const int	prev_from = this->prev_from(i, is_mat);
+	const int	next_from = this->next_from(i, is_mat);
+	const double	cM0 = to_cM(record);
+	const double	cM_prev = to_cM(prev_record(is_mat));
+	const double	cM_next = to_cM(next_record(is_mat));
+	if(prev_from == 0 && next_from == 0) {
+		return { 0.5, 0.5 };
+	}
+	else if(prev_from == 0 && next_from == 1) {
+		const double	r = Map::Kosambi((cM_next - cM0) / 100.0);
+		return { 1.0 - r, r };
+	}
+	else if(prev_from == 0 && next_from == 2) {
+		const double	r = Map::Kosambi((cM_next - cM0) / 100.0);
+		return { r, 1.0 - r };
+	}
+	else if(prev_from == 1 && next_from == 0) {
+		const double	r = Map::Kosambi((cM0 - cM_prev) / 100.0);
+		return { 1.0 - r, r };
+	}
+	else if(prev_from == 1 && next_from == 1) {
+		const double	r = prob_same(cM_prev, cM0, cM_next);
+		return { 1.0 - r, r };
+	}
+	else if(prev_from == 1 && next_from == 2) {
+		const double	r = prob_diff(cM_prev, cM0, cM_next);
+		return { 1.0 - r, r };
+	}
+	else if(prev_from == 2 && next_from == 0) {
+		const double	r = Map::Kosambi((cM0 - cM_prev) / 100.0);
+		return { r, 1.0 - r };
+	}
+	else if(prev_from == 2 && next_from == 1) {
+		const double	r = prob_diff(cM_prev, cM0, cM_next);
+		return { r, 1.0 - r };
+	}
+	else {	// 2 and 2
+		const double	r = prob_same(cM_prev, cM0, cM_next);
+		return { r, 1.0 - r };
+	}
 }
 
 double RecordSet::likelihood_each(const vector<double>& probs_mat,
@@ -144,19 +171,9 @@ double RecordSet::compute_phasing_likelihood_each(int mat_phasing,
 									mat_phasing, pat_phasing, i);
 }
 
-double RecordSet::compute_parent_likelihood(int orig_gt, int phased_gt) const {
-	if(orig_gt < 4) {
-		const int	gt = Genotype::unphased(phased_gt | 4);
-		if(orig_gt == 1) {
-			return orig_gt == gt ? 0.9 : 0.1;
-		}
-		else {
-			return orig_gt == gt ? 0.99 : 0.01;
-		}
-	}
-	else {
-		return (orig_gt & 3) == phased_gt ? 0.99 : 0.01;
-	}
+double RecordSet::compute_parent_likelihood(size_t i, int phased_gt) const {
+	const int	gt = Genotype::unphased(phased_gt | 4);
+	return this->record->get_prob(i, gt);
 }
 
 double RecordSet::compute_phasing_likelihood(int mat_phasing,
@@ -164,8 +181,8 @@ double RecordSet::compute_phasing_likelihood(int mat_phasing,
 	if(this->record == NULL)
 		return log(0.0001);
 	
-	double	ll = log(compute_parent_likelihood(record->mat_gt(), mat_phasing)) +
-				 log(compute_parent_likelihood(record->pat_gt(), pat_phasing));
+	double	ll = log(compute_parent_likelihood(0, mat_phasing)) +
+				 log(compute_parent_likelihood(1, pat_phasing));
 	for(int i = 2; i < (int)record->num_samples(); ++i) {
 		ll += compute_phasing_likelihood_each(mat_phasing, pat_phasing, i);
 	}
@@ -175,19 +192,14 @@ double RecordSet::compute_phasing_likelihood(int mat_phasing,
 bool RecordSet::is_prev_nearer(bool is_mat) const {
 	if(record == NULL)
 		return false;
-	else if(is_mat) {
-		// どちらかがNULLの場合、ここには来ないので、適当に処理する
-		if(prev_mat_record == NULL || next_mat_record == NULL)
-			return false;
-		else
-			return is_mat_prev_near();
-	}
-	else {
-		if(prev_pat_record == NULL || next_pat_record == NULL)
-			return false;
-		else
-			return is_pat_prev_near();
-	}
+	
+	const auto	*prev_record = this->prev_record(is_mat);
+	const auto	*next_record = this->next_record(is_mat);
+	// Neither should be NULL at this point, so handle this case arbitrarily
+	if(prev_record == NULL || next_record == NULL)
+		return false;
+	else
+		return is_prev_near(is_mat);
 }
 
 pair<int, int> RecordSet::select_phasing(

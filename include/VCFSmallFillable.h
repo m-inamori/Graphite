@@ -24,8 +24,8 @@ public:
 public:
 	VCFSmallFillable(const STRVEC& s,
 						const std::vector<VCFFillableRecord *>& rs,
-						const VCFSmall *vcf) :
-										VCFFillable(s, rs, vcf) { }
+						const Map& gmap, const VCFSmall *vcf) :
+										VCFFillable(s, rs, gmap, vcf) { }
 	VCFSmallFillable(const VCFSmallFillable&) = delete;
 	VCFSmallFillable& operator=(const VCFSmallFillable&) = delete;
 	~VCFSmallFillable() { }
@@ -34,8 +34,8 @@ public:
 	void delete_records();
 	void modify(int T);
 	
-	const RecordSet *create_recordset(
-							std::size_t i, std::size_t c, bool is_mat) const;
+	const RecordSet *create_recordset(std::size_t i, std::size_t c,
+											bool is_mat, const Map& gmap) const;
 	
 public:
 	static void phase_in_thread(void *config);

@@ -24,7 +24,7 @@ void VCFSmallFillable::phase_in_thread(void *config) {
 
 void VCFSmallFillable::modify(int T) {
 	const Groups	*groups = Groups::create(records);
-	const auto	record_sets = groups->create_record_sets_small();
+	const auto	record_sets = groups->create_record_sets_small(get_map());
 	
 	vector<ConfigThreadPhase *>	configs(T);
 	for(int i = 0; i < T; ++i)
@@ -59,13 +59,15 @@ void VCFSmallFillable::modify(int T) {
 	}
 }
 
-const RecordSet *VCFSmallFillable::create_recordset(
-										size_t i, size_t c, bool is_mat) const {
+const RecordSet *VCFSmallFillable::create_recordset(size_t i, size_t c,
+										bool is_mat, const Map& gmap) const {
 	auto	*record = records[i];
 	auto	*prev_record = find_prev_same_type_record(i, c);
 	auto	*next_record = find_next_same_type_record(i, c);
 	if(is_mat)
-		return new RecordSetSmall(record, prev_record, next_record, NULL, NULL);
+		return new RecordSetSmall(record, prev_record,
+										next_record, NULL, NULL, gmap);
 	else
-		return new RecordSetSmall(record, NULL, NULL, prev_record, next_record);
+		return new RecordSetSmall(record, NULL, NULL,
+										prev_record, next_record, gmap);
 }

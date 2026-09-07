@@ -74,7 +74,7 @@ VCFFillable *VCFOneParentImputedFast::merge_vcf(
 			rs.push_back(*p);
 	}
 	std::sort(rs.begin(), rs.end(), VCFOneParentImputedFast::compare_record);
-	return new VCFSmallFillable(samples, rs, vcf);
+	return new VCFSmallFillable(samples, rs, gmap, vcf);
 }
 
 

@@ -28,9 +28,6 @@ namespace ImputedAndKnownFamily {
 									const std::vector<VCFFillableRecord *>& rs,
 									bool is_mat_hetero, bool is_mat_imputed,
 									const Map& gmap, const VCFSmall *vcf);
-	VCFSmallFillable *merge_vcf(const STRVEC& samples,
-					const std::array<std::vector<VCFFillableRecord *>, 4>& rss,
-					const VCFSmall *vcf);
 	// Is the computational cost sufficiently small even when using ref in HMM?
 	bool is_small(const Family *family,
 							const std::vector<std::vector<int>>& ref_haps,

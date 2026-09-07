@@ -9,6 +9,8 @@
 #include "TypeDeterminer.h"
 #include "Genotype.h"
 
+class Map;
+
 
 //////////////////// RecordSet ////////////////////
 
@@ -22,13 +24,16 @@ public:
 	VCFFillableRecord	*next_mat_record;
 	VCFFillableRecord	*prev_pat_record;
 	VCFFillableRecord	*next_pat_record;
+	const Map&	gmap;
 	
 public:
 	RecordSet(VCFFillableRecord *r,
 			  VCFFillableRecord *pm, VCFFillableRecord *nm,
-			  VCFFillableRecord *pp, VCFFillableRecord *np) : record(r),
+			  VCFFillableRecord *pp, VCFFillableRecord *np,
+			  const Map& m) : record(r),
 					  			prev_mat_record(pm), next_mat_record(nm),
-					  			prev_pat_record(pp), next_pat_record(np) { }
+					  			prev_pat_record(pp), next_pat_record(np),
+					  			gmap(m) { }
 	virtual ~RecordSet() { }
 	
 	int gt_each(std::size_t i, const VCFFillableRecord *record) const {
@@ -40,19 +45,41 @@ public:
 	int prev_pat_gt(std::size_t i) const { return gt_each(i, prev_pat_record); }
 	int next_pat_gt(std::size_t i) const { return gt_each(i, next_pat_record); }
 	
-	int prev_mat_from(std::size_t i) const;
-	int next_mat_from(std::size_t i) const;
-	int prev_pat_from(std::size_t i) const;
-	int next_pat_from(std::size_t i) const;
+	int prev_from(std::size_t i, bool is_mat) const {
+		if(prev_record(is_mat) == NULL)
+			return 0;
+		return prev_record(is_mat)->from_which_chrom(i, is_mat);
+	}
+	int next_from(std::size_t i, bool is_mat) const {
+		if(next_record(is_mat) == NULL)
+			return 0;
+		return next_record(is_mat)->from_which_chrom(i, is_mat);
+	}
+	int prev_mat_from(std::size_t i) const { return prev_from(i, true); }
+	int prev_pat_from(std::size_t i) const { return prev_from(i, false); }
+	int next_mat_from(std::size_t i) const { return next_from(i, true); }
+	int next_pat_from(std::size_t i) const { return next_from(i, false); }
 	
-	int near_mat_from(size_t i) const;
-	int near_pat_from(size_t i) const;
+	int near_from(size_t i, bool is_mat) const;
 	
-	bool is_mat_prev_near() const;
-	bool is_pat_prev_near() const;
+	VCFFillableRecord *prev_record(bool is_mat) const {
+		return is_mat ? prev_mat_record : prev_pat_record;
+	}
+	VCFFillableRecord *next_record(bool is_mat) const {
+		return is_mat ? next_mat_record : next_pat_record;
+	}
+	
+	double to_cM(const VCFFillableRecord *record) const;
+	
+	bool is_prev_near(bool is_mat) const {
+		return record->get_pos() * 2 < prev_record(is_mat)->get_pos() +
+									   next_record(is_mat)->get_pos();
+	}
+	bool is_mat_prev_near() const { return is_prev_near(true); }
+	bool is_pat_prev_near() const { return is_prev_near(false); }
 	bool is_prev_nearer(bool is_mat) const;
 	
-	// phasingされている前提
+	// Assume that phasing has been performed
 	int from_which_chrom(int gt, const VCFFillableRecord *record,
 															bool mat) const {
 		if(record == NULL)
@@ -80,17 +107,23 @@ public:
 												std::size_t i) const;
 	Pair select_pair(const std::vector<Pair>& pairs,
 							std::size_t i, bool selected=false) const;
-	std::vector<double> likelihoods_from_which_chrom(int prev_chrom,
-												int next_chrom) const;
+	// Probability of having the same haplotype
+	// at the previous and next positions
+	// but a different haplotype at the intermediate position
+	static double prob_same(double cM_prev, double cM0, double cM_next);
+	// Probability that the haplotypes at the two ends are different,
+	// and the haplotype at the intermediate position
+	// is different from the previous one
+	static double prob_diff(double cM_prev, double cM0, double cM_next);
 	std::vector<double> likelihoods_from_which_chrom(std::size_t i,
-												bool is_mat) const;
+													 bool is_mat) const;
 	double compute_phasing_likelihood_each(int mat_phasing,
 										int pat_phasing, std::size_t i) const;
 	double likelihood_each(const std::vector<double>& probs_mat,
 							const std::vector<double>& probs_pat,
 							int mat_phasing, int pat_phasing,
 							std::size_t i) const;
-	double compute_parent_likelihood(int orig_gt, int phased_gt) const;
+	double compute_parent_likelihood(std::size_t i, int phased_gt) const;
 	virtual double compute_phasing_likelihood(int mat_phasing,
 													int pat_phasing) const;
 	std::pair<int, int> select_phasing(
@@ -120,8 +153,8 @@ class RecordSetSmall : public RecordSet {
 public:
 	RecordSetSmall(VCFFillableRecord *r,
 				   VCFFillableRecord *pm, VCFFillableRecord *nm,
-				   VCFFillableRecord *pp, VCFFillableRecord *np) :
-								   	RecordSet(r, pm, nm, pp, np) { }
+				   VCFFillableRecord *pp, VCFFillableRecord *np,
+				   const Map& m) : RecordSet(r, pm, nm, pp, np, m) { }
 	~RecordSetSmall() { }
 	
 	std::vector<std::pair<int, int>> possible_phasings() const override;

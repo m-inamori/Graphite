@@ -70,7 +70,7 @@ class VCFOneParentImputedFast(VCFImputable):
 	def merge_vcf(self, rss: list[list[VCFFillableRecord]]) -> VCFFillable:
 		rs = rss[0] + rss[1] + rss[2] + rss[3]
 		rs.sort(key=lambda r: r.pos)
-		return VCFSmallFillable(self.samples, rs, self.vcf)
+		return VCFSmallFillable(self.samples, rs, self.gmap, self.vcf)
 	
 	##### virtual methods for VCFImputable #####
 	def impute(self) -> None:

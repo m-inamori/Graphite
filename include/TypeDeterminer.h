@@ -23,7 +23,7 @@ class TypeDeterminer {
 	const std::vector<double>	log_facs;
 	
 public:
-	TypeDeterminer(size_t n) : N(n), a(1), b(9),
+	explicit TypeDeterminer(size_t n) : N(n), a(1), b(9),
 								log_facs(make_memo_log_facs()) { }
 	
 	std::vector<std::pair<ParentComb, double>> determine(

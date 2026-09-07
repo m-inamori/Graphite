@@ -73,9 +73,9 @@ public:
 	STRVEC extra_info(std::size_t c, const STRVEC& def_info) const;
 	
 	static Probs decide_PL_by_genotype(int gt) {
-		if(Genotype::is_00(gt))			return Probs(0.98, 0.01, 0.01);
-		else if(Genotype::is_01(gt))	return Probs(0.01, 0.98, 0.01);
-		else if(Genotype::is_11(gt))	return Probs(0.01, 0.01, 0.98);
+		if(Genotype::is_00(gt))			return Probs(0.90, 0.05, 0.05);
+		else if(Genotype::is_01(gt))	return Probs(0.05, 0.90, 0.05);
+		else if(Genotype::is_11(gt))	return Probs(0.05, 0.05, 0.90);
 		else 							return Probs(1./3, 1./3, 1./3);
 	}
 };

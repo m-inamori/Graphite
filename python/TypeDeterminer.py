@@ -93,7 +93,7 @@ class TypeDeterminer:
 	# log likelihood for 0/0 x 0/1
 	def log_likelihood01(self, mat_gt: int, pat_gt: int,
 										gt_freq: list[int]) -> float:
-		# 0/0 x 0/1 ->	-> 0/0 or 0/1: 1/2-p/3, otherwise: p/3
+		# 0/0 x 0/1 -> 0/0 or 0/1: 1/2-p/3, otherwise: p/3
 		n = gt_freq[0] + gt_freq[1]		# 0/0 or 0/1
 		m = gt_freq[2] + gt_freq[3]		# 1/1 or ./.
 		pair_gts = (mat_gt, pat_gt)

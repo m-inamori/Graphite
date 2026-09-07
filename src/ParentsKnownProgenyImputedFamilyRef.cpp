@@ -99,7 +99,6 @@ VCFGeno *ParentsKnownProgenyImputedFamilyRef::impute(
 		auto	*vcf1 = create_family_vcf(samples, records,
 													L, ref_haps, orig_vcf, op);
 		vcfs.push_back(vcf1);
-		vcf->clear_records();
 		vcf_garbage.push_back(vcf);
 	}
 	

@@ -117,11 +117,11 @@ class VCFRecord(object):
 	@staticmethod
 	def decide_PL_by_genotype(gt: int) -> Probs:
 		if Genotype.is_00(gt):
-			return (0.98, 0.01, 0.01)
+			return (0.90, 0.05, 0.05)
 		elif Genotype.is_01(gt):
-			return (0.01, 0.98, 0.01)
+			return (0.05, 0.90, 0.05)
 		elif Genotype.is_11(gt):
-			return (0.01, 0.01, 0.98)
+			return (0.05, 0.05, 0.90)
 		else:
 			return (1/3, 1/3, 1/3)
 	

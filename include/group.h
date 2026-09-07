@@ -8,6 +8,7 @@
 #include "RecordSet.h"
 
 class VCFFillableRecord;
+class Map;
 
 
 //////////////////// Groups ////////////////////
@@ -30,8 +31,9 @@ public:
 													return groups[i].second; }
 	VCFFillableRecord *find_prev_record(std::size_t i, FillType g) const;
 	VCFFillableRecord *find_next_record(std::size_t i, FillType g) const;
-	std::vector<RecordSet *> create_record_sets() const;
-	std::vector<RecordSetSmall *> create_record_sets_small() const;
+	std::vector<RecordSet *> create_record_sets(const Map& gmap) const;
+	std::vector<RecordSetSmall *> create_record_sets_small(
+												const Map& gmap) const;
 	
 	static Groups *create(const std::vector<VCFFillableRecord *>& records);
 };

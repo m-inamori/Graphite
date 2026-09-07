@@ -11,6 +11,7 @@ from GenoRecord import GenoRecord
 from VCFFillableRecord import VCFFillableRecord
 from TypeDeterminer import ParentComb
 from Genotype import Genotype
+from Map import Map
 from log import modified_log
 from common import unique_list
 
@@ -20,36 +21,48 @@ from common import unique_list
 class RecordSet:
 	def __init__(self, r: Optional[VCFFillableRecord],
 			pm: Optional[VCFFillableRecord], nm: Optional[VCFFillableRecord],
-			pp: Optional[VCFFillableRecord], np: Optional[VCFFillableRecord]):
+			pp: Optional[VCFFillableRecord], np: Optional[VCFFillableRecord],
+			gmap: Map):
 		self.record: Optional[VCFFillableRecord] = r
 		self.prev_mat_record: Optional[VCFFillableRecord] = pm
 		self.next_mat_record: Optional[VCFFillableRecord] = nm
 		self.prev_pat_record: Optional[VCFFillableRecord] = pp
 		self.next_pat_record: Optional[VCFFillableRecord] = np
+		self.gmap: Map = gmap
 	
 	def records(self) -> list[Optional[VCFFillableRecord]]:
 		return [self.record, self.prev_mat_record, self.next_mat_record,
 							 self.prev_pat_record, self.next_pat_record]
 	
-	def prev_mat_from(self, i: int) -> int:
-		if self.prev_mat_record is None:
-			return 0
-		return self.prev_mat_record.from_which_chrom(i, True)
+	def prev_record(self, is_mat: bool) -> Optional[VCFFillableRecord]:
+		return self.prev_mat_record if is_mat else self.prev_pat_record
 	
-	def next_mat_from(self, i: int) -> int:
-		if self.next_mat_record is None:
+	def next_record(self, is_mat: bool) -> Optional[VCFFillableRecord]:
+		return self.next_mat_record if is_mat else self.next_pat_record
+	
+	def prev_from(self, i: int, is_mat: bool) -> int:
+		record = self.prev_record(is_mat)
+		if record is None:
 			return 0
-		return self.next_mat_record.from_which_chrom(i, True)
+		return record.from_which_chrom(i, is_mat)
+	
+	def prev_mat_from(self, i: int) -> int:
+		return self.prev_from(i, True)
 	
 	def prev_pat_from(self, i: int) -> int:
-		if self.prev_pat_record is None:
+		return self.prev_from(i, False)
+	
+	def next_from(self, i: int, is_mat: bool) -> int:
+		record = self.next_record(is_mat)
+		if record is None:
 			return 0
-		return self.prev_pat_record.from_which_chrom(i, False)
+		return record.from_which_chrom(i, is_mat)
+	
+	def next_mat_from(self, i: int) -> int:
+		return self.next_from(i, True)
 	
 	def next_pat_from(self, i: int) -> int:
-		if self.next_pat_record is None:
-			return 0
-		return self.next_pat_record.from_which_chrom(i, False)
+		return self.next_from(i, False)
 	
 	def gt_each(self, i: int, record: Optional[VCFFillableRecord]) -> int:
 		return Genotype.NA if record is None else record.geno[i]
@@ -61,22 +74,38 @@ class RecordSet:
 		v = [ self.gt_each(i, r) for r in self.records() ]
 		return (v[0], v[1], v[2], v[3], v[4])
 	
+	def to_cM(self, record: Optional[VCFFillableRecord]) -> float:
+		return -1.0 if record is None else self.gmap.bp_to_cM(record.pos)
+	
+	def is_prev_near(self, is_mat: bool) -> bool:
+		prev_record = self.prev_record(is_mat)
+		next_record = self.next_record(is_mat)
+		if self.record is None:
+			return False
+		elif prev_record is None:
+			return False
+		elif next_record is None:
+			return True
+		else:
+			return self.record.pos * 2 < prev_record.pos + next_record.pos
+	
+	def is_mat_prev_near(self) -> bool:
+		return self.is_prev_near(True)
+	
+	def is_pat_prev_near(self) -> bool:
+		return self.is_prev_near(False)
+	
 	def is_prev_nearer(self, is_mat: bool) -> bool:
 		if self.record is None:
 			return False
-		elif is_mat:
+		
+		prev_record = self.prev_record(is_mat)
+		next_record = self.next_record(is_mat)
+		if prev_record is None or next_record is None:
 			# どちらかがNoneの場合、ここには来ないので、適当に処理する
-			if self.prev_mat_record is None or self.next_mat_record is None:
-				return False
-			else:
-				return (self.prev_mat_record.pos + self.next_mat_record.pos
-														> self.record.pos*2)
+			return False
 		else:
-			if self.prev_pat_record is None or self.next_pat_record is None:
-				return False
-			else:
-				return (self.prev_pat_record.pos + self.next_pat_record.pos
-														> self.record.pos*2)
+			return self.is_prev_near(is_mat)
 	
 	def __select_phasing(self, candidates: list[tuple[int, int]]
 												) -> tuple[int, int]:
@@ -170,27 +199,15 @@ class RecordSet:
 			gts = [ r.geno[i] if r else Genotype.NA for r in self.records() ]
 			yield (i, gts[1], gts[2], gts[3], gts[4])
 	
-	def is_mat_prev_near(self) -> bool:
-		if (self.record is None or self.prev_mat_record is None or
-										self.next_mat_record is None):
-			return False
-		return (self.record.pos * 2 <
-					self.prev_mat_record.pos + self.next_mat_record.pos)
-	
-	def is_pat_prev_near(self) -> bool:
-		if (self.record is None or self.prev_pat_record is None or
-										self.next_pat_record is None):
-			return False
-		return (self.record.pos * 2 <
-					self.prev_pat_record.pos + self.next_pat_record.pos)
+	def near_from(self, i: int, is_mat: bool) -> int:
+		return (self.prev_from(i, is_mat) if self.is_prev_near(is_mat)
+											else self.next_from(i, is_mat))
 	
 	def near_mat_from(self, i: int) -> int:
-		return (self.prev_mat_from(i) if self.is_mat_prev_near()
-										else self.next_mat_from(i))
+		return self.near_from(i, True)
 	
 	def near_pat_from(self, i: int) -> int:
-		return (self.prev_pat_from(i) if self.is_pat_prev_near()
-										else self.next_pat_from(i))
+		return self.near_from(i, False)
 	
 	# [(mat_from, pat_from)] -> (mat_from, pat_from)
 	def select_nearest_froms(self, pairs: list[tuple[int, int]],
@@ -274,12 +291,84 @@ class RecordSet:
 	
 	# mat_gt, pat_gt : 0|0 0|1 1|0 1|1を0～3で表す
 	def compute_phasing_likelihood(self, mat_gt: int, pat_gt: int) -> float:
-		memo = { (0, 0): [0.5, 0.5], (0, 1): [0.9, 0.1], (0, 2): [0.1, 0.9],
-				 (1, 0): [0.9, 0.1], (1, 1): [0.99, 0.01], (1, 2): [0.5, 0.5],
-				 (2, 0): [0.1, 0.9], (2, 1): [0.5, 0.5], (2, 2): [0.01, 0.99] }
-		def probs_from_which_chrom(prev_chrom: int,
-								   next_chrom: int) -> list[float]:
-			return memo[(prev_chrom, next_chrom)]
+		# 前と次で同じハプロタイプで中間で違う確率
+		def prob_same(cM_prev: float, cM0: float, cM_next: float) -> float:
+			r1 = Map.Kosambi((cM0 - cM_prev) / 100.0)
+			r2 = Map.Kosambi((cM_next - cM_prev) / 100.0)
+			r3 = Map.Kosambi((cM_next - cM_prev) / 100.0)
+			num = r1 * r2
+			den = 1.0 - r3
+			if num >= den:
+				return 1.0
+			else:
+				return num / den
+		
+		# 端と端で違うハプロタイプで中間で前と変わっている確率
+		def prob_diff(cM_prev: float, cM0: float, cM_next: float) -> float:
+			r1 = Map.Kosambi((cM0 - cM_prev) / 100.0)
+			r2 = Map.Kosambi((cM_next - cM_prev) / 100.0)
+			r3 = Map.Kosambi((cM_next - cM_prev) / 100.0)
+			num = r1 * (1.0 - r2)
+			den = r3
+			if num >= den:
+				return 1.0
+			else:
+				return num / den
+		
+		def probs_from_which_chrom(prev_record: Optional[VCFFillableRecord],
+								   next_record: Optional[VCFFillableRecord],
+								   froms: tuple[int, int]) -> list[float]:
+			cM0 = self.to_cM(self.record)
+			if froms == (0, 0):
+				return [0.5, 0.5]
+			elif froms == (0, 1):
+				cM_next = self.to_cM(next_record)
+				r = Map.Kosambi((cM_next - cM0) / 100.0)
+				return [1.0 - r, r]
+			elif froms == (0, 2):
+				cM_next = self.to_cM(next_record)
+				r = Map.Kosambi((cM_next - cM0) / 100.0)
+				return [r, 1.0 - r]
+			elif froms == (1, 0):
+				cM_prev = self.to_cM(prev_record)
+				r = Map.Kosambi((cM0 - cM_prev) / 100.0)
+				return [1.0 - r, r]
+			elif froms == (1, 1):
+				cM_prev = self.to_cM(prev_record)
+				cM_next = self.to_cM(next_record)
+				r = prob_same(cM_prev, cM0, cM_next)
+				return [1.0 - r, r]
+			elif froms == (1, 2):
+				cM_prev = self.to_cM(prev_record)
+				cM_next = self.to_cM(next_record)
+				r = prob_diff(cM_prev, cM0, cM_next)
+				return [1.0 - r, r]
+			elif froms == (2, 0):
+				cM_prev = self.to_cM(prev_record)
+				r = Map.Kosambi((cM0 - cM_prev) / 100.0)
+				return [r, 1.0 - r]
+			elif froms == (2, 1):
+				cM_prev = self.to_cM(prev_record)
+				cM_next = self.to_cM(next_record)
+				r = prob_diff(cM_prev, cM0, cM_next)
+				return [r, 1.0 - r]
+			else:	# (2, 2)
+				cM_prev = self.to_cM(prev_record)
+				cM_next = self.to_cM(next_record)
+				r = prob_same(cM_prev, cM0, cM_next)
+				return [r, 1.0 - r]
+		
+		def probs_from_which_chrom_mat(prev_from: int,
+									   next_from: int) -> list[float]:
+			return probs_from_which_chrom(self.prev_mat_record,
+												self.next_mat_record,
+												(prev_from, next_from))
+		
+		def probs_from_which_chrom_pat(prev_from: int,
+									   next_from: int) -> list[float]:
+			return probs_from_which_chrom(self.prev_pat_record,
+												self.next_pat_record,
+												(prev_from, next_from))
 		
 		def likelihood_each(probs_mat: list[float],
 							probs_pat: list[float], i: int) -> float:
@@ -293,37 +382,25 @@ class RecordSet:
 												self.record.probs[i][gt])
 			return modified_log(likelihood)
 		
-		def parent_likelihood(orig_gt: int, phased_gt: int) -> float:
-			if orig_gt < 4:
-				gt = Genotype.unphased(phased_gt | 4)
-				if orig_gt == 1:
-					if orig_gt == gt:
-						return 0.9
-					else:
-						return 0.1
-				else:
-					if orig_gt == gt:
-						return 0.99
-					else:
-						return 0.01
-			else:
-				if (orig_gt & 3) == phased_gt:
-					return 0.99
-				else:
-					return 0.01
+		def parent_likelihood(i: int, phased_gt: int) -> float:
+			if self.record is None:
+				return 0.0
+			
+			gt = Genotype.unphased(phased_gt | 4)
+			return self.record.probs[i][gt]
 		
 		if self.record is None:
 			return log(0.0001)
 		
-		ll = (log(parent_likelihood(self.record.geno[0], mat_gt)) +
-			  log(parent_likelihood(self.record.geno[1], pat_gt)))
+		ll = (log(parent_likelihood(0, mat_gt)) +
+			  log(parent_likelihood(1, pat_gt)))
 		for i, mat_gt1, mat_gt2, pat_gt1, pat_gt2 in self.gen_gts():
 			prev_mat_from = self.from_which_chrom_prev_mat(mat_gt1)
 			next_mat_from = self.from_which_chrom_next_mat(mat_gt2)
 			prev_pat_from = self.from_which_chrom_prev_pat(pat_gt1)
 			next_pat_from = self.from_which_chrom_next_pat(pat_gt2)
-			probs_mat = probs_from_which_chrom(prev_mat_from, next_mat_from)
-			probs_pat = probs_from_which_chrom(prev_pat_from, next_pat_from)
+			probs_mat = probs_from_which_chrom_mat(prev_mat_from, next_mat_from)
+			probs_pat = probs_from_which_chrom_pat(prev_pat_from, next_pat_from)
 			ll += likelihood_each(probs_mat, probs_pat, i)
 		return ll
 	
@@ -415,8 +492,9 @@ class RecordSet:
 class RecordSetSmall(RecordSet):
 	def __init__(self, r: Optional[VCFFillableRecord],
 			pm: Optional[VCFFillableRecord], nm: Optional[VCFFillableRecord],
-			pp: Optional[VCFFillableRecord], np: Optional[VCFFillableRecord]):
-		RecordSet.__init__(self, r, pm, nm, pp, np)
+			pp: Optional[VCFFillableRecord], np: Optional[VCFFillableRecord],
+			gmap: Map):
+		RecordSet.__init__(self, r, pm, nm, pp, np, gmap)
 	
 	def possible_phasings(self) -> list[tuple[int, int]]:
 		if self.record is None:

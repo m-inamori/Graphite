@@ -312,11 +312,13 @@ VCFGeno *SmallFamilyRef::impute_vcf_by_progenies(
 	
 	sample_man->add_imputed_samples(vcf->get_samples());
 	if(imputed_vcf == NULL) {
+		Common::delete_all(families);
 		return vcf;
 	}
 	else {
 		auto	*vcf1 = merge_vcf(imputed_vcf, vcf, orig_vcf->get_samples());
 		delete vcf;
+		Common::delete_all(families);
 		return vcf1;
 	}
 }

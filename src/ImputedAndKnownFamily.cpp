@@ -84,19 +84,6 @@ VCFImputable *ImputedAndKnownFamily::create(
 		return new VCFHeteroImpHomo(samples, rs, is_mat_hetero, gmap, vcf);
 }
 
-VCFSmallFillable *ImputedAndKnownFamily::merge_vcf(
-							const STRVEC& samples,
-							const array<vector<VCFFillableRecord *>, 4>& rss,
-							const VCFSmall *vcf) {
-	vector<VCFFillableRecord *>	rs;
-	for(int i = 0; i < 4; ++i) {
-		for(auto p = rss[i].begin(); p != rss[i].end(); ++p)
-			rs.push_back(*p);
-	}
-	std::sort(rs.begin(), rs.end(), ImputedAndKnownFamily::compare_record);
-	return new VCFSmallFillable(samples, rs, vcf);
-}
-
 // Is the computational cost sufficiently small even when using ref in HMM?
 bool ImputedAndKnownFamily::is_small(const Family *family,
 										const vector<vector<int>>& ref_haps,

@@ -257,8 +257,8 @@ void LargeFamily::fill_in_thread(void *config) {
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		const auto&	vcfs = c->vcfss_heho[i];
 		const auto&	records = c->other_recordss[i];
-		c->results[i] = VCFFillable::fill(vcfs, records,
-											c->num_threads_in_family);
+		c->results[i] = VCFFillable::fill(vcfs, records, c->gmap,
+												c->num_threads_in_family);
 	}
 }
 
@@ -266,7 +266,7 @@ vector<VCFFillable *> LargeFamily::fill_vcf(
 					const map<string, vector<VCFHeteroHomo *>>& dic_vcfs,
 					const vector<vector<VCFImpFamilyRecord *>>& other_recordss,
 					const vector<const KnownFamily *>& families,
-					int num_threads) {
+					const Map& gmap, int num_threads) {
 	// collect vcf by family index
 	const size_t	N = families.size();
 	map<pair<string, string>, size_t>	family_indices;
@@ -289,7 +289,7 @@ vector<VCFFillable *> LargeFamily::fill_vcf(
 	vector<ConfigThreadFill *>	configs(T);
 	for(int i = 0; i < T; ++i)
 		configs[i] = new ConfigThreadFill(i, T, vcfss_heho, other_recordss,
-													T_in_family, vcfs_filled);
+												gmap, T_in_family, vcfs_filled);
 	
 #ifndef DEBUG
 	vector<pthread_t>	threads_t(T);
@@ -415,7 +415,7 @@ vector<VCFFillable *> LargeFamily::impute_all_families(
 	}
 	
 	auto	vcfs_filled = fill_vcf(dic_vcfs, other_recordss,
-										families, option.num_threads);
+									families, geno_map, option.num_threads);
 	for(size_t i = 0; i < families.size(); ++i) {
 		Common::delete_all(vcfss[i]);
 		Common::delete_all(other_recordss[i]);

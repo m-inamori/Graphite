@@ -182,7 +182,8 @@ def divide_vcf_into_record_types(family_vcfs: list[VCFFamily],
 
 def fill_vcf(dic_vcfs: dict[str, list[VCFHeteroHomo]],
 						other_recordss: list[list[VCFImpFamilyRecord]],
-						families: list[KnownFamily]) -> list[VCFFillable]:
+						families: list[KnownFamily],
+						gmap: Map) -> list[VCFFillable]:
 	# 同じ家系でまとめる
 	family_indices = { family.parents(): i
 							for i, family in enumerate(families) }
@@ -193,7 +194,7 @@ def fill_vcf(dic_vcfs: dict[str, list[VCFHeteroHomo]],
 			vcfss_heho[index].append(vcf)
 	
 	# 家系ごとに残ったレコードをcorrectする
-	return [ VCFFillable.fill(vcfs, other_records)
+	return [ VCFFillable.fill(vcfs, other_records, gmap)
 				for vcfs, other_records in zip(vcfss_heho, other_recordss) ]
 
 def impute_hetero_homo(orig_vcf: VCFSmall, families: list[KnownFamily],
@@ -253,6 +254,6 @@ def impute_all_families(orig_vcf: VCFSmall, families: list[KnownFamily],
 	for parent, vcfs in v:
 		VCFHeteroHomo.inverse_phases(vcfs)
 	
-	return fill_vcf(dic_vcfs, other_recordss, families)
+	return fill_vcf(dic_vcfs, other_recordss, families, geno_map)
 
 __all__ = ['impute', 'impute_all_families']

@@ -15,8 +15,10 @@ using namespace std;
 
 VCFFillable::VCFFillable(const STRVEC& s,
 							const std::vector<VCFFillableRecord *>& rs,
-							const VCFSmall *vcf) :
-									VCFFamilyBase(s, vcf), records(rs) { }
+							const Map& gmap, const VCFSmall *vcf) :
+														VCFFamilyBase(s, vcf),
+														VCFMeasurable(gmap),
+														records(rs) { }
 
 VCFFillable::~VCFFillable() {
 	for(auto p = records.begin(); p != records.end(); ++p)
@@ -35,7 +37,7 @@ void VCFFillable::phase_in_thread(void *config) {
 
 void VCFFillable::modify(int T) {
 	const Groups	*groups = Groups::create(records);
-	const auto	record_sets = groups->create_record_sets();
+	const auto	record_sets = groups->create_record_sets(get_map());
 	
 	vector<ConfigThreadPhase *>	configs(T);
 	for(int i = 0; i < T; ++i)
@@ -107,9 +109,11 @@ const RecordSet *VCFFillable::create_recordset(
 	auto	*prev_record = find_prev_same_type_record(i, k);
 	auto	*next_record = find_next_same_type_record(i, k);
 	if(is_mat)
-		return new RecordSet(record, prev_record, next_record, NULL, NULL);
+		return new RecordSet(record, prev_record, next_record,
+													NULL, NULL, get_map());
 	else
-		return new RecordSet(record, NULL, NULL, prev_record, next_record);
+		return new RecordSet(record, NULL, NULL,
+									prev_record, next_record, get_map());
 }
 
 void VCFFillable::impute_NA_mat_each(size_t i, size_t k) {
@@ -230,11 +234,13 @@ void VCFFillable::impute_others(int i) {
 }
 
 VCFFillable *VCFFillable::fill(const vector<VCFHeteroHomo *>& vcfs,
-				const vector<VCFImpFamilyRecord *>& records, int num_threads) {
+								const vector<VCFImpFamilyRecord *>& records,
+								const Map& gmap, int num_threads) {
 	vector<VCFFillableRecord *>	merged_records
 							 = VCFFillable::merge_records(vcfs, records, true);
 	VCFFillable	*vcf = new VCFFillable(vcfs[0]->get_samples(),
-										merged_records, vcfs[0]->get_ref_vcf());
+											merged_records, gmap,
+											vcfs[0]->get_ref_vcf());
 	vcf->modify(num_threads);
 	return vcf;
 }
@@ -327,7 +333,8 @@ void VCFFillable::fill_in_thread(void *config) {
 	for(size_t i = c->first; i < n; i += c->num_threads) {
 		auto	vcfs = c->items[i].first;
 		auto	records = c->items[i].second;
-		auto	result = VCFFillable::fill(vcfs, records, c->num_threads);
+		const Map&	gmap = vcfs[i]->get_map();
+		auto	result = VCFFillable::fill(vcfs, records, gmap, c->num_threads);
 		c->filled_vcfs[i] = result;
 	}
 }

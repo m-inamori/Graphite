@@ -2,6 +2,7 @@
 #define __VCFFILLABLE
 
 #include "VCFFamily.h"
+#include "Map.h"
 #include "RecordSet.h"
 
 class VCFHeteroHomo;
@@ -10,7 +11,7 @@ class Option;
 
 //////////////////// VCFFillable ////////////////////
 
-class VCFFillable : public VCFFamilyBase {
+class VCFFillable : public VCFFamilyBase, public VCFMeasurable {
 public:
 	using Position = std::tuple<int, ll, std::string>;
 	using Item = std::pair<std::vector<VCFHeteroHomo *>,
@@ -34,7 +35,7 @@ public:
 	
 public:
 	VCFFillable(const STRVEC& s, const std::vector<VCFFillableRecord *>& rs,
-														const VCFSmall *vcf);
+										const Map& gmap, const VCFSmall *vcf);
 	virtual ~VCFFillable();
 	
 	///// virtual methods for VCFGenoBase /////
@@ -94,7 +95,7 @@ public:
 											const STRVEC& orig_samples);
 	static VCFFillable *fill(const std::vector<VCFHeteroHomo *>& vcfs,
 							 const std::vector<VCFImpFamilyRecord *>& records,
-							 int num_threads);
+							 const Map& gmap, int num_threads);
 	static std::vector<VCFFillableRecord *> merge_records(
 							const std::vector<VCFHeteroHomo *>& vcfs,
 							const std::vector<VCFImpFamilyRecord *>& records,

@@ -16,6 +16,7 @@ from VCFImpFamilyRecord import VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from VCFFillable import *
 from VCFHeteroHomo import *
+from Map import Map
 from group import Groups
 from RecordSet import RecordSet, RecordSetSmall
 from ClassifyRecord import FillType
@@ -28,13 +29,14 @@ from common import *
 
 class VCFSmallFillable(VCFFillable):
 	def __init__(self, samples: list[str],
-							records: list[VCFFillableRecord], vcf: VCFSmall):
-		VCFFillable.__init__(self, samples, records, vcf)
+							records: list[VCFFillableRecord],
+							gmap: Map, vcf: VCFSmall):
+		VCFFillable.__init__(self, samples, records, gmap, vcf)
 	
 	def modify(self, is_phased_changable: bool) -> None:
 		# FillTypeでrecordを分ける
 		groups = Groups.create(self.records)
-		for record_set in groups.generate_record_sets_small():
+		for record_set in groups.generate_record_sets_small(self.map):
 			record_set.determine_parents_phasing()
 			self.impute_core(record_set)
 		

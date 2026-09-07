@@ -118,7 +118,7 @@ void VCFHeteroHomoPP::impute() {
 
 void VCFHeteroHomoPP::fill() {
 	const Groups	*groups = Groups::create(records);
-	const auto	record_sets = groups->create_record_sets();
+	const auto	record_sets = groups->create_record_sets(get_map());
 	for(auto p = record_sets.begin(); p != record_sets.end(); ++p) {
 		impute_core(*p);
 	}
@@ -214,7 +214,7 @@ VCFFillable *VCFHeteroHomoPP::merge_vcf(const VCFHeteroHomoPP *mat_vcf,
 				[](const VCFFillableRecord *lh, const VCFFillableRecord *rh)
 				{ return lh->get_pos() < rh->get_pos(); });
 	return new VCFFillable(mat_vcf->get_samples(), records,
-												mat_vcf->get_ref_vcf());
+									mat_vcf->get_map(), mat_vcf->get_ref_vcf());
 }
 
 VCFFillableRecord *VCFHeteroHomoPP::merge_record(const VCFRecord *record1,

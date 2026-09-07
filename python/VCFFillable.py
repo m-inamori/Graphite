@@ -12,6 +12,7 @@ from VCF import VCFSmall
 from VCFGeno import VCFGenoBase, VCFGeno
 from GenoRecord import GenoRecord
 from VCFFamily import *
+from Map import Map, VCFMeasurable
 from VCFImpFamilyRecord import VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from VCFHeteroHomo import *
@@ -25,10 +26,11 @@ from common import *
 
 #################### VCFFillable ####################
 
-class VCFFillable(VCFFamilyBase):
+class VCFFillable(VCFFamilyBase, VCFMeasurable):
 	def __init__(self, samples: list[str], records: list[VCFFillableRecord],
-														vcf: VCFSmall) -> None:
+													gmap: Map, vcf: VCFSmall):
 		VCFFamilyBase.__init__(self, samples, vcf)
+		VCFMeasurable.__init__(self, gmap)
 		self.records: list[VCFFillableRecord] = records
 	
 	##### virtual methods for VCFGenoBase #####
@@ -49,26 +51,10 @@ class VCFFillable(VCFFamilyBase):
 	def modify(self, is_phased_changable: bool) -> None:
 		# FillTypeでrecordを分ける
 		groups = Groups.create(self.records)
-		for record_set in groups.generate_record_sets():
+		for record_set in groups.generate_record_sets(self.map):
 			record_set.determine_parents_phasing()
 			self.impute_core(record_set)
 		
-		for i, record in enumerate(self.records):
-			# 家系ごとで./.にしたGenotypeを補完
-			if record.type == FillType.MAT:
-				self.impute_NA_mat(i)
-			elif record.type == FillType.PAT:
-				self.impute_NA_pat(i)
-			elif record.type in (FillType.IMPUTABLE, FillType.UNABLE):
-				self.impute_others(i)
-	
-	def phase_hetero_hetero(self) -> None:
-		# FillTypeでrecordを分ける
-		groups = Groups.create(self.records)
-		for record_set in groups.generate_record_sets():
-			record_set.impute(False)
-		
-		# この部分はフルで必要？
 		for i, record in enumerate(self.records):
 			# 家系ごとで./.にしたGenotypeを補完
 			if record.type == FillType.MAT:
@@ -330,12 +316,12 @@ class VCFFillable(VCFFamilyBase):
 	def create_recordset_mat(self, record: Optional[VCFFillableRecord],
 						prev_record: Optional[VCFFillableRecord],
 						next_record: Optional[VCFFillableRecord]) -> RecordSet:
-		return RecordSet(record, prev_record, next_record, None, None)
+		return RecordSet(record, prev_record, next_record, None, None, self.map)
 	
 	def create_recordset_pat(self, record: Optional[VCFFillableRecord],
 						prev_record: Optional[VCFFillableRecord],
 						next_record: Optional[VCFFillableRecord]) -> RecordSet:
-		return RecordSet(record, None, None, prev_record, next_record)
+		return RecordSet(record, None, None, prev_record, next_record, self.map)
 	
 	def impute_NA_mat_each(self, i: int, k: int) -> None:
 		def select_mat(pairs: list[tuple[int, int]]) -> int:
@@ -530,10 +516,10 @@ class VCFFillable(VCFFamilyBase):
 	
 	@staticmethod
 	def fill(vcfs: list[VCFHeteroHomo],
-					records: list[VCFImpFamilyRecord]) -> VCFFillable:
+				records: list[VCFImpFamilyRecord], gmap: Map) -> VCFFillable:
 		merged_records = VCFFillable.merge_records(vcfs, records)
 		vcf: VCFFillable = VCFFillable(vcfs[0].samples, merged_records,
-															vcfs[0].vcf)
+														gmap, vcfs[0].vcf)
 		vcf.modify(True)
 		return vcf
 	

@@ -9,6 +9,7 @@ from itertools import *
 from VCFImpFamilyRecord import VCFImpFamilyRecord
 from VCFFillableRecord import VCFFillableRecord
 from RecordSet import RecordSet, RecordSetSmall
+from Map import Map
 from ClassifyRecord import FillType
 
 Group = Tuple[FillType, List[VCFFillableRecord]]
@@ -43,7 +44,7 @@ class Groups:
 		else:
 			return None
 	
-	def generate_record_sets(self) -> Iterator[RecordSet]:
+	def generate_record_sets(self, gmap: Map) -> Iterator[RecordSet]:
 		for i, (key, records) in enumerate(self.groups):
 			if key == FillType.MAT or key == FillType.PAT:
 				continue
@@ -52,10 +53,10 @@ class Groups:
 			prev_pat_record = self.find_prev_record(i, FillType.PAT)
 			next_pat_record = self.find_next_record(i, FillType.PAT)
 			for record in records:
-				yield RecordSet(record, prev_mat_record,
-							next_mat_record, prev_pat_record, next_pat_record)
+				yield RecordSet(record, prev_mat_record, next_mat_record,
+								prev_pat_record, next_pat_record, gmap)
 	
-	def generate_record_sets_small(self) -> Iterator[RecordSet]:
+	def generate_record_sets_small(self, gmap: Map) -> Iterator[RecordSet]:
 		for i, (key, records) in enumerate(self.groups):
 			if key == FillType.MAT or key == FillType.PAT:
 				continue
@@ -64,8 +65,8 @@ class Groups:
 			prev_pat_record = self.find_prev_record(i, FillType.PAT)
 			next_pat_record = self.find_next_record(i, FillType.PAT)
 			for record in records:
-				yield RecordSetSmall(record, prev_mat_record,
-							next_mat_record, prev_pat_record, next_pat_record)
+				yield RecordSetSmall(record, prev_mat_record, next_mat_record,
+										prev_pat_record, next_pat_record, gmap)
 	
 	@staticmethod
 	def create(records: list[VCFFillableRecord]) -> Groups:

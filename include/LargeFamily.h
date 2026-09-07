@@ -112,15 +112,16 @@ namespace LargeFamily {
 		std::size_t	num_threads;
 		const std::vector<std::vector<VCFHeteroHomo *>>&	vcfss_heho;
 		const std::vector<std::vector<VCFImpFamilyRecord *>>&	other_recordss;
+		const Map& gmap;
 		const int	num_threads_in_family;
 		std::vector<VCFFillable *>&	results;
 		
 		ConfigThreadFill(int i, int n,
 				const std::vector<std::vector<VCFHeteroHomo *>>& heho,
 				const std::vector<std::vector<VCFImpFamilyRecord *>>&	other,
-				int n_f, std::vector<VCFFillable *>& res) :
+				const Map& m, int n_f, std::vector<VCFFillable *>& res) :
 								first(i), num_threads(n), vcfss_heho(heho),
-								other_recordss(other),
+								other_recordss(other), gmap(m),
 								num_threads_in_family(n_f), results(res) { }
 	};
 	
@@ -149,7 +150,8 @@ namespace LargeFamily {
 	std::vector<VCFFillable *> fill_vcf(
 			const std::map<std::string, std::vector<VCFHeteroHomo *>>& dic_vcfs,
 			const std::vector<std::vector<VCFImpFamilyRecord *>>& other_recordss,
-			const std::vector<const KnownFamily *>& families, int num_threads);
+			const std::vector<const KnownFamily *>& families,
+			const Map& gmap, int num_threads);
 	void compress_records(std::vector<VCFImpFamilyRecord *>& others);
 	std::vector<VCFFillable *> impute_all_families(
 							const VCFSmall *orig_vcf,
